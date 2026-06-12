@@ -4330,6 +4330,31 @@ echo $box->id . ":" . $box->name . ":" . $box->label() . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_readonly_inherited_instance_properties() {
+    assert_wasm_matches_php(
+        r#"<?php
+readonly class ReadonlyBaseItem {
+    public int $id;
+    public function __construct(int $id) {
+        $this->id = $id;
+    }
+    public function base(): int { return $this->id; }
+}
+readonly class ReadonlyChildItem extends ReadonlyBaseItem {
+    public string $name;
+    public function __construct(int $id, string $name) {
+        parent::__construct($id);
+        $this->name = $name;
+    }
+    public function label(): string { return $this->name; }
+}
+$item = new ReadonlyChildItem(3, "kid");
+echo $item->id . ":" . $item->base() . ":" . $item->name . ":" . $item->label() . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_wat_output_string_builtins() {
     let program = parse_program(
         "<?php echo ord(\"A\"); echo strtolower(\"WEB\"); echo strtoupper(\"web\"); echo lcfirst(\"Web\"); echo ucfirst(\"web\"); echo strrev(\"abc\"); echo trim(\" web \"); echo ltrim(\" web\"); echo rtrim(\"web \"); echo str_repeat(\"ab\", 2); echo substr(\"abcdef\", 1, 3);",

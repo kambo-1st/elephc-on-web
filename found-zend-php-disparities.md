@@ -66,6 +66,28 @@ Source pointers:
 
 Compatibility note: native `sprintf` should reject `%i` with a PHP-compatible error instead of forwarding it to `snprintf`.
 
+## Static Properties In `readonly class` Work In elephc, Fail In Zend PHP
+
+Status: confirmed disparity.
+
+Zend PHP:
+
+```bash
+php -r 'readonly class Base { public static int $shared; }'
+# Fatal error: Static property Base::$shared cannot be readonly
+```
+
+Native elephc:
+
+```bash
+cargo test test_readonly_inherited_static_property_remains_mutable -- --nocapture
+# test codegen::oop::modifiers_and_properties::test_readonly_inherited_static_property_remains_mutable ... ok
+```
+
+Likely cause: elephc treats `readonly class` as applying only to instance properties and permits static properties, while Zend PHP rejects static properties inside readonly classes in this form.
+
+Compatibility note: wasm PHP-oracle tests should avoid using readonly-class static properties as accepted behavior until the shared frontend/type rules are aligned with PHP or this is explicitly documented as an elephc extension.
+
 ## `trim()` Character Masks Do Not Expand `..` Ranges In elephc
 
 Status: confirmed disparity.
