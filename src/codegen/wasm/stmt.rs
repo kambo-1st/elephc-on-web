@@ -254,13 +254,17 @@ fn emit_list_unpack(
     module.declare_array_local(temp.clone());
     emit_array_assign(&temp, value, module)?;
     for (index, var) in vars.iter().enumerate() {
-        let access = Expr::new(
-            ExprKind::ArrayAccess {
-                array: Box::new(Expr::new(ExprKind::Variable(temp.clone()), value.span)),
-                index: Box::new(Expr::int_lit(index as i64)),
-            },
-            value.span,
-        );
+        let access = if module.array_length(&temp).is_some_and(|len| index >= len) {
+            Expr::new(ExprKind::Null, value.span)
+        } else {
+            Expr::new(
+                ExprKind::ArrayAccess {
+                    array: Box::new(Expr::new(ExprKind::Variable(temp.clone()), value.span)),
+                    index: Box::new(Expr::int_lit(index as i64)),
+                },
+                value.span,
+            )
+        };
         emit_assign_value(var, &access, module)?;
     }
     Ok(())

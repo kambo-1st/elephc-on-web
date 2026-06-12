@@ -8292,6 +8292,36 @@ echo $a . ":" . $b . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_indexed_array_list_unpack_missing_entries_are_null() {
+    assert_wasm_matches_php(
+        r#"<?php
+[$a, $b, $c] = [11];
+echo $a . ":" . gettype($b) . ":" . ($b === null ? 1 : 0) . ":" . gettype($c) . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_indexed_array_legacy_list_unpack_skips() {
+    assert_wasm_matches_php(
+        r#"<?php
+list($a, , $c) = [2, 4, 6];
+echo $a . ":" . $c . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_associative_array_keyed_list_unpack() {
+    assert_wasm_matches_php(
+        r#"<?php
+["id" => $id, "name" => $name] = ["id" => 42, "name" => "Ada"];
+echo $id . ":" . strtoupper($name) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_indexed_array_push() {
     assert_wasm_matches_php(
         r#"<?php
