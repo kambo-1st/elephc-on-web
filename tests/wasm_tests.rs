@@ -3945,6 +3945,19 @@ fn test_wasm32_web_object_private_constructor_is_rejected() {
 }
 
 #[test]
+fn test_wasm32_web_object_protected_constructor_is_rejected() {
+    let program =
+        parse_program("<?php class Box { protected function __construct() {} } $o = new Box();");
+    let err = generate(&program, WasmOutputFormat::Wat)
+        .expect_err("protected constructor needs visibility metadata");
+
+    assert!(
+        err.message.contains("supported public fixed constructor")
+            || err.message.contains("visible fixed constructor metadata")
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_nullable_nullsafe_object_property_access() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public int $n = 1; }\nfunction maybe_box(bool $flag): mixed { if ($flag) { return new Box(); } return null; }\n$a = maybe_box(false);\n$b = maybe_box(true);\necho gettype($a?->n); echo \":\"; echo (empty($a?->n) ? 1 : 0); echo \":\"; echo $a?->n; echo \"\\n\";\necho gettype($b?->n); echo \":\"; echo (empty($b?->n) ? 1 : 0); echo \":\"; echo $b?->n; echo \"\\n\";\n",
