@@ -38321,6 +38321,25 @@ echo $message . ":" . (YES ? 1 : 0) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_user_scalar_constant_branch_expressions() {
+    assert_wasm_matches_php(
+        r#"<?php
+const BASE = 3;
+const PICK = BASE > 2 ? "yes" : "no";
+const FALLBACK = BASE < 2 ? "bad" : "fallback";
+const SHORT = "" ?: "short";
+const NULLISH = null ?? "coalesced";
+const KEEP = "keep" ?? "bad";
+const SAME = "03" == BASE;
+const ORDER = "10" <=> "2";
+echo PICK . ":" . FALLBACK . ":" . SHORT . ":" . NULLISH . ":" . KEEP . "\n";
+echo strlen(PICK) . ":" . (NULLISH === "coalesced" ? 1 : 0) . "\n";
+echo (SAME ? "T" : "F") . ":" . ORDER . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_user_class_name_constant_expressions() {
     assert_wasm_matches_php(
         r#"<?php

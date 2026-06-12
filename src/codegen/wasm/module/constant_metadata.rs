@@ -509,6 +509,62 @@ fn constant_value_from_expr_with_class_constants(
             )?;
             eval_constant_binary(left, op, right)
         }
+        ExprKind::Ternary {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
+            let condition = constant_value_from_expr_with_class_constants(
+                condition,
+                constants,
+                class_constants,
+            )?;
+            if constant_truthiness(&condition) {
+                constant_value_from_expr_with_class_constants(
+                    then_expr,
+                    constants,
+                    class_constants,
+                )
+            } else {
+                constant_value_from_expr_with_class_constants(
+                    else_expr,
+                    constants,
+                    class_constants,
+                )
+            }
+        }
+        ExprKind::ShortTernary { value, default } => {
+            let value = constant_value_from_expr_with_class_constants(
+                value,
+                constants,
+                class_constants,
+            )?;
+            if constant_truthiness(&value) {
+                Some(value)
+            } else {
+                constant_value_from_expr_with_class_constants(
+                    default,
+                    constants,
+                    class_constants,
+                )
+            }
+        }
+        ExprKind::NullCoalesce { value, default } => {
+            let value = constant_value_from_expr_with_class_constants(
+                value,
+                constants,
+                class_constants,
+            )?;
+            if matches!(value, ConstantValue::Null) {
+                constant_value_from_expr_with_class_constants(
+                    default,
+                    constants,
+                    class_constants,
+                )
+            } else {
+                Some(value)
+            }
+        }
         _ => None,
     }
 }
@@ -581,6 +637,15 @@ fn eval_constant_binary(
         BinOp::Xor => Some(ConstantValue::Bool(
             constant_truthiness(&left) ^ constant_truthiness(&right),
         )),
+        BinOp::Eq
+        | BinOp::NotEq
+        | BinOp::StrictEq
+        | BinOp::StrictNotEq
+        | BinOp::Lt
+        | BinOp::Gt
+        | BinOp::LtEq
+        | BinOp::GtEq => Some(ConstantValue::Bool(compare_constant_scalars(&left, op, &right))),
+        BinOp::Spaceship => Some(ConstantValue::Int(constant_spaceship(&left, &right))),
         _ => None,
     }
 }
@@ -622,6 +687,199 @@ pub(super) fn constant_string_value(value: ConstantValue) -> Option<String> {
         ConstantValue::Str(value) => Some(value),
         _ => None,
     }
+}
+
+fn constant_spaceship(left: &ConstantValue, right: &ConstantValue) -> i64 {
+    if compare_loose_constant_scalars(left, &BinOp::Lt, right) {
+        -1
+    } else if compare_loose_constant_scalars(left, &BinOp::Gt, right) {
+        1
+    } else {
+        0
+    }
+}
+
+fn compare_constant_scalars(left: &ConstantValue, op: &BinOp, right: &ConstantValue) -> bool {
+    match op {
+        BinOp::StrictEq => constant_same_type(left, right) && compare_same_constant_type(left, op, right),
+        BinOp::StrictNotEq => {
+            !constant_same_type(left, right) || compare_same_constant_type(left, op, right)
+        }
+        BinOp::Eq | BinOp::NotEq | BinOp::Lt | BinOp::Gt | BinOp::LtEq | BinOp::GtEq => {
+            compare_loose_constant_scalars(left, op, right)
+        }
+        _ => unreachable!(),
+    }
+}
+
+fn constant_same_type(left: &ConstantValue, right: &ConstantValue) -> bool {
+    matches!(
+        (left, right),
+        (ConstantValue::Int(_), ConstantValue::Int(_))
+            | (ConstantValue::Float(_), ConstantValue::Float(_))
+            | (ConstantValue::Bool(_), ConstantValue::Bool(_))
+            | (ConstantValue::Str(_), ConstantValue::Str(_))
+            | (ConstantValue::Null, ConstantValue::Null)
+    )
+}
+
+fn compare_same_constant_type(left: &ConstantValue, op: &BinOp, right: &ConstantValue) -> bool {
+    match (left, right) {
+        (ConstantValue::Int(left), ConstantValue::Int(right)) => compare_i64(*left, op, *right),
+        (ConstantValue::Float(left), ConstantValue::Float(right)) => compare_f64(*left, op, *right),
+        (ConstantValue::Bool(left), ConstantValue::Bool(right)) => {
+            compare_i64(i64::from(*left), op, i64::from(*right))
+        }
+        (ConstantValue::Str(left), ConstantValue::Str(right)) => {
+            compare_ordering(left.as_bytes().cmp(right.as_bytes()), op)
+        }
+        (ConstantValue::Null, ConstantValue::Null) => compare_i64(0, op, 0),
+        _ => false,
+    }
+}
+
+fn compare_loose_constant_scalars(left: &ConstantValue, op: &BinOp, right: &ConstantValue) -> bool {
+    if matches!(left, ConstantValue::Bool(_)) || matches!(right, ConstantValue::Bool(_)) {
+        return compare_i64(
+            i64::from(constant_truthiness(left)),
+            op,
+            i64::from(constant_truthiness(right)),
+        );
+    }
+    if matches!(left, ConstantValue::Null) || matches!(right, ConstantValue::Null) {
+        if matches!(op, BinOp::Eq | BinOp::NotEq) {
+            let equal = constant_null_loose_equal(left, right);
+            return if matches!(op, BinOp::Eq) { equal } else { !equal };
+        }
+        return compare_i64(
+            i64::from(constant_truthiness(left)),
+            op,
+            i64::from(constant_truthiness(right)),
+        );
+    }
+
+    match (left, right) {
+        (ConstantValue::Str(left), ConstantValue::Str(right)) => {
+            match (php_numeric_string_value(left), php_numeric_string_value(right)) {
+                (Some(left), Some(right)) => compare_f64(left, op, right),
+                _ => compare_ordering(left.as_bytes().cmp(right.as_bytes()), op),
+            }
+        }
+        (ConstantValue::Str(left), right) => compare_string_and_non_bool_constant(left, op, right, false),
+        (left, ConstantValue::Str(right)) => compare_string_and_non_bool_constant(right, op, left, true),
+        _ => compare_numeric_constants(left, op, right),
+    }
+}
+
+fn constant_null_loose_equal(left: &ConstantValue, right: &ConstantValue) -> bool {
+    match (left, right) {
+        (ConstantValue::Null, ConstantValue::Null) => true,
+        (ConstantValue::Null, value) | (value, ConstantValue::Null) => match value {
+            ConstantValue::Int(value) => *value == 0,
+            ConstantValue::Float(value) => *value == 0.0,
+            ConstantValue::Bool(value) => !*value,
+            ConstantValue::Str(value) => value.is_empty(),
+            ConstantValue::Null => true,
+        },
+        _ => false,
+    }
+}
+
+fn compare_string_and_non_bool_constant(
+    string: &str,
+    op: &BinOp,
+    scalar: &ConstantValue,
+    scalar_is_left: bool,
+) -> bool {
+    if let Some(string_number) = php_numeric_string_value(string) {
+        let scalar_number = constant_numeric_as_float_ref(scalar).unwrap_or(0.0);
+        return if scalar_is_left {
+            compare_f64(scalar_number, op, string_number)
+        } else {
+            compare_f64(string_number, op, scalar_number)
+        };
+    }
+
+    let scalar_string = constant_string_for_compare(scalar);
+    let ordering = if scalar_is_left {
+        scalar_string.as_bytes().cmp(string.as_bytes())
+    } else {
+        string.as_bytes().cmp(scalar_string.as_bytes())
+    };
+    compare_ordering(ordering, op)
+}
+
+fn compare_numeric_constants(left: &ConstantValue, op: &BinOp, right: &ConstantValue) -> bool {
+    match (left, right) {
+        (ConstantValue::Int(left), ConstantValue::Int(right)) => compare_i64(*left, op, *right),
+        _ => compare_f64(
+            constant_numeric_as_float_ref(left).unwrap_or(0.0),
+            op,
+            constant_numeric_as_float_ref(right).unwrap_or(0.0),
+        ),
+    }
+}
+
+fn constant_numeric_as_float_ref(value: &ConstantValue) -> Option<f64> {
+    match value {
+        ConstantValue::Int(value) => Some(*value as f64),
+        ConstantValue::Float(value) => Some(*value),
+        _ => None,
+    }
+}
+
+fn constant_string_for_compare(value: &ConstantValue) -> String {
+    match value {
+        ConstantValue::Int(value) => value.to_string(),
+        ConstantValue::Float(value) => value.to_string(),
+        ConstantValue::Bool(true) => "1".to_string(),
+        ConstantValue::Bool(false) | ConstantValue::Null => String::new(),
+        ConstantValue::Str(value) => value.clone(),
+    }
+}
+
+fn compare_i64(left: i64, op: &BinOp, right: i64) -> bool {
+    match op {
+        BinOp::Eq | BinOp::StrictEq => left == right,
+        BinOp::NotEq | BinOp::StrictNotEq => left != right,
+        BinOp::Lt => left < right,
+        BinOp::Gt => left > right,
+        BinOp::LtEq => left <= right,
+        BinOp::GtEq => left >= right,
+        _ => unreachable!(),
+    }
+}
+
+fn compare_f64(left: f64, op: &BinOp, right: f64) -> bool {
+    match op {
+        BinOp::Eq | BinOp::StrictEq => left == right,
+        BinOp::NotEq | BinOp::StrictNotEq => left != right,
+        BinOp::Lt => left < right,
+        BinOp::Gt => left > right,
+        BinOp::LtEq => left <= right,
+        BinOp::GtEq => left >= right,
+        _ => unreachable!(),
+    }
+}
+
+fn compare_ordering(ordering: std::cmp::Ordering, op: &BinOp) -> bool {
+    match op {
+        BinOp::Eq | BinOp::StrictEq => ordering.is_eq(),
+        BinOp::NotEq | BinOp::StrictNotEq => !ordering.is_eq(),
+        BinOp::Lt => ordering.is_lt(),
+        BinOp::Gt => ordering.is_gt(),
+        BinOp::LtEq => !ordering.is_gt(),
+        BinOp::GtEq => !ordering.is_lt(),
+        _ => unreachable!(),
+    }
+}
+
+fn php_numeric_string_value(value: &str) -> Option<f64> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    trimmed.parse::<f64>().ok()
 }
 
 pub(super) fn constant_truthiness(value: &ConstantValue) -> bool {
