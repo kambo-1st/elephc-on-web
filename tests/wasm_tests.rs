@@ -38412,6 +38412,24 @@ echo strlen(BranchConst::PICK) . ":" . (BranchConst::NULLISH === "base" ? 1 : 0)
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_user_class_constant_class_name_expressions() {
+    assert_wasm_matches_php(
+        r#"<?php
+class NameConstBase {
+    public const BASE_NAME = self::class;
+}
+class NameConstChild extends NameConstBase {
+    public const CHILD_NAME = self::class;
+    public const PARENT_NAME = parent::class;
+    public const PICK = self::CHILD_NAME === "NameConstChild" ? parent::BASE_NAME : "bad";
+}
+echo NameConstBase::BASE_NAME . "\n";
+echo NameConstChild::CHILD_NAME . ":" . NameConstChild::PARENT_NAME . ":" . NameConstChild::PICK . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_user_indexed_array_constant_count_and_read() {
     assert_wasm_matches_php(
         r#"<?php
