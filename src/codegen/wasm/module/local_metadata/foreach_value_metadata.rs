@@ -25,6 +25,7 @@ pub(super) fn foreach_value_local_kind(
     function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
     function_array_return_runtime_value_kinds: &HashMap<String, ValueCellKind>,
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+    array_constants: &HashMap<String, ConstantArrayValue>,
 ) -> LocalKind {
     match &array.kind {
         ExprKind::ArrayLiteral(items) => {
@@ -42,6 +43,21 @@ pub(super) fn foreach_value_local_kind(
             };
             assoc_foreach_value_local_kind(&kinds)
         }
+        ExprKind::ConstRef(name) => match array_constants.get(name.as_str()) {
+            Some(ConstantArrayValue::Indexed(items)) => {
+                let Some(kinds) = static_value_cell_kinds_for_items(items) else {
+                    return LocalKind::I64;
+                };
+                foreach_value_cell_local_kind(&kinds)
+            }
+            Some(ConstantArrayValue::Assoc(items)) => {
+                let Some(kinds) = static_value_cell_kinds_for_assoc_items(items) else {
+                    return LocalKind::I64;
+                };
+                assoc_foreach_value_local_kind(&kinds)
+            }
+            None => LocalKind::I64,
+        },
         ExprKind::Variable(name)
             if locals.get(name) == Some(&LocalKind::Array)
                 && array_key_kinds.contains_key(name)

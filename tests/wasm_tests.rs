@@ -1429,6 +1429,29 @@ echo $values[0] . $keys[1] . $reverse[0] . count($unique);
 }
 
 #[test]
+fn test_wasm32_web_wat_user_array_constant_foreach() {
+    let program = parse_program(
+        r#"<?php
+const SCORES = [2, 3, 4];
+const ROWS = ["name" => "Ada", "city" => "Rome"];
+foreach (SCORES as $i => $score) {
+    echo $i;
+    echo $score;
+}
+foreach (ROWS as $key => $value) {
+    echo $key . $value;
+}
+"#,
+    );
+    let bytes = generate(&program, WasmOutputFormat::Wat).expect("WAT generation failed");
+    let wat = String::from_utf8(bytes).expect("WAT output was not UTF-8");
+
+    assert!(wat.contains("foreach_assoc_array"));
+    assert!(wat.contains("local.set $score"));
+    assert!(wat.contains("local.set $key_ptr"));
+}
+
+#[test]
 fn test_wasm32_web_wat_class_name_and_scalar_constants() {
     let program = parse_program(
         r#"<?php
@@ -38378,6 +38401,24 @@ $intersect = array_intersect(ROWS, ["Ada"]);
 echo $values[0] . ":" . $values[2] . ":" . $keys[1] . ":" . $reverse[0] . ":" . $preserved["zip"] . "\n";
 echo count($unique) . ":" . $unique["name"] . ":" . $flip["Ada"] . ":" . $diff["name"] . ":" . $intersect["again"] . "\n";
 foreach ($unique as $key => $value) {
+    echo $key . "=" . $value . ";";
+}
+echo "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_user_array_constant_foreach() {
+    assert_wasm_matches_php(
+        r#"<?php
+const SCORES = [2, 3, 4];
+const ROWS = ["name" => "Ada", "city" => "Rome", "again" => "Ada"];
+foreach (SCORES as $i => $score) {
+    echo $i . "=" . $score . ";";
+}
+echo "\n";
+foreach (ROWS as $key => $value) {
     echo $key . "=" . $value . ";";
 }
 echo "\n";

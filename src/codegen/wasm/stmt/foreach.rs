@@ -29,12 +29,12 @@ use super::super::expr::{
     array_literal_needs_value_cells, emit_assoc_array_items_assign, emit_array_assign,
     emit_array_value_to_stack, emit_expr, emit_value_array_items_assign,
     emit_value_cell_address_for_local, method_call_array_return_metadata,
-    nested_array_metadata_for_access_expr, object_class_name_for_expr,
+    nested_array_metadata_for_access_expr, normalize_assoc_items, object_class_name_for_expr,
     static_method_call_array_return_metadata,
 };
 use super::super::module::{
-    ArrayLayout, AssocKeyKind, AssocKeyValue, LocalKind, NestedArrayMetadata, ValueKind,
-    ValueCellKind, WasmModule,
+    ArrayLayout, AssocKeyKind, AssocKeyValue, ConstantArrayValue, LocalKind,
+    NestedArrayMetadata, ValueKind, ValueCellKind, WasmModule,
 };
 
 const WASM_HEAP_KIND_INDEXED_ARRAY: i32 = 2;
@@ -67,6 +67,22 @@ pub(super) fn emit_foreach(
             array.span,
             "wasm32-web foreach by reference is not supported yet",
         ));
+    }
+    if let ExprKind::ConstRef(name) = &array.kind {
+        match module.array_constant_value(name) {
+            Some(ConstantArrayValue::Indexed(items)) => {
+                let rewritten = Expr::new(ExprKind::ArrayLiteral(items), array.span);
+                return emit_foreach(&rewritten, key_var, value_var, false, body, module);
+            }
+            Some(ConstantArrayValue::Assoc(items)) => {
+                let rewritten = Expr::new(
+                    ExprKind::ArrayLiteralAssoc(normalize_assoc_items(&items).unwrap_or(items)),
+                    array.span,
+                );
+                return emit_foreach(&rewritten, key_var, value_var, false, body, module);
+            }
+            None => {}
+        }
     }
     if let ExprKind::ArrayLiteralAssoc(items) = &array.kind {
         let temp = module

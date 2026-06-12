@@ -21,6 +21,7 @@ pub(super) fn foreach_key_local_kind(
     php_normalized_key_arrays: &HashSet<String>,
     function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+    array_constants: &HashMap<String, ConstantArrayValue>,
 ) -> LocalKind {
     if expr_has_marked_php_normalized_runtime_keys(array, php_normalized_key_arrays) {
         return LocalKind::Mixed;
@@ -31,6 +32,7 @@ pub(super) fn foreach_key_local_kind(
     }
     let key_kinds = match &array.kind {
         ExprKind::ArrayLiteralAssoc(items) => static_assoc_key_kinds_for_items(items),
+        ExprKind::ConstRef(name) => array_constant_key_kinds(name, array_constants),
         ExprKind::Variable(name) => array_key_kinds.get(name).cloned(),
         ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("array_filter") => {
             array_filter_foreach_key_kinds(
@@ -180,6 +182,16 @@ pub(super) fn foreach_key_local_kind(
         LocalKind::Str
     } else {
         LocalKind::Mixed
+    }
+}
+
+fn array_constant_key_kinds(
+    name: &str,
+    array_constants: &HashMap<String, ConstantArrayValue>,
+) -> Option<Vec<AssocKeyKind>> {
+    match array_constants.get(name)? {
+        ConstantArrayValue::Indexed(items) => Some(vec![AssocKeyKind::Int; items.len()]),
+        ConstantArrayValue::Assoc(items) => static_assoc_key_kinds_for_items(items),
     }
 }
 

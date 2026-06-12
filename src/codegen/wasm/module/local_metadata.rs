@@ -304,6 +304,7 @@ pub(super) fn collect_stmt_locals(
                         php_normalized_key_arrays,
                         function_array_return_value_kinds,
                         function_array_return_key_kinds,
+                        array_constants,
                     )
                 };
                 let key_kind = match locals.get(key_var).copied() {
@@ -329,6 +330,7 @@ pub(super) fn collect_stmt_locals(
                     function_array_return_value_kinds,
                     function_array_return_runtime_value_kinds,
                     function_array_return_key_kinds,
+                    array_constants,
                 )
             };
             let value_kind = match locals.get(value_var).copied() {
