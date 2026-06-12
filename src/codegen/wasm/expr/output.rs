@@ -89,7 +89,9 @@ pub(in crate::codegen::wasm) fn emit_output_expr(
             emit_output_nested_array_index(expr, array, index, module)
         }
         ExprKind::ArrayAccess { array, index }
-            if expression_is_arrayy(array, module) || expression_has_array_type(array, module) =>
+            if expression_is_arrayy(array, module)
+                || expression_has_array_type(array, module)
+                || matches!(&array.kind, ExprKind::ConstRef(name) if module.array_constant_value(name).is_some()) =>
         {
             emit_output_array_index(expr, array, index, module)
         }

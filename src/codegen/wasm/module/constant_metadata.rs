@@ -139,6 +139,14 @@ pub(super) fn collect_constants_with_class_constants(
     constants
 }
 
+pub(super) fn collect_array_constants(program: &Program) -> HashMap<String, ConstantArrayValue> {
+    let mut constants = HashMap::new();
+    for stmt in program {
+        collect_stmt_array_constants(stmt, &mut constants);
+    }
+    constants
+}
+
 pub(super) fn collect_class_constants(program: &Program) -> HashMap<String, ConstantValue> {
     let top_level_constants = collect_constants(program);
     let mut constants = HashMap::new();
@@ -152,6 +160,25 @@ pub(super) fn collect_class_constants(program: &Program) -> HashMap<String, Cons
     collect_dependent_class_constants(program, &top_level_constants, &mut constants);
     add_inherited_class_constants(&class_parents, &mut constants);
     constants
+}
+
+fn collect_stmt_array_constants(
+    stmt: &Stmt,
+    constants: &mut HashMap<String, ConstantArrayValue>,
+) {
+    match &stmt.kind {
+        StmtKind::ConstDecl { name, value } => {
+            if let ExprKind::ArrayLiteral(items) = &value.kind {
+                constants.insert(name.clone(), ConstantArrayValue::Indexed(items.clone()));
+            }
+        }
+        StmtKind::Synthetic(stmts) | StmtKind::NamespaceBlock { body: stmts, .. } => {
+            for stmt in stmts {
+                collect_stmt_array_constants(stmt, constants);
+            }
+        }
+        _ => {}
+    }
 }
 
 fn collect_simple_trait_constants(

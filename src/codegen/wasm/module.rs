@@ -124,6 +124,11 @@ pub(super) enum ConstantValue {
     Null,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub(super) enum ConstantArrayValue {
+    Indexed(Vec<Expr>),
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct EnumCaseMetadata {
     pub(super) name: String,
@@ -170,6 +175,7 @@ pub(super) struct WasmModule {
     function_array_param_key_kinds: HashMap<String, Vec<Option<Vec<AssocKeyKind>>>>,
     function_array_param_key_values: HashMap<String, Vec<Option<Vec<AssocKeyValue>>>>,
     constants: HashMap<String, ConstantValue>,
+    array_constants: HashMap<String, ConstantArrayValue>,
     class_names: HashSet<String>,
     object_classes: HashMap<String, object_metadata::ObjectClassInfo>,
     interface_names: HashSet<String>,
@@ -398,6 +404,7 @@ impl WasmModule {
             function_array_param_key_kinds,
             function_array_param_key_values,
             constants,
+            array_constants: collect_array_constants(program),
             class_names: collect_decl_names(program, DeclKind::Class),
             object_classes,
             interface_names: collect_decl_names(program, DeclKind::Interface),
@@ -437,6 +444,10 @@ impl WasmModule {
 
     pub(super) fn constant_value(&self, name: &Name) -> Option<ConstantValue> {
         self.constants.get(name.as_str()).cloned()
+    }
+
+    pub(super) fn array_constant_value(&self, name: &Name) -> Option<ConstantArrayValue> {
+        self.array_constants.get(name.as_str()).cloned()
     }
 
     pub(super) fn class_constant_value(

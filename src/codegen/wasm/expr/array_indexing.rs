@@ -129,6 +129,25 @@ pub(super) fn emit_array_index_expr(
     if nested_array_access_requires_layout(array) {
         return Err(nested_array_access_unsupported(expr));
     }
+    if let ExprKind::ConstRef(name) = &array.kind {
+        let Some(index_value) = static_or_const_int_value(index) else {
+            return Err(CompileError::new(
+                index.span,
+                "wasm32-web scalar array access requires a static integer index",
+            ));
+        };
+        let Ok(index_value) = usize::try_from(index_value) else {
+            return Ok(ValueKind::Null);
+        };
+        let Some(ConstantArrayValue::Indexed(items)) = module.array_constant_value(name) else {
+            return Err(array_unsupported(array));
+        };
+        let Some(item) = items.get(index_value) else {
+            return Ok(ValueKind::Null);
+        };
+        require_int(item, module)?;
+        return Ok(ValueKind::Int);
+    }
     if let ExprKind::Variable(name) = &array.kind {
         if module.local_kind(name) == Some(LocalKind::Array)
             && module.array_layout(name) == ArrayLayout::Assoc

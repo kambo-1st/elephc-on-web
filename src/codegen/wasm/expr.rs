@@ -554,7 +554,8 @@ use self::functions::{
 
 use super::module::{
     value_kind_for_local, wasm_function_name, wasm_value_type, ArrayLayout, AssocKeyKind, AssocKeyValue,
-    ConstantValue, LocalKind, NestedArrayMetadata, ValueCellKind, ValueKind, WasmModule,
+    ConstantArrayValue, ConstantValue, LocalKind, NestedArrayMetadata, ValueCellKind, ValueKind,
+    WasmModule,
 };
 
 const WASM_VALUE_TAG_NULL: i32 = 0;

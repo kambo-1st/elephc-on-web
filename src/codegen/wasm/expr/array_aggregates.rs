@@ -42,6 +42,16 @@ pub(super) fn emit_count_call(
             module.body().line(&format!("i64.const {}", len));
             Ok(ValueKind::Int)
         }
+        ExprKind::ConstRef(name) => match module.array_constant_value(name) {
+            Some(ConstantArrayValue::Indexed(items)) => {
+                module.body().line(&format!("i64.const {}", items.len()));
+                Ok(ValueKind::Int)
+            }
+            None => Err(CompileError::new(
+                args[0].span,
+                "wasm32-web count() currently supports indexed array values only",
+            )),
+        },
         ExprKind::Variable(name) if module.local_kind(name) == Some(LocalKind::Array) => {
             module.body().line(&format!("local.get ${}_len", name));
             module.body().line("i64.extend_i32_u");

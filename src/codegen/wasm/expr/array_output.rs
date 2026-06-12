@@ -87,6 +87,26 @@ pub(super) fn emit_output_array_index(
             module.body().line("call $host_write_int");
             Ok(())
         }
+        ExprKind::ConstRef(name) => {
+            let Some(index) = static_or_const_int_value(index) else {
+                return Err(CompileError::new(
+                    index.span,
+                    "wasm32-web array constant access requires a static integer index",
+                ));
+            };
+            let Ok(index) = usize::try_from(index) else {
+                return Ok(());
+            };
+            let Some(ConstantArrayValue::Indexed(items)) = module.array_constant_value(name) else {
+                return Err(array_unsupported(array));
+            };
+            let Some(item) = items.get(index) else {
+                return Ok(());
+            };
+            require_int(item, module)?;
+            module.body().line("call $host_write_int");
+            Ok(())
+        }
         ExprKind::Variable(name) if module.local_kind(name) == Some(LocalKind::Array) => {
             if module.array_layout(name) == ArrayLayout::Assoc {
                 return emit_output_assoc_array_local_index(expr, name, index, module);
@@ -405,4 +425,3 @@ fn emit_output_assoc_array_local_string_key_parts(
     let _ = expr;
     Ok(())
 }
-

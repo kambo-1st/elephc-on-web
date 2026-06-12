@@ -174,7 +174,9 @@ pub(in crate::codegen::wasm) fn emit_expr(
             emit_array_index_expr(expr, array, index, module)
         }
         ExprKind::ArrayAccess { array, index }
-            if expression_is_arrayy(array, module) || expression_has_array_type(array, module) =>
+            if expression_is_arrayy(array, module)
+                || expression_has_array_type(array, module)
+                || matches!(&array.kind, ExprKind::ConstRef(name) if module.array_constant_value(name).is_some()) =>
         {
             emit_array_index_expr(expr, array, index, module)
         }
