@@ -46,6 +46,11 @@ pub(super) fn collect_assignment_locals(
         || mixed_return_method_for_assignment(value, function_return_kinds)
     {
         LocalKind::Mixed
+    } else if matches!(
+        &value.kind,
+        ExprKind::ConstRef(const_name) if array_constants.contains_key(const_name.as_str())
+    ) {
+        LocalKind::Array
     } else {
         infer_assignment_local_kind(
             value,
@@ -78,6 +83,19 @@ pub(super) fn collect_assignment_locals(
         name.clone(),
         kind,
     );
+    if collect_array_constant_assignment_metadata(
+        name,
+        value,
+        array_constants,
+        array_value_kinds,
+        array_runtime_value_kinds,
+        array_nested_values,
+        array_key_kinds,
+        array_key_values,
+    ) {
+        array_runtime_nested_values.remove(name);
+        php_normalized_key_arrays.remove(name);
+    }
     array_runtime_nested_values.remove(name);
     if let Some(target) = callable_target_for_locals(value, callable_targets) {
         callable_targets.insert(name.clone(), target);
@@ -713,6 +731,65 @@ pub(super) fn collect_assignment_locals(
         array_key_kinds.remove(name);
         array_key_values.remove(name);
         php_normalized_key_arrays.insert(name.clone());
+    }
+}
+
+fn collect_array_constant_assignment_metadata(
+    name: &str,
+    value: &Expr,
+    array_constants: &HashMap<String, ConstantArrayValue>,
+    array_value_kinds: &mut HashMap<String, Vec<ValueCellKind>>,
+    array_runtime_value_kinds: &mut HashMap<String, ValueCellKind>,
+    array_nested_values: &mut HashMap<String, Vec<Option<NestedArrayMetadata>>>,
+    array_key_kinds: &mut HashMap<String, Vec<AssocKeyKind>>,
+    array_key_values: &mut HashMap<String, Vec<AssocKeyValue>>,
+) -> bool {
+    let ExprKind::ConstRef(const_name) = &value.kind else {
+        return false;
+    };
+    match array_constants.get(const_name.as_str()) {
+        Some(ConstantArrayValue::Indexed(items)) => {
+            array_runtime_value_kinds.remove(name);
+            if let Some(metadata) = static_nested_array_metadata_for_items(items) {
+                array_nested_values.insert(name.to_string(), metadata);
+            } else {
+                array_nested_values.remove(name);
+            }
+            array_key_kinds.remove(name);
+            array_key_values.remove(name);
+            let Some(kinds) = static_value_cell_kinds_for_items(items) else {
+                array_value_kinds.remove(name);
+                return true;
+            };
+            if kinds.iter().all(|kind| *kind == ValueCellKind::Int) {
+                array_value_kinds.remove(name);
+            } else {
+                array_value_kinds.insert(name.to_string(), kinds);
+            }
+            true
+        }
+        Some(ConstantArrayValue::Assoc(items)) => {
+            array_runtime_value_kinds.remove(name);
+            if let Some(metadata) = static_nested_array_metadata_for_assoc_items(items) {
+                array_nested_values.insert(name.to_string(), metadata);
+            } else {
+                array_nested_values.remove(name);
+            }
+            if let Some((keys, values)) = array_constant_key_value_kinds(const_name, array_constants)
+            {
+                array_key_kinds.insert(name.to_string(), keys);
+                array_value_kinds.insert(name.to_string(), values);
+            } else {
+                array_key_kinds.remove(name);
+                array_value_kinds.remove(name);
+            }
+            array_key_values.insert(
+                name.to_string(),
+                static_assoc_key_values_for_items(items).unwrap_or_default(),
+            );
+            true
+        }
+        None => false,
     }
 }
 

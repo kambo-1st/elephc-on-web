@@ -16,6 +16,17 @@ pub(crate) fn emit_array_assign(
     module: &mut WasmModule,
 ) -> Result<(), CompileError> {
     let items = match &value.kind {
+        ExprKind::ConstRef(const_name) => match module.array_constant_value(const_name) {
+            Some(ConstantArrayValue::Indexed(items)) => items,
+            Some(ConstantArrayValue::Assoc(items)) => {
+                return emit_assoc_array_items_assign(
+                    name,
+                    &normalize_assoc_items(&items).unwrap_or(items),
+                    module,
+                );
+            }
+            None => return Err(array_unsupported(value)),
+        },
         ExprKind::ArrayLiteral(items) if array_literal_needs_value_cells(items) => {
             return emit_value_array_items_assign(name, items, module);
         }

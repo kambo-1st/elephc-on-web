@@ -1452,6 +1452,30 @@ foreach (ROWS as $key => $value) {
 }
 
 #[test]
+fn test_wasm32_web_wat_user_array_constant_assignment() {
+    let program = parse_program(
+        r#"<?php
+const SCORES = [2, 3, 4];
+const ROWS = ["name" => "Ada", "city" => "Rome"];
+$scores = SCORES;
+$rows = ROWS;
+echo count($scores);
+echo $scores[1];
+echo $rows["city"];
+foreach ($rows as $key => $value) {
+    echo $key . $value;
+}
+"#,
+    );
+    let bytes = generate(&program, WasmOutputFormat::Wat).expect("WAT generation failed");
+    let wat = String::from_utf8(bytes).expect("WAT output was not UTF-8");
+
+    assert!(wat.contains("local.set $scores_ptr"));
+    assert!(wat.contains("local.set $rows_ptr"));
+    assert!(wat.contains("assoc_foreach_loop"));
+}
+
+#[test]
 fn test_wasm32_web_wat_class_name_and_scalar_constants() {
     let program = parse_program(
         r#"<?php
@@ -38422,6 +38446,27 @@ foreach (ROWS as $key => $value) {
     echo $key . "=" . $value . ";";
 }
 echo "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_user_array_constant_assignment() {
+    assert_wasm_matches_php(
+        r#"<?php
+const SCORES = [2, 3, 4];
+const ROWS = ["name" => "Ada", "city" => "Rome", "again" => "Ada"];
+$scores = SCORES;
+$rows = ROWS;
+echo count($scores) . ":" . $scores[2] . "\n";
+echo count($rows) . ":" . $rows["city"] . "\n";
+foreach ($rows as $key => $value) {
+    echo $key . "=" . $value . ";";
+}
+echo "\n";
+$values = array_values($rows);
+$unique = array_unique($rows);
+echo $values[0] . ":" . array_search("Ada", $rows, true) . ":" . count($unique) . "\n";
 "#,
     );
 }
