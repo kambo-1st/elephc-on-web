@@ -4311,6 +4311,25 @@ echo $box->id . ":" . $box->name . ":" . $box->label() . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_readonly_class_constructor_read() {
+    assert_wasm_matches_php(
+        r#"<?php
+readonly class ReadonlyClassBox {
+    public int $id;
+    public string $name;
+    public function __construct(int $id, string $name) {
+        $this->id = $id;
+        $this->name = $name;
+    }
+    public function label(): string { return $this->name; }
+}
+$box = new ReadonlyClassBox(9, "class");
+echo $box->id . ":" . $box->name . ":" . $box->label() . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_wat_output_string_builtins() {
     let program = parse_program(
         "<?php echo ord(\"A\"); echo strtolower(\"WEB\"); echo strtoupper(\"web\"); echo lcfirst(\"Web\"); echo ucfirst(\"web\"); echo strrev(\"abc\"); echo trim(\" web \"); echo ltrim(\" web\"); echo rtrim(\"web \"); echo str_repeat(\"ab\", 2); echo substr(\"abcdef\", 1, 3);",
