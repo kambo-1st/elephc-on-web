@@ -49,6 +49,10 @@ pub(in crate::codegen::wasm) fn emit_output_expr(
         {
             Ok(())
         }
+        ExprKind::ConstRef(name) if module.array_constant_value(name).is_some() => {
+            emit_output_array_marker(module);
+            Ok(())
+        }
         ExprKind::ConstRef(name) => emit_output_constant(expr, name, module),
         ExprKind::ClassConstant { receiver } => emit_output_class_name(expr, receiver, module),
         ExprKind::ScopedConstantAccess { receiver, name } => {
