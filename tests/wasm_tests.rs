@@ -1206,6 +1206,12 @@ fn assert_wasm_compile_error(source: &str) {
     assert!(result.is_err(), "expected WASM generation to fail");
 }
 
+fn assert_parse_compile_error(source: &str) {
+    let tokens = elephc::lexer::tokenize(source).expect("tokenize failed");
+    let result = elephc::parser::parse(&tokens);
+    assert!(result.is_err(), "expected parsing to fail");
+}
+
 #[test]
 fn test_wasm32_web_target_parse() {
     let target = Target::parse("wasm32-web").expect("target parse failed");
@@ -2868,6 +2874,20 @@ fn test_wasm32_web_e2e_matches_php_object_static_dynamic_method_calls() {
 }
 
 #[test]
+fn test_wasm32_web_runtime_variable_instance_method_name_is_rejected() {
+    assert_parse_compile_error(
+        "<?php\nclass Box { public function label(): string { return \"box\"; } }\n$o = new Box();\n$name = \"label\";\necho $o->{$name}() . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_runtime_variable_nullsafe_method_name_is_rejected() {
+    assert_parse_compile_error(
+        "<?php\nclass Box { public function label(): string { return \"box\"; } }\n$o = new Box();\n$name = \"label\";\necho $o?->{$name}() . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_static_dynamic_method_first_class_callable() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public function add(int $n): int { return $n + 10; } }\n$o = new Box();\n$cb = $o->{\"add\"}(...);\necho (is_callable($cb) ? 1 : 0) . \":\" . $cb(5) . \":\" . call_user_func($cb, 7) . \"\\n\";\n",
@@ -2885,6 +2905,13 @@ fn test_wasm32_web_e2e_matches_php_object_static_dynamic_nullsafe_method_call() 
 fn test_wasm32_web_e2e_matches_php_object_static_string_dynamic_static_method_calls() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public static function add(int $a, int $b): int { return $a + $b; } public static function label(string $s): string { return \"box-\" . $s; } }\n$v = Box::{\"add\"}(2, 3);\n$s = Box::{\"label\"}(\"web\");\necho $v . \":\" . strlen($s) . \":\" . $s . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_runtime_variable_static_method_name_is_rejected() {
+    assert_parse_compile_error(
+        "<?php\nclass Box { public static function label(): string { return \"box\"; } }\n$name = \"label\";\necho Box::{$name}() . \"\\n\";\n",
     );
 }
 
