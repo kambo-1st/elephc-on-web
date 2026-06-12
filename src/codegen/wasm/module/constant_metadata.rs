@@ -123,7 +123,18 @@ fn collect_stmt_interface_parents(stmt: &Stmt, parents: &mut HashMap<String, Vec
 pub(super) fn collect_constants(program: &Program) -> HashMap<String, ConstantValue> {
     let mut constants = HashMap::new();
     for stmt in program {
-        collect_stmt_constants(stmt, &mut constants);
+        collect_stmt_constants(stmt, &mut constants, None);
+    }
+    constants
+}
+
+pub(super) fn collect_constants_with_class_constants(
+    program: &Program,
+    class_constants: &HashMap<String, ConstantValue>,
+) -> HashMap<String, ConstantValue> {
+    let mut constants = HashMap::new();
+    for stmt in program {
+        collect_stmt_constants(stmt, &mut constants, Some(class_constants));
     }
     constants
 }
@@ -354,16 +365,22 @@ pub(super) fn class_const_key(class_name: &str, const_name: &str) -> String {
     format!("{}\0{}", function_key(class_name), const_name)
 }
 
-fn collect_stmt_constants(stmt: &Stmt, constants: &mut HashMap<String, ConstantValue>) {
+fn collect_stmt_constants(
+    stmt: &Stmt,
+    constants: &mut HashMap<String, ConstantValue>,
+    class_constants: Option<&HashMap<String, ConstantValue>>,
+) {
     match &stmt.kind {
         StmtKind::ConstDecl { name, value } => {
-            if let Some(value) = constant_value_from_expr(value, constants) {
+            if let Some(value) =
+                constant_value_from_expr_with_class_constants(value, constants, class_constants)
+            {
                 constants.insert(name.clone(), value);
             }
         }
         StmtKind::Synthetic(stmts) | StmtKind::NamespaceBlock { body: stmts, .. } => {
             for stmt in stmts {
-                collect_stmt_constants(stmt, constants);
+                collect_stmt_constants(stmt, constants, class_constants);
             }
         }
         _ => {}
@@ -373,6 +390,14 @@ fn collect_stmt_constants(stmt: &Stmt, constants: &mut HashMap<String, ConstantV
 pub(super) fn constant_value_from_expr(
     expr: &Expr,
     constants: &HashMap<String, ConstantValue>,
+) -> Option<ConstantValue> {
+    constant_value_from_expr_with_class_constants(expr, constants, None)
+}
+
+fn constant_value_from_expr_with_class_constants(
+    expr: &Expr,
+    constants: &HashMap<String, ConstantValue>,
+    class_constants: Option<&HashMap<String, ConstantValue>>,
 ) -> Option<ConstantValue> {
     match &expr.kind {
         ExprKind::IntLiteral(value) => Some(ConstantValue::Int(*value)),
@@ -384,14 +409,36 @@ pub(super) fn constant_value_from_expr(
         ExprKind::ClassConstant { receiver: StaticReceiver::Named(class_name) } => {
             Some(ConstantValue::Str(class_name.as_str().to_string()))
         }
-        ExprKind::Negate(inner) => negate_constant(constant_value_from_expr(inner, constants)?),
+        ExprKind::ScopedConstantAccess {
+            receiver: StaticReceiver::Named(class_name),
+            name,
+        } => class_constants
+            .and_then(|values| values.get(&class_const_key(class_name, name)))
+            .cloned(),
+        ExprKind::Negate(inner) => negate_constant(constant_value_from_expr_with_class_constants(
+            inner,
+            constants,
+            class_constants,
+        )?),
         ExprKind::Not(inner) => {
-            let value = constant_value_from_expr(inner, constants)?;
+            let value = constant_value_from_expr_with_class_constants(
+                inner,
+                constants,
+                class_constants,
+            )?;
             Some(ConstantValue::Bool(!constant_truthiness(&value)))
         }
         ExprKind::BinaryOp { left, op, right } => {
-            let left = constant_value_from_expr(left, constants)?;
-            let right = constant_value_from_expr(right, constants)?;
+            let left = constant_value_from_expr_with_class_constants(
+                left,
+                constants,
+                class_constants,
+            )?;
+            let right = constant_value_from_expr_with_class_constants(
+                right,
+                constants,
+                class_constants,
+            )?;
             eval_constant_binary(left, op, right)
         }
         _ => None,

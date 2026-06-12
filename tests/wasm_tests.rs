@@ -1280,6 +1280,25 @@ echo $message;
 }
 
 #[test]
+fn test_wasm32_web_wat_user_scoped_constant_expressions() {
+    let program = parse_program(
+        r#"<?php
+class ConstSource {
+    public const CODE = "ok";
+}
+const LABEL = "class:" . ConstSource::CODE;
+$message = LABEL;
+echo $message;
+"#,
+    );
+    let bytes = generate(&program, WasmOutputFormat::Wat).expect("WAT generation failed");
+    let wat = String::from_utf8(bytes).expect("WAT output was not UTF-8");
+
+    assert!(wat.contains("class:ok"));
+    assert!(wat.contains("local.set $message_ptr"));
+}
+
+#[test]
 fn test_wasm32_web_wat_class_name_and_scalar_constants() {
     let program = parse_program(
         r#"<?php
@@ -38103,6 +38122,23 @@ const LABEL = TARGET_NAME . ":ok";
 $message = LABEL;
 echo TARGET_NAME . "\n";
 echo $message . ":" . strlen(LABEL) . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_user_scoped_constant_expressions() {
+    assert_wasm_matches_php(
+        r#"<?php
+class ConstSource {
+    public const CODE = "ok";
+    public const COUNT = 3;
+}
+const LABEL = "class:" . ConstSource::CODE;
+const TOTAL = ConstSource::COUNT + 4;
+$message = LABEL;
+echo $message . ":" . strlen(LABEL) . "\n";
+echo TOTAL . "\n";
 "#,
     );
 }

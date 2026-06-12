@@ -189,7 +189,8 @@ pub(super) struct WasmModule {
 
 impl WasmModule {
     pub(super) fn new(program: &Program) -> Self {
-        let constants = collect_constants(program);
+        let class_constants = collect_class_constants(program);
+        let constants = collect_constants_with_class_constants(program, &class_constants);
         let object_classes = object_metadata::collect_object_classes(program);
         let function_params = collect_function_params(program);
         let function_param_kinds = collect_function_param_kinds(program);
@@ -404,7 +405,7 @@ impl WasmModule {
             trait_names: collect_decl_names(program, DeclKind::Trait),
             enum_names: collect_decl_names(program, DeclKind::Enum),
             enum_cases: collect_enum_cases(program),
-            class_constants: collect_class_constants(program),
+            class_constants,
             static_property_nested_values: HashMap::new(),
             loop_stack: Vec::new(),
             break_stack: Vec::new(),
