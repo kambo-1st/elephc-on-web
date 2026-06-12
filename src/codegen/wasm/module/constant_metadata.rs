@@ -381,6 +381,9 @@ pub(super) fn constant_value_from_expr(
         ExprKind::StringLiteral(value) => Some(ConstantValue::Str(value.clone())),
         ExprKind::Null => Some(ConstantValue::Null),
         ExprKind::ConstRef(name) => constants.get(name.as_str()).cloned(),
+        ExprKind::ClassConstant { receiver: StaticReceiver::Named(class_name) } => {
+            Some(ConstantValue::Str(class_name.as_str().to_string()))
+        }
         ExprKind::Negate(inner) => negate_constant(constant_value_from_expr(inner, constants)?),
         ExprKind::Not(inner) => {
             let value = constant_value_from_expr(inner, constants)?;

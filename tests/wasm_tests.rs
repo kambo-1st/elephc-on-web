@@ -1262,6 +1262,24 @@ echo ANSWER . ":" . $message;
 }
 
 #[test]
+fn test_wasm32_web_wat_user_class_name_constant_expressions() {
+    let program = parse_program(
+        r#"<?php
+class ConstTarget {}
+const TARGET_NAME = ConstTarget::class;
+const LABEL = TARGET_NAME . ":ok";
+$message = LABEL;
+echo $message;
+"#,
+    );
+    let bytes = generate(&program, WasmOutputFormat::Wat).expect("WAT generation failed");
+    let wat = String::from_utf8(bytes).expect("WAT output was not UTF-8");
+
+    assert!(wat.contains("ConstTarget:ok"));
+    assert!(wat.contains("local.set $message_ptr"));
+}
+
+#[test]
 fn test_wasm32_web_wat_class_name_and_scalar_constants() {
     let program = parse_program(
         r#"<?php
@@ -38071,6 +38089,20 @@ $message = LABEL;
 echo ANSWER . ":" . NEG . ":" . MASK . "\n";
 echo RATE . "\n";
 echo $message . ":" . (YES ? 1 : 0) . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_user_class_name_constant_expressions() {
+    assert_wasm_matches_php(
+        r#"<?php
+class ConstTarget {}
+const TARGET_NAME = ConstTarget::class;
+const LABEL = TARGET_NAME . ":ok";
+$message = LABEL;
+echo TARGET_NAME . "\n";
+echo $message . ":" . strlen(LABEL) . "\n";
 "#,
     );
 }
