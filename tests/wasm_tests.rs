@@ -38522,6 +38522,20 @@ echo "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_user_array_constant_print_marker() {
+    assert_wasm_matches_php(
+        r#"<?php
+const SCORES = [2, 3, 4];
+const ROWS = ["name" => "Ada"];
+$ok = print SCORES;
+echo ":" . $ok . "\n";
+$ok = print ROWS;
+echo ":" . $ok . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_user_nested_array_constant_reads() {
     assert_wasm_matches_php(
         r#"<?php
