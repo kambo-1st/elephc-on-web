@@ -1391,6 +1391,22 @@ echo array_key_exists("b", WEIGHTS);
 }
 
 #[test]
+fn test_wasm32_web_wat_user_array_constant_search() {
+    let program = parse_program(
+        r#"<?php
+const SCORES = [2, 3, 4];
+echo array_search(4, SCORES, true);
+echo array_search("3", SCORES);
+"#,
+    );
+    let bytes = generate(&program, WasmOutputFormat::Wat).expect("WAT generation failed");
+    let wat = String::from_utf8(bytes).expect("WAT output was not UTF-8");
+
+    assert!(wat.contains("i64.const 2"));
+    assert!(wat.contains("i64.const 1"));
+}
+
+#[test]
 fn test_wasm32_web_wat_class_name_and_scalar_constants() {
     let program = parse_program(
         r#"<?php
@@ -38304,6 +38320,21 @@ echo (in_array(3, WEIGHTS, true) ? "yes" : "no") . ":";
 echo (in_array(5, WEIGHTS, true) ? "yes" : "no") . ":";
 echo (array_key_exists("b", WEIGHTS) ? "yes" : "no") . ":";
 echo (array_key_exists("c", WEIGHTS) ? "yes" : "no") . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_user_array_constant_search() {
+    assert_wasm_matches_php(
+        r#"<?php
+const SCORES = [2, 3, 4];
+const WEIGHTS = [10 => 2, 11 => 3, 11 => 5];
+echo array_search(4, SCORES, true) . ":";
+echo array_search("3", SCORES) . ":";
+echo (array_search("9", SCORES) === false ? "false" : "bad") . "\n";
+echo array_search(5, WEIGHTS, true) . ":";
+echo (array_search(3, WEIGHTS, true) === false ? "false" : "bad") . "\n";
 "#,
     );
 }

@@ -83,6 +83,28 @@ pub(super) fn emit_array_search_index_from_args(
             module,
         );
     }
+    if let ExprKind::ConstRef(name) = &haystack.kind {
+        if let Some(array_constant) = module.array_constant_value(name) {
+            let haystack = match array_constant {
+                ConstantArrayValue::Indexed(items) => {
+                    Expr::new(ExprKind::ArrayLiteral(items), haystack.span)
+                }
+                ConstantArrayValue::Assoc(items) => {
+                    let items = normalize_assoc_items(&items).unwrap_or(items);
+                    Expr::new(ExprKind::ArrayLiteralAssoc(items), haystack.span)
+                }
+            };
+            return emit_array_search_index_from_args(
+                call,
+                &[
+                    needle.clone(),
+                    haystack,
+                    Expr::new(ExprKind::BoolLiteral(strict), call.span),
+                ],
+                module,
+            );
+        }
+    }
     if strict {
         if let ExprKind::ArrayLiteralAssoc(items) = &haystack.kind {
             let temp = module
