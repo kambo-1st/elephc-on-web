@@ -8257,6 +8257,41 @@ echo count($c) . ":" . $c[0] . ":" . $c[1] . ":" . $c[5] . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_indexed_array_list_unpack_literal() {
+    assert_wasm_matches_php(
+        r#"<?php
+[$a, $b, $c] = [7, "two", false];
+echo $a . ":" . $b . ":" . ($c ? 1 : 0) . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_indexed_array_list_unpack_local() {
+    assert_wasm_matches_php(
+        r#"<?php
+$items = [3, "box", true, 4.5];
+[$a, $b, $c, $d] = $items;
+echo ($a + 4) . ":" . strtoupper($b) . ":" . ($c ? "yes" : "no") . ":" . ($d + 0.5) . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_indexed_array_list_unpack_function_return_evaluates_once() {
+    assert_wasm_matches_php(
+        r#"<?php
+function row(): array {
+    echo "row:";
+    return [5, "five"];
+}
+[$a, $b] = row();
+echo $a . ":" . $b . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_indexed_array_push() {
     assert_wasm_matches_php(
         r#"<?php

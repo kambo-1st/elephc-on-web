@@ -13,11 +13,11 @@ use crate::parser::ast::{Expr, ExprKind, Program, StaticReceiver, Stmt, StmtKind
 
 use super::expr::{
     emit_assoc_array_assign, emit_assoc_array_pop_shift_discard, emit_array_int_assign,
-    emit_array_push, emit_assign_value, emit_dynamic_object_property_assign, emit_nested_array_assign,
-    emit_nested_array_push, emit_output_expr, emit_mixed_assign, emit_object_property_assign,
-    emit_static_property_access_expr,
-    emit_static_property_assign, emit_store_value_cell, emit_string_offset_assign,
-    emit_string_value_to_stack, expression_is_stringy, require_int, WASM_ASSOC_KEY_INT,
+    emit_array_assign, emit_array_push, emit_assign_value, emit_dynamic_object_property_assign,
+    emit_mixed_assign, emit_nested_array_assign, emit_nested_array_push, emit_object_property_assign,
+    emit_output_expr, emit_static_property_access_expr, emit_static_property_assign,
+    emit_store_value_cell, emit_string_offset_assign, emit_string_value_to_stack,
+    expression_is_stringy, require_int, WASM_ASSOC_KEY_INT,
 };
 use super::module::{ArrayLayout, LocalKind, ValueKind, WasmModule};
 
@@ -213,6 +213,7 @@ fn emit_stmt(stmt: &Stmt, module: &mut WasmModule) -> Result<(), CompileError> {
             value_by_ref,
             body,
         } => emit_foreach(array, key_var.as_deref(), value_var, *value_by_ref, body, module),
+        StmtKind::ListUnpack { vars, value } => emit_list_unpack(vars, value, module),
         StmtKind::Switch {
             subject,
             cases,
@@ -239,6 +240,30 @@ fn emit_stmt(stmt: &Stmt, module: &mut WasmModule) -> Result<(), CompileError> {
         | StmtKind::FunctionVariantMark { .. } => Ok(()),
         _ => Err(unsupported_stmt(stmt)),
     }
+}
+
+fn emit_list_unpack(
+    vars: &[String],
+    value: &Expr,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let temp = module
+        .next_label("list_unpack_source")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_array_local(temp.clone());
+    emit_array_assign(&temp, value, module)?;
+    for (index, var) in vars.iter().enumerate() {
+        let access = Expr::new(
+            ExprKind::ArrayAccess {
+                array: Box::new(Expr::new(ExprKind::Variable(temp.clone()), value.span)),
+                index: Box::new(Expr::int_lit(index as i64)),
+            },
+            value.span,
+        );
+        emit_assign_value(var, &access, module)?;
+    }
+    Ok(())
 }
 
 fn is_unknown_mixed_array_pop_shift_args(args: &[Expr], module: &WasmModule) -> bool {

@@ -410,6 +410,68 @@ pub(super) fn collect_stmt_locals(
                 class_constants,
             );
         }
+        StmtKind::ListUnpack { vars, value } => {
+            collect_expr_assignment_prelude_locals(
+                value,
+                locals,
+                array_value_kinds,
+                array_runtime_value_kinds,
+                array_nested_values,
+                array_runtime_nested_values,
+                array_key_kinds,
+                array_key_values,
+                php_normalized_key_arrays,
+                callable_targets,
+                string_static_values,
+                function_return_kinds,
+                function_static_string_returns,
+                function_possible_static_string_returns,
+                function_array_return_value_kinds,
+                function_array_return_runtime_value_kinds,
+                function_array_return_layouts,
+                function_array_return_nested_values,
+                function_array_return_key_kinds,
+                function_array_return_key_values,
+                function_array_return_param_indices,
+                constants,
+                class_constants,
+            );
+            for (index, var) in vars.iter().enumerate() {
+                let access = Expr::new(
+                    ExprKind::ArrayAccess {
+                        array: Box::new(value.clone()),
+                        index: Box::new(Expr::int_lit(index as i64)),
+                    },
+                    value.span,
+                );
+                collect_assignment_locals(
+                    var,
+                    &access,
+                    locals,
+                    array_value_kinds,
+                    array_runtime_value_kinds,
+                    array_nested_values,
+                    array_runtime_nested_values,
+                    array_key_kinds,
+                    array_key_values,
+                    php_normalized_key_arrays,
+                    callable_targets,
+                    string_static_values,
+                    function_return_kinds,
+                    function_static_string_returns,
+                    function_possible_static_string_returns,
+                    function_array_return_value_kinds,
+                    function_array_return_runtime_value_kinds,
+                    function_array_return_layouts,
+                    function_array_return_nested_values,
+                    function_array_return_key_kinds,
+                    function_array_return_key_values,
+                    function_array_return_param_indices,
+                    constants,
+                    class_constants,
+                );
+            }
+        }
         StmtKind::For {
             init, update, body, ..
         } => collect_for_locals(

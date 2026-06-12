@@ -379,9 +379,22 @@ fn infer_array_access_assignment_kind(
         let Ok(index) = usize::try_from(index) else {
             return Some(LocalKind::Mixed);
         };
+        if let Some(kind) = static_value_cell_kinds_for_items(items)
+            .and_then(|items| items.get(index).copied())
+        {
+            return Some(local_kind_for_value_cell(kind));
+        }
         if index >= items.len() {
             return Some(LocalKind::Mixed);
         }
+    }
+    if let ExprKind::FunctionCall { name, .. } = &array.kind {
+        let index = static_or_const_int_value_for_locals(index)?;
+        let index = usize::try_from(index).ok()?;
+        return function_array_return_value_kinds
+            .get(&function_key(name))
+            .and_then(|items| items.get(index).copied())
+            .map(local_kind_for_value_cell);
     }
     let ExprKind::Variable(name) = &array.kind else {
         return None;
