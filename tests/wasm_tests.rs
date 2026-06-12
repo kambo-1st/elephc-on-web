@@ -9292,6 +9292,18 @@ echo gettype($x) . ":" . $x . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_array_literal_scalar_offset_reads() {
+    assert_wasm_matches_php(
+        r#"<?php
+$label = [7, "web", 2.5, true, false, null][1];
+$score = [7, "web", 2.5, true, false, null][2];
+$none = [7, "web", 2.5, true, false, null][5];
+echo [7, "web", 2.5, true, false, null][0] . ":" . $label . ":" . $score . ":" . ([7, "web", 2.5, true][3] ? "T" : "F") . ":" . ([7, "web", 2.5, true, false][4] ? "T" : "F") . ":" . gettype($none) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_value_array_null_read_replaces_scalar_local() {
     assert_wasm_matches_php(
         r#"<?php
