@@ -282,6 +282,9 @@ pub(crate) fn link_binary(
                 String::from_utf8_lossy(&ld_out.stderr)
             );
         }
+        Platform::Web => {
+            panic!("native codegen test runner does not support wasm32-web");
+        }
     }
 }
 

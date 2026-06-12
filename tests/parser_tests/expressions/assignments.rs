@@ -202,6 +202,24 @@ fn test_parse_nested_array_append_lowers_to_temp_push_writeback() {
 /// Verifies that `<?php ?int $value = null;` parses to a `TypedAssign` with a nullable `?int`
 /// type expression and a null initializer.
 #[test]
+fn test_parse_nested_array_push_target() {
+    let stmts = parse_source("<?php $data[\"a\"][\"roles\"][] = \"editor\";");
+    match &stmts[0].kind {
+        StmtKind::NestedArrayPush { target, value } => {
+            assert!(matches!(value.kind, ExprKind::StringLiteral(ref text) if text == "editor"));
+            match &target.kind {
+                ExprKind::ArrayAccess { array, index } => {
+                    assert!(matches!(index.kind, ExprKind::StringLiteral(ref key) if key == "roles"));
+                    assert!(matches!(array.kind, ExprKind::ArrayAccess { .. }));
+                }
+                other => panic!("Expected nested ArrayAccess target, got {:?}", other),
+            }
+        }
+        other => panic!("Expected NestedArrayPush, got {:?}", other),
+    }
+}
+
+#[test]
 fn test_parse_nullable_typed_assign() {
     let stmts = parse_source("<?php ?int $value = null;");
     match &stmts[0].kind {

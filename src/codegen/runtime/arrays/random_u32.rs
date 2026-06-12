@@ -69,6 +69,9 @@ pub fn emit_random_u32(emitter: &mut Emitter) {
             emitter.instruction("add sp, sp, #32");                             // release the temporary stack frame
             emitter.instruction("ret");                                         // return the random uint32
         }
+        Platform::Web => {
+            panic!("native random_u32 runtime emission is not available for wasm32-web");
+        }
     }
 }
 

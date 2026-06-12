@@ -13,7 +13,7 @@ use std::collections::HashMap;
 
 use crate::codegen::platform::{Platform, Target};
 use crate::errors::{CompileError, CompileWarning};
-use crate::parser::ast::Program;
+use crate::parser::ast::{CallableTarget, Program};
 
 use super::{
     checker, ClassInfo, EnumInfo, ExternClassInfo, ExternFunctionSig, FunctionSig, InterfaceInfo,
@@ -37,6 +37,12 @@ pub struct CheckResult {
     pub extern_functions: HashMap<String, ExternFunctionSig>,
     pub extern_classes: HashMap<String, ExternClassInfo>,
     pub extern_globals: HashMap<String, PhpType>,
+    #[allow(dead_code)]
+    pub callable_sigs: HashMap<String, FunctionSig>,
+    #[allow(dead_code)]
+    pub callable_captures: HashMap<String, Vec<(String, PhpType, bool)>>,
+    #[allow(dead_code)]
+    pub first_class_callable_targets: HashMap<String, CallableTarget>,
     pub required_libraries: Vec<String>,
     pub warnings: Vec<CompileWarning>,
 }
@@ -83,5 +89,18 @@ mod tests {
         let mac = check_with_target(&program, Target::new(Platform::MacOS, Arch::AArch64))
             .expect("mac type check failed");
         assert_eq!(mac.required_libraries, vec!["elephc_crypto"]);
+    }
+
+    #[test]
+    fn test_callable_metadata_is_exposed_to_later_phases() {
+        let program = parse_program(
+            "<?php function inc(int $x): int { return $x + 1; } $cb = inc(...); echo $cb(1);",
+        );
+
+        let result = check_with_target(&program, Target::new(Platform::Web, Arch::X86_64))
+            .expect("type check failed");
+
+        assert!(result.callable_sigs.contains_key("cb"));
+        assert!(result.first_class_callable_targets.contains_key("cb"));
     }
 }

@@ -61,5 +61,8 @@ pub fn emit_exit(emitter: &mut Emitter, code: u32) {
         (super::super::platform::Platform::MacOS, Arch::X86_64) => {
             panic!("process exit emission is not implemented yet for target macos-x86_64");
         }
+        (super::super::platform::Platform::Web, _) => {
+            panic!("native process exit emission is not available for wasm32-web");
+        }
     }
 }

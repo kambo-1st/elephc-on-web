@@ -344,7 +344,7 @@ fn emit_fopen_linux_x86_64(emitter: &mut Emitter) {
     emitter.instruction("mov rdi, QWORD PTR [rbp - 24]");                       // pass the converted C pathname as the first libc open() argument
     emitter.instruction("mov edx, 0x1A4");                                      // pass mode 0644 for create-capable fopen() modes
     emitter.instruction("call open");                                           // open the requested file through libc open() using the parsed fopen() flags
-    emitter.instruction("test rax, rax");                                       // did libc open() return a negative failure descriptor?
+    emitter.instruction("test eax, eax");                                       // did libc open() return a negative int failure descriptor?
     emitter.instruction("jns __rt_fopen_opened_x86");                           // skip the warning when fopen() succeeded
     emitter.label("__rt_fopen_fail_x86");
     emit_fopen_failed_warning(emitter);

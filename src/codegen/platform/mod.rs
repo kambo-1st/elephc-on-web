@@ -37,6 +37,11 @@ mod tests {
             Target::parse("aarch64-apple-darwin").unwrap(),
             Target::new(Platform::MacOS, Arch::AArch64)
         );
+        assert_eq!(
+            Target::parse("wasm32-web").unwrap(),
+            Target::new(Platform::Web, Arch::X86_64)
+        );
+        assert_eq!(Target::parse("wasm32-web").unwrap().as_str(), "wasm32-web");
     }
 
     #[test]

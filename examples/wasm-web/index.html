@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>elephc wasm32-web example</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 2rem;
+    }
+
+    pre {
+      border: 1px solid #ccc;
+      padding: 1rem;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <pre id="output"></pre>
+  <script>
+    const output = document.getElementById("output");
+    const decoder = new TextDecoder();
+    let memory;
+
+    WebAssembly.instantiateStreaming(fetch("main.wasm"), {
+      elephc: {
+        write(ptr, len) {
+          const bytes = new Uint8Array(memory.buffer, ptr, len);
+          output.textContent += decoder.decode(bytes);
+        },
+        writeInt(value) {
+          output.textContent += String(value);
+        },
+        writeFloat(value) {
+          output.textContent += String(value);
+        },
+        randomU32() {
+          return Math.floor(Math.random() * 0x100000000) >>> 0;
+        },
+        leadingNumericStringValue(ptr, len, outPtr) {
+          const text = decoder.decode(new Uint8Array(memory.buffer, ptr, len));
+          const matched = text.match(/^[\t\n\v\f\r ]*[+-]?(?:(?:[0-9]+(?:\.[0-9]*)?)|(?:\.[0-9]+))(?:[eE][+-]?[0-9]+)?/);
+          if (!matched) {
+            return 0;
+          }
+          new DataView(memory.buffer).setFloat64(outPtr, Number(matched[0]), true);
+          return 1;
+        },
+      },
+    }).then(({ instance }) => {
+      memory = instance.exports.memory;
+      instance.exports.main();
+    }).catch((err) => {
+      output.textContent = String(err);
+    });
+  </script>
+</body>
+</html>

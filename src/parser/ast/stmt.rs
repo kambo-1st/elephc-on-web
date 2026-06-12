@@ -116,6 +116,10 @@ pub enum StmtKind {
         target: Expr,
         value: Expr,
     },
+    NestedArrayPush {
+        target: Expr,
+        value: Expr,
+    },
     ArrayPush {
         array: String,
         value: Expr,

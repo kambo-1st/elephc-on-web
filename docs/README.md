@@ -5,7 +5,7 @@ sidebar:
   order: 0
 ---
 
-elephc compiles PHP to native binaries for the supported targets — currently macOS ARM64, Linux ARM64, and Linux x86_64. No interpreter, no VM, no runtime dependencies. This documentation covers everything from PHP syntax support to compiler-specific extensions and internal architecture.
+elephc compiles PHP to native binaries for the supported targets — currently macOS ARM64, Linux ARM64, and Linux x86_64. It also has an experimental `wasm32-web` backend that emits browser-oriented WAT or, with `wat2wasm` installed, binary `.wasm` for a scalar-output/control-flow subset covering loops, scalar functions with defaults and named arguments, `switch`, scalar `match`, scalar ternaries, null coalescing, integer bitwise operations, `print`, `printf()`, `sprintf()`, `number_format()`, selected path/JSON/constant slices, `strlen()`, `ord()`, selected literal string-output/search/encoding builtins, `gettype()` output, common numeric and literal math builtins, float predicates, `empty()`, `is_numeric()`, scalar casts, string truthiness/equality, and scalar type predicates. No interpreter, no VM, no runtime dependencies. This documentation covers everything from PHP syntax support to compiler-specific extensions and internal architecture.
 
 ## Getting Started
 
@@ -67,6 +67,7 @@ How elephc works under the hood — from lexing to code generation and runtime s
 - [The Runtime](internals/the-runtime.md) — hand-written assembly routines
 - [Memory Model](internals/memory-model.md) — stack frames, heap, reference counting
 - [Architecture](internals/architecture.md) — module map, calling conventions
+- [WASM Compatibility Inventory](internals/wasm-compatibility-inventory.md) — wasm32-web parity work queue against elephc and PHP
 - [ARM64 Assembly](internals/arm64-assembly.md) — introduction to ARM64
 - [ARM64 Instructions](internals/arm64-instructions.md) — instruction reference
 

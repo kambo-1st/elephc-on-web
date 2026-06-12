@@ -1,0 +1,356 @@
+//! Purpose:
+//! Emits wasm32-web runtime hex conversion helpers for string builtins.
+//! Keeps bin2hex/hex2bin output and value materialization out of the broad string runtime file.
+//!
+//! Called from:
+//! - `super::string_runtime` re-exports used by string builtin lowering paths.
+//!
+//! Key details:
+//! - Helpers preserve existing invalid-hex behavior and value-to-stack output contracts.
+
+use super::*;
+use super::string_bytes::*;
+
+pub(super) fn emit_runtime_bin2hex(var: &str, module: &mut WasmModule) {
+    let idx = module.next_label("hex_idx");
+    let byte = module.next_label("hex_byte");
+    let loop_label = module.next_label("hex_loop");
+    let done_label = module.next_label("hex_done");
+    module.declare_i32_local(idx.trim_start_matches('$').to_string());
+    module.declare_i32_local(byte.trim_start_matches('$').to_string());
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", idx));
+    module.body().open(&format!("block {}", done_label));
+    module.body().open(&format!("loop {}", loop_label));
+    module.body().line(&format!("local.get {}", idx));
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line("i32.ge_u");
+    module.body().line(&format!("br_if {}", done_label));
+    emit_load_string_byte(var, &idx, module);
+    module.body().line(&format!("local.set {}", byte));
+    module.body().line(&format!("local.get {}", byte));
+    module.body().line("i32.const 4");
+    module.body().line("i32.shr_u");
+    emit_write_hex_nibble(module);
+    module.body().line(&format!("local.get {}", byte));
+    module.body().line("i32.const 15");
+    module.body().line("i32.and");
+    emit_write_hex_nibble(module);
+    module.body().line(&format!("local.get {}", idx));
+    module.body().line("i32.const 1");
+    module.body().line("i32.add");
+    module.body().line(&format!("local.set {}", idx));
+    module.body().line(&format!("br {}", loop_label));
+    module.body().close("end");
+    module.body().close("end");
+}
+
+pub(super) fn emit_runtime_bin2hex_value_to_stack(var: &str, module: &mut WasmModule) {
+    let out_ptr = module.next_label("bin2hex_value_ptr");
+    let out_len = module.next_label("bin2hex_value_len");
+    let idx = module.next_label("bin2hex_value_idx");
+    let byte = module.next_label("bin2hex_value_byte");
+    let nibble = module.next_label("bin2hex_value_nibble");
+    let loop_label = module.next_label("bin2hex_value_loop");
+    let done_label = module.next_label("bin2hex_value_done");
+    module.declare_i32_local(out_ptr.trim_start_matches('$').to_string());
+    module.declare_i32_local(out_len.trim_start_matches('$').to_string());
+    module.declare_i32_local(idx.trim_start_matches('$').to_string());
+    module.declare_i32_local(byte.trim_start_matches('$').to_string());
+    module.declare_i32_local(nibble.trim_start_matches('$').to_string());
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line("i32.const 1073741823");
+    module.body().line("i32.gt_u");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line("i32.const 2");
+    module.body().line("i32.mul");
+    module.body().line(&format!("local.set {}", out_len));
+    module.body().line("global.get $heap");
+    module.body().line(&format!("local.set {}", out_ptr));
+    module.body().line("global.get $heap");
+    module.body().line(&format!("local.get {}", out_len));
+    module.body().line("i32.add");
+    module.body().line("global.set $heap");
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", idx));
+    module.body().open(&format!("block {}", done_label));
+    module.body().open(&format!("loop {}", loop_label));
+    module.body().line(&format!("local.get {}", idx));
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line("i32.ge_u");
+    module.body().line(&format!("br_if {}", done_label));
+    emit_load_string_byte(var, &idx, module);
+    module.body().line(&format!("local.set {}", byte));
+    module.body().line(&format!("local.get {}", byte));
+    module.body().line("i32.const 4");
+    module.body().line("i32.shr_u");
+    module.body().line(&format!("local.set {}", nibble));
+    module.body().line(&format!("local.get {}", out_ptr));
+    module.body().line(&format!("local.get {}", idx));
+    module.body().line("i32.const 2");
+    module.body().line("i32.mul");
+    module.body().line("i32.add");
+    emit_hex_nibble_byte(&nibble, module);
+    module.body().line("i32.store8");
+    module.body().line(&format!("local.get {}", byte));
+    module.body().line("i32.const 15");
+    module.body().line("i32.and");
+    module.body().line(&format!("local.set {}", nibble));
+    module.body().line(&format!("local.get {}", out_ptr));
+    module.body().line(&format!("local.get {}", idx));
+    module.body().line("i32.const 2");
+    module.body().line("i32.mul");
+    module.body().line("i32.const 1");
+    module.body().line("i32.add");
+    module.body().line("i32.add");
+    emit_hex_nibble_byte(&nibble, module);
+    module.body().line("i32.store8");
+    module.body().line(&format!("local.get {}", idx));
+    module.body().line("i32.const 1");
+    module.body().line("i32.add");
+    module.body().line(&format!("local.set {}", idx));
+    module.body().line(&format!("br {}", loop_label));
+    module.body().close("end");
+    module.body().close("end");
+    module.body().line(&format!("local.get {}", out_ptr));
+    module.body().line(&format!("local.get {}", out_len));
+}
+
+pub(super) fn emit_runtime_hex2bin(var: &str, module: &mut WasmModule) {
+    let idx = module.next_label("unhex_idx");
+    let check_idx = module.next_label("unhex_check_idx");
+    let invalid = module.next_label("unhex_invalid");
+    let high = module.next_label("unhex_high");
+    let low = module.next_label("unhex_low");
+    let check_loop = module.next_label("unhex_check_loop");
+    let check_done = module.next_label("unhex_check_done");
+    let loop_label = module.next_label("unhex_loop");
+    let done_label = module.next_label("unhex_done");
+    module.declare_i32_local(idx.trim_start_matches('$').to_string());
+    module.declare_i32_local(check_idx.trim_start_matches('$').to_string());
+    module.declare_i32_local(invalid.trim_start_matches('$').to_string());
+    module.declare_i32_local(high.trim_start_matches('$').to_string());
+    module.declare_i32_local(low.trim_start_matches('$').to_string());
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", invalid));
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line("i32.const 1");
+    module.body().line("i32.and");
+    module.body().open("if");
+    module.body().line("i32.const 1");
+    module.body().line(&format!("local.set {}", invalid));
+    module.body().close("end");
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", check_idx));
+    module.body().open(&format!("block {}", check_done));
+    module.body().open(&format!("loop {}", check_loop));
+    module.body().line(&format!("local.get {}", invalid));
+    module.body().line(&format!("br_if {}", check_done));
+    module.body().line(&format!("local.get {}", check_idx));
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line("i32.ge_u");
+    module.body().line(&format!("br_if {}", check_done));
+    module.body().line(&format!("local.get ${}_ptr", var));
+    module.body().line(&format!("local.get {}", check_idx));
+    module.body().line("i32.add");
+    module.body().line("i32.load8_u");
+    module.body().line(&format!("local.set {}", high));
+    module.body().line(&format!("local.get ${}_ptr", var));
+    module.body().line(&format!("local.get {}", check_idx));
+    module.body().line("i32.const 1");
+    module.body().line("i32.add");
+    module.body().line("i32.add");
+    module.body().line("i32.load8_u");
+    module.body().line(&format!("local.set {}", low));
+    emit_hex_digit_condition(&high, module);
+    emit_hex_digit_condition(&low, module);
+    module.body().line("i32.and");
+    module.body().line("i32.eqz");
+    module.body().open("if");
+    module.body().line("i32.const 1");
+    module.body().line(&format!("local.set {}", invalid));
+    module.body().close("end");
+    module.body().line(&format!("local.get {}", check_idx));
+    module.body().line("i32.const 2");
+    module.body().line("i32.add");
+    module.body().line(&format!("local.set {}", check_idx));
+    module.body().line(&format!("br {}", check_loop));
+    module.body().close("end");
+    module.body().close("end");
+    module.body().line(&format!("local.get {}", invalid));
+    module.body().line("i32.eqz");
+    module.body().open("if");
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", idx));
+    module.body().open(&format!("block {}", done_label));
+    module.body().open(&format!("loop {}", loop_label));
+    module.body().line(&format!("local.get {}", idx));
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line("i32.ge_u");
+    module.body().line(&format!("br_if {}", done_label));
+    emit_load_string_byte(var, &idx, module);
+    module.body().line(&format!("local.set {}", high));
+    module.body().line(&format!("local.get ${}_ptr", var));
+    module.body().line(&format!("local.get {}", idx));
+    module.body().line("i32.const 1");
+    module.body().line("i32.add");
+    module.body().line("i32.add");
+    module.body().line("i32.load8_u");
+    module.body().line(&format!("local.set {}", low));
+    emit_hex_digit_value(&high, module);
+    module.body().line("i32.const 4");
+    module.body().line("i32.shl");
+    emit_hex_digit_value(&low, module);
+    module.body().line("i32.or");
+    emit_write_stack_byte(module);
+    module.body().line(&format!("local.get {}", idx));
+    module.body().line("i32.const 2");
+    module.body().line("i32.add");
+    module.body().line(&format!("local.set {}", idx));
+    module.body().line(&format!("br {}", loop_label));
+    module.body().close("end");
+    module.body().close("end");
+    module.body().close("end");
+}
+
+pub(super) fn emit_runtime_hex2bin_value_to_stack(var: &str, module: &mut WasmModule) {
+    let idx = module.next_label("unhex_value_idx");
+    let check_idx = module.next_label("unhex_value_check_idx");
+    let invalid = module.next_label("unhex_value_invalid");
+    let high = module.next_label("unhex_value_high");
+    let low = module.next_label("unhex_value_low");
+    let out_ptr = module.next_label("unhex_value_ptr");
+    let out_len = module.next_label("unhex_value_len");
+    let out_idx = module.next_label("unhex_value_out_idx");
+    let check_loop = module.next_label("unhex_value_check_loop");
+    let check_done = module.next_label("unhex_value_check_done");
+    let loop_label = module.next_label("unhex_value_loop");
+    let done_label = module.next_label("unhex_value_done");
+    module.declare_i32_local(idx.trim_start_matches('$').to_string());
+    module.declare_i32_local(check_idx.trim_start_matches('$').to_string());
+    module.declare_i32_local(invalid.trim_start_matches('$').to_string());
+    module.declare_i32_local(high.trim_start_matches('$').to_string());
+    module.declare_i32_local(low.trim_start_matches('$').to_string());
+    module.declare_i32_local(out_ptr.trim_start_matches('$').to_string());
+    module.declare_i32_local(out_len.trim_start_matches('$').to_string());
+    module.declare_i32_local(out_idx.trim_start_matches('$').to_string());
+    emit_runtime_hex2bin_prescan(var, &check_idx, &invalid, &high, &low, &check_loop, &check_done, module);
+    module.body().line(&format!("local.get {}", invalid));
+    module.body().open("if (result i32 i32)");
+    module.body().line("i32.const 0");
+    module.body().line("i32.const 0");
+    module.body().line("else");
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line("i32.const 1");
+    module.body().line("i32.shr_u");
+    module.body().line(&format!("local.set {}", out_len));
+    module.body().line("global.get $heap");
+    module.body().line(&format!("local.set {}", out_ptr));
+    module.body().line("global.get $heap");
+    module.body().line(&format!("local.get {}", out_len));
+    module.body().line("i32.add");
+    module.body().line("global.set $heap");
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", idx));
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", out_idx));
+    module.body().open(&format!("block {}", done_label));
+    module.body().open(&format!("loop {}", loop_label));
+    module.body().line(&format!("local.get {}", idx));
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line("i32.ge_u");
+    module.body().line(&format!("br_if {}", done_label));
+    emit_load_string_byte(var, &idx, module);
+    module.body().line(&format!("local.set {}", high));
+    module.body().line(&format!("local.get ${}_ptr", var));
+    module.body().line(&format!("local.get {}", idx));
+    module.body().line("i32.const 1");
+    module.body().line("i32.add");
+    module.body().line("i32.add");
+    module.body().line("i32.load8_u");
+    module.body().line(&format!("local.set {}", low));
+    module.body().line(&format!("local.get {}", out_ptr));
+    module.body().line(&format!("local.get {}", out_idx));
+    module.body().line("i32.add");
+    emit_hex_digit_value(&high, module);
+    module.body().line("i32.const 4");
+    module.body().line("i32.shl");
+    emit_hex_digit_value(&low, module);
+    module.body().line("i32.or");
+    module.body().line("i32.store8");
+    module.body().line(&format!("local.get {}", idx));
+    module.body().line("i32.const 2");
+    module.body().line("i32.add");
+    module.body().line(&format!("local.set {}", idx));
+    module.body().line(&format!("local.get {}", out_idx));
+    module.body().line("i32.const 1");
+    module.body().line("i32.add");
+    module.body().line(&format!("local.set {}", out_idx));
+    module.body().line(&format!("br {}", loop_label));
+    module.body().close("end");
+    module.body().close("end");
+    module.body().line(&format!("local.get {}", out_ptr));
+    module.body().line(&format!("local.get {}", out_len));
+    module.body().close("end");
+}
+
+pub(super) fn emit_runtime_hex2bin_prescan(
+    var: &str,
+    check_idx: &str,
+    invalid: &str,
+    high: &str,
+    low: &str,
+    check_loop: &str,
+    check_done: &str,
+    module: &mut WasmModule,
+) {
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", invalid));
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line("i32.const 1");
+    module.body().line("i32.and");
+    module.body().open("if");
+    module.body().line("i32.const 1");
+    module.body().line(&format!("local.set {}", invalid));
+    module.body().close("end");
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", check_idx));
+    module.body().open(&format!("block {}", check_done));
+    module.body().open(&format!("loop {}", check_loop));
+    module.body().line(&format!("local.get {}", invalid));
+    module.body().line(&format!("br_if {}", check_done));
+    module.body().line(&format!("local.get {}", check_idx));
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line("i32.ge_u");
+    module.body().line(&format!("br_if {}", check_done));
+    module.body().line(&format!("local.get ${}_ptr", var));
+    module.body().line(&format!("local.get {}", check_idx));
+    module.body().line("i32.add");
+    module.body().line("i32.load8_u");
+    module.body().line(&format!("local.set {}", high));
+    module.body().line(&format!("local.get ${}_ptr", var));
+    module.body().line(&format!("local.get {}", check_idx));
+    module.body().line("i32.const 1");
+    module.body().line("i32.add");
+    module.body().line("i32.add");
+    module.body().line("i32.load8_u");
+    module.body().line(&format!("local.set {}", low));
+    emit_hex_digit_condition(high, module);
+    emit_hex_digit_condition(low, module);
+    module.body().line("i32.and");
+    module.body().line("i32.eqz");
+    module.body().open("if");
+    module.body().line("i32.const 1");
+    module.body().line(&format!("local.set {}", invalid));
+    module.body().close("end");
+    module.body().line(&format!("local.get {}", check_idx));
+    module.body().line("i32.const 2");
+    module.body().line("i32.add");
+    module.body().line(&format!("local.set {}", check_idx));
+    module.body().line(&format!("br {}", check_loop));
+    module.body().close("end");
+    module.body().close("end");
+}

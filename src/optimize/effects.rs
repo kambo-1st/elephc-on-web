@@ -67,7 +67,8 @@ pub(super) fn stmt_effect(stmt: &Stmt) -> Effect {
                 .with_side_effects()
                 .with_may_throw()
         }
-        StmtKind::NestedArrayAssign { target, value } => {
+        StmtKind::NestedArrayAssign { target, value }
+        | StmtKind::NestedArrayPush { target, value } => {
             expr_effect(target)
                 .combine(expr_effect(value))
                 .with_side_effects()

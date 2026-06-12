@@ -85,6 +85,7 @@ pub(crate) fn default_link_paths() -> Vec<String> {
                 }
             }
         }
+        Platform::Web => {}
     }
     // The elephc-tls / elephc-pdo bridge staticlib directory is added directly by
     // `link_binary` (an absolute, manifest-anchored `-L` keyed on the program
@@ -133,6 +134,7 @@ pub(crate) fn qemu_sysroot() -> Option<&'static str> {
                 None
             }
             Platform::MacOS => None,
+            Platform::Web => None,
         })
         .as_deref()
 }

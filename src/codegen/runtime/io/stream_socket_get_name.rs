@@ -31,6 +31,7 @@ fn family_byte_offset(platform: Platform) -> u32 {
     match platform {
         Platform::MacOS => 1,
         Platform::Linux => 0,
+        Platform::Web => 0,
     }
 }
 

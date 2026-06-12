@@ -82,10 +82,47 @@ pub(super) fn parse_expr_bp(
                     ObjectMember::Named(member_name) => member_name,
                     ObjectMember::Dynamic(property) => {
                         if *pos < tokens.len() && tokens[*pos].0 == Token::LParen {
-                            return Err(CompileError::new(
-                                arrow_span,
-                                "Dynamic method calls are not supported yet",
-                            ));
+                            let ExprKind::StringLiteral(member_name) = property.kind else {
+                                return Err(CompileError::new(
+                                    arrow_span,
+                                    "Dynamic method calls are not supported yet",
+                                ));
+                            };
+                            *pos += 1;
+                            if parse_first_class_callable_parens(tokens, pos)? {
+                                if nullsafe {
+                                    return Err(CompileError::new(
+                                        arrow_span,
+                                        "Cannot combine nullsafe operator with Closure creation",
+                                    ));
+                                }
+                                lhs = Expr::new(
+                                    ExprKind::FirstClassCallable(CallableTarget::Method {
+                                        object: Box::new(lhs),
+                                        method: member_name,
+                                    }),
+                                    arrow_span,
+                                );
+                            } else {
+                                let args = parse_args(tokens, pos, arrow_span)?;
+                                lhs = Expr::new(
+                                    if nullsafe {
+                                        ExprKind::NullsafeMethodCall {
+                                            object: Box::new(lhs),
+                                            method: member_name,
+                                            args,
+                                        }
+                                    } else {
+                                        ExprKind::MethodCall {
+                                            object: Box::new(lhs),
+                                            method: member_name,
+                                            args,
+                                        }
+                                    },
+                                    arrow_span,
+                                );
+                            }
+                            continue;
                         }
                         lhs = Expr::new(
                             if nullsafe {

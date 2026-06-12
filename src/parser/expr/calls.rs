@@ -21,6 +21,13 @@ use super::parse_args;
 /// appropriate `ExprKind` variant. Returns a static method call if a `(` follows, a static
 /// property access if a variable follows, a class constant if `class` follows, or a scoped
 /// constant access otherwise.
+enum ScopedStaticMember {
+    Property(String),
+    ClassConstant,
+    Named(String),
+    BracedString(String),
+}
+
 pub(super) fn parse_scoped_static_call(
     tokens: &[(Token, Span)],
     pos: &mut usize,
@@ -35,41 +42,19 @@ pub(super) fn parse_scoped_static_call(
         ));
     }
     *pos += 1;
-    let method = match tokens.get(*pos).map(|(token, _)| token) {
-        Some(Token::Variable(property)) => {
-            let property = property.clone();
-            *pos += 1;
+    let member = parse_scoped_static_member(tokens, pos, span, receiver_name)?;
+    let method = match member {
+        ScopedStaticMember::Property(property) => {
             return Ok(Expr::new(
                 ExprKind::StaticPropertyAccess { receiver, property },
                 span,
             ));
         }
-        Some(Token::Class) => {
-            *pos += 1;
+        ScopedStaticMember::ClassConstant => {
             return Ok(Expr::new(ExprKind::ClassConstant { receiver }, span));
         }
-        Some(Token::Identifier(method)) => {
-            let method = method.clone();
-            *pos += 1;
-            method
-        }
-        Some(Token::Match) => {
-            *pos += 1;
-            "MATCH".to_string()
-        }
-        // PHP 8 allows semi-reserved keywords as static method / class-constant names
-        // (e.g. `Foo::self()`, `Foo::print`); `class` and `$var` are handled above.
-        Some(t) if crate::parser::keyword_name::bareword_name_from_token(t).is_some() => {
-            let name = crate::parser::keyword_name::bareword_name_from_token(t).unwrap();
-            *pos += 1;
-            name
-        }
-        _ => {
-            return Err(CompileError::new(
-                span,
-                &format!("Expected method or property name after '{}::'", receiver_name),
-            ))
-        }
+        ScopedStaticMember::Named(method) => method,
+        ScopedStaticMember::BracedString(method) => method,
     };
     // If a `(` follows, this is a static method call; otherwise it's a
     // user-declared class-constant access (`MyClass::FOO`).
@@ -99,6 +84,78 @@ pub(super) fn parse_scoped_static_call(
             span,
         ))
     }
+}
+
+/// Checks whether `...)` appears at the current position, indicating PHP's first-class callable
+/// syntax `Name::method(...)`. Returns `true` and consumes both the ellipsis and `)` tokens if
+/// found; returns `false` and advances nothing otherwise. Called after the initial `(` of a
+/// method-call-like form has already been consumed by the caller.
+fn parse_scoped_static_member(
+    tokens: &[(Token, Span)],
+    pos: &mut usize,
+    span: Span,
+    receiver_name: &str,
+) -> Result<ScopedStaticMember, CompileError> {
+    match tokens.get(*pos).map(|(token, _)| token) {
+        Some(Token::Variable(property)) => {
+            let property = property.clone();
+            *pos += 1;
+            Ok(ScopedStaticMember::Property(property))
+        }
+        Some(Token::Class) => {
+            *pos += 1;
+            Ok(ScopedStaticMember::ClassConstant)
+        }
+        Some(Token::Identifier(method)) => {
+            let method = method.clone();
+            *pos += 1;
+            Ok(ScopedStaticMember::Named(method))
+        }
+        Some(Token::Match) if is_regex_iterator_receiver(receiver_name) => {
+            *pos += 1;
+            Ok(ScopedStaticMember::Named("MATCH".to_string()))
+        }
+        // PHP 8 allows semi-reserved keywords as static method / class-constant names
+        // (e.g. `Foo::self()`, `Foo::print`); `class` and `$var` are handled above.
+        Some(t) if crate::parser::keyword_name::bareword_name_from_token(t).is_some() => {
+            let method = crate::parser::keyword_name::bareword_name_from_token(t).unwrap();
+            *pos += 1;
+            Ok(ScopedStaticMember::Named(method))
+        }
+        Some(Token::LBrace) => parse_braced_scoped_static_member(tokens, pos, span),
+        _ => Err(CompileError::new(
+            span,
+            &format!("Expected method or property name after '{}::'", receiver_name),
+        )),
+    }
+}
+
+fn is_regex_iterator_receiver(receiver_name: &str) -> bool {
+    matches!(
+        receiver_name.rsplit('\\').next().unwrap_or(receiver_name),
+        "RegexIterator" | "RecursiveRegexIterator"
+    )
+}
+
+fn parse_braced_scoped_static_member(
+    tokens: &[(Token, Span)],
+    pos: &mut usize,
+    span: Span,
+) -> Result<ScopedStaticMember, CompileError> {
+    if let (
+        Some((Token::LBrace, _)),
+        Some((Token::StringLiteral(method), _)),
+        Some((Token::RBrace, _)),
+    ) = (tokens.get(*pos), tokens.get(*pos + 1), tokens.get(*pos + 2))
+    {
+        let method = method.clone();
+        *pos += 3;
+        return Ok(ScopedStaticMember::BracedString(method));
+    }
+    Err(CompileError::new(
+        span,
+        "Dynamic static method calls are not supported yet",
+    ))
 }
 
 /// Checks whether `...)` appears at the current position, indicating PHP's first-class callable

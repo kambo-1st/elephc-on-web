@@ -22,6 +22,7 @@ pub(super) fn is_non_local_assignment_target(expr: &Expr) -> bool {
         &expr.kind,
         ExprKind::ArrayAccess { .. }
             | ExprKind::PropertyAccess { .. }
+            | ExprKind::DynamicPropertyAccess { .. }
             | ExprKind::StaticPropertyAccess { .. }
     )
 }
@@ -33,6 +34,7 @@ pub(super) fn is_assignment_expression_target(expr: &Expr) -> bool {
     match &expr.kind {
         ExprKind::Variable(_)
         | ExprKind::PropertyAccess { .. }
+        | ExprKind::DynamicPropertyAccess { .. }
         | ExprKind::StaticPropertyAccess { .. } => true,
         ExprKind::ArrayAccess { array, .. } => is_array_assignment_base(array),
         _ => false,
@@ -45,6 +47,7 @@ fn is_array_assignment_base(expr: &Expr) -> bool {
     match &expr.kind {
         ExprKind::Variable(_)
         | ExprKind::PropertyAccess { .. }
+        | ExprKind::DynamicPropertyAccess { .. }
         | ExprKind::StaticPropertyAccess { .. } => true,
         ExprKind::ArrayAccess { array, .. } => is_array_assignment_base(array),
         _ => false,
@@ -149,6 +152,13 @@ impl AssignmentExpressionLowerer {
                 },
                 span,
             ),
+            ExprKind::DynamicPropertyAccess { object, property } => Expr::new(
+                ExprKind::DynamicPropertyAccess {
+                    object: Box::new(self.stabilize_receiver(*object, rhs)),
+                    property: Box::new(self.stabilize_dimension_index(*property, rhs)),
+                },
+                span,
+            ),
             ExprKind::StaticPropertyAccess { receiver, property } => Expr::new(
                 ExprKind::StaticPropertyAccess { receiver, property },
                 span,
@@ -166,6 +176,13 @@ impl AssignmentExpressionLowerer {
                 ExprKind::PropertyAccess {
                     object: Box::new(self.stabilize_receiver(*object, rhs)),
                     property,
+                },
+                span,
+            ),
+            ExprKind::DynamicPropertyAccess { object, property } => Expr::new(
+                ExprKind::DynamicPropertyAccess {
+                    object: Box::new(self.stabilize_receiver(*object, rhs)),
+                    property: Box::new(self.stabilize_dimension_index(*property, rhs)),
                 },
                 span,
             ),

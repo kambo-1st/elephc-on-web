@@ -181,6 +181,9 @@ pub fn check_types(program: &Program, target_platform: Platform) -> Result<Check
         extern_functions: checker.extern_functions,
         extern_classes: checker.extern_classes,
         extern_globals: checker.extern_globals,
+        callable_sigs: checker.callable_sigs,
+        callable_captures: checker.callable_captures,
+        first_class_callable_targets: checker.first_class_callable_targets,
         required_libraries: checker.required_libraries,
         warnings,
     })

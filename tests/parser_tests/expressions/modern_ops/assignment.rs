@@ -151,6 +151,32 @@ fn test_non_local_assignment_expression_parses_property_target() {
 /// `target` of a null-coalesce assignment expression. The RHS is a `NullCoalesce`
 /// node. Regression check for static property target in compound assignment.
 #[test]
+fn test_non_local_assignment_expression_parses_dynamic_property_target() {
+    let stmts = parse_source("<?php echo ($box->{$name} = 2);");
+    match &stmts[0].kind {
+        StmtKind::Echo(expr) => match &expr.kind {
+            ExprKind::Assignment {
+                target,
+                value,
+                result_target,
+                prelude,
+                ..
+            } => {
+                assert!(matches!(target.kind, ExprKind::DynamicPropertyAccess { .. }));
+                assert!(prelude.is_empty());
+                assert!(matches!(value.kind, ExprKind::IntLiteral(2)));
+                assert!(matches!(
+                    result_target.as_deref().map(|expr| &expr.kind),
+                    Some(ExprKind::IntLiteral(2))
+                ));
+            }
+            other => panic!("expected assignment expression, got {:?}", other),
+        },
+        other => panic!("expected Echo, got {:?}", other),
+    }
+}
+
+#[test]
 fn test_non_local_assignment_expression_parses_static_property_target() {
     let stmts = parse_source("<?php echo (Registry::$count ??= 1);");
     match &stmts[0].kind {

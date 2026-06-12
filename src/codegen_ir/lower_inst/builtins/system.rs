@@ -265,6 +265,9 @@ fn emit_dynamic_exit(ctx: &mut FunctionContext<'_>) {
         (Platform::MacOS, Arch::X86_64) => {
             panic!("exit() is not implemented yet for target macos-x86_64");
         }
+        (Platform::Web, _) => {
+            panic!("exit() native syscall emission is not available for wasm32-web");
+        }
     }
 }
 

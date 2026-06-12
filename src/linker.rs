@@ -273,6 +273,10 @@ pub(crate) fn link(
             }
             cmd
         }
+        Platform::Web => {
+            eprintln!("wasm32-web output is handled by the WASM backend");
+            process::exit(1);
+        }
     };
     // Search paths for the located bridge staticlibs.
     for (_, dir) in &needed_bridges {
@@ -310,6 +314,9 @@ pub(crate) fn link(
                         ld_cmd.arg("-Wl,--whole-archive");
                         ld_cmd.arg(format!("-l{}", bridge.lib_name));
                         ld_cmd.arg("-Wl,--no-whole-archive");
+                    }
+                    Platform::Web => {
+                        panic!("native linker bridge handling is not available for wasm32-web");
                     }
                 }
             }

@@ -190,7 +190,8 @@ fn visit_stmt(stmt: &Stmt, st: &mut State) {
             visit_expr(index, st);
             visit_expr(value, st);
         }
-        StmtKind::NestedArrayAssign { target, value } => {
+        StmtKind::NestedArrayAssign { target, value }
+        | StmtKind::NestedArrayPush { target, value } => {
             visit_expr(target, st);
             visit_expr(value, st);
         }

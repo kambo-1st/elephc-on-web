@@ -135,6 +135,28 @@ fn test_parse_ifdef_else_statement() {
 /// Verifies that `<?php echo -7;` parses as `Stmt::echo(Expr::negate(Expr::int_lit(7)))`.
 /// Negative integer literals use a unary negation node, not a literal with embedded sign.
 #[test]
+fn test_parse_static_dynamic_method_call_as_fixed_method_call() {
+    let stmts = parse_source("<?php echo $o->{\"label\"}(\"web\");");
+    assert_eq!(stmts.len(), 1);
+    match &stmts[0].kind {
+        StmtKind::Echo(expr) => match &expr.kind {
+            ExprKind::MethodCall {
+                object,
+                method,
+                args,
+            } => {
+                assert_eq!(method, "label");
+                assert!(matches!(object.kind, ExprKind::Variable(ref name) if name == "o"));
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0].kind, ExprKind::StringLiteral(ref value) if value == "web"));
+            }
+            other => panic!("expected fixed method call, got {:?}", other),
+        },
+        other => panic!("expected echo, got {:?}", other),
+    }
+}
+
+#[test]
 fn test_negative_integer() {
     let stmts = parse_source("<?php echo -7;");
     assert_eq!(stmts, vec![Stmt::echo(Expr::negate(Expr::int_lit(7)))]);

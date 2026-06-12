@@ -21,6 +21,7 @@ use super::toolchain::host_has_native_aarch64_toolchain;
 pub enum Platform {
     MacOS,
     Linux,
+    Web,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -56,6 +57,7 @@ impl Platform {
         match self {
             Platform::MacOS => "Darwin",
             Platform::Linux => "Linux",
+            Platform::Web => "Web",
         }
     }
 
@@ -68,6 +70,7 @@ impl Platform {
         match self {
             Platform::MacOS => 0x601,
             Platform::Linux => 0x241,
+            Platform::Web => 0,
         }
     }
 
@@ -77,6 +80,7 @@ impl Platform {
         match self {
             Platform::MacOS => 0x4048_7413,
             Platform::Linux => 0x5401,
+            Platform::Web => 0,
         }
     }
 
@@ -86,6 +90,7 @@ impl Platform {
         match self {
             Platform::MacOS => 0x0004,
             Platform::Linux => 0x0800,
+            Platform::Web => 0,
         }
     }
 
@@ -95,6 +100,7 @@ impl Platform {
         match self {
             Platform::MacOS => 0xffff,
             Platform::Linux => 1,
+            Platform::Web => 0,
         }
     }
 
@@ -104,6 +110,7 @@ impl Platform {
         match self {
             Platform::MacOS => 0x1006,
             Platform::Linux => 20,
+            Platform::Web => 0,
         }
     }
 
@@ -126,6 +133,7 @@ impl Platform {
         match self {
             Platform::MacOS => 0x0200,
             Platform::Linux => 15,
+            Platform::Web => 0,
         }
     }
 
@@ -136,6 +144,7 @@ impl Platform {
         match self {
             Platform::MacOS => 0x0020,
             Platform::Linux => 6,
+            Platform::Web => 0,
         }
     }
 
@@ -153,6 +162,7 @@ impl Platform {
         match self {
             Platform::MacOS => 27,
             Platform::Linux => 26,
+            Platform::Web => 0,
         }
     }
 
@@ -162,6 +172,7 @@ impl Platform {
         match self {
             Platform::MacOS => 61,
             Platform::Linux => 111,
+            Platform::Web => 0,
         }
     }
 
@@ -172,6 +183,7 @@ impl Platform {
         match self {
             Platform::MacOS => 30,
             Platform::Linux => 10,
+            Platform::Web => 0,
         }
     }
 
@@ -185,6 +197,7 @@ impl Platform {
         match self {
             Platform::MacOS => 32,
             Platform::Linux => 24,
+            Platform::Web => 0,
         }
     }
 
@@ -195,6 +208,7 @@ impl Platform {
         match self {
             Platform::MacOS => 0x201,
             Platform::Linux => 0x41,
+            Platform::Web => 0,
         }
     }
 
@@ -205,6 +219,7 @@ impl Platform {
         match self {
             Platform::MacOS => 0x209,
             Platform::Linux => 0x441,
+            Platform::Web => 0,
         }
     }
 
@@ -216,6 +231,7 @@ impl Platform {
         match self {
             Platform::MacOS => format!("b.cc {}", label),
             Platform::Linux => format!("b.ge {}", label),
+            Platform::Web => panic!("syscall branches are not available for wasm32-web"),
         }
     }
 
@@ -234,6 +250,7 @@ impl Platform {
         match self {
             Platform::MacOS => 144,
             Platform::Linux => 128,
+            Platform::Web => 0,
         }
     }
 
@@ -242,6 +259,7 @@ impl Platform {
         match self {
             Platform::MacOS => 4,
             Platform::Linux => 16,
+            Platform::Web => 0,
         }
     }
 
@@ -253,6 +271,7 @@ impl Platform {
         match self {
             Platform::MacOS => format!("ldrh {}, [{}, #{}]", dest, base, offset),
             Platform::Linux => format!("ldr {}, [{}, #{}]", dest, base, offset),
+            Platform::Web => panic!("native stat layout is not available for wasm32-web"),
         }
     }
 
@@ -261,6 +280,7 @@ impl Platform {
         match self {
             Platform::MacOS => 96,
             Platform::Linux => 48,
+            Platform::Web => 0,
         }
     }
 
@@ -269,6 +289,7 @@ impl Platform {
         match self {
             Platform::MacOS => 2168,
             Platform::Linux => 128,
+            Platform::Web => 0,
         }
     }
 
@@ -277,6 +298,7 @@ impl Platform {
         match self {
             Platform::MacOS => 0,
             Platform::Linux => 8,
+            Platform::Web => 0,
         }
     }
 
@@ -285,6 +307,7 @@ impl Platform {
         match self {
             Platform::MacOS => 8,
             Platform::Linux => 16,
+            Platform::Web => 0,
         }
     }
 
@@ -293,6 +316,7 @@ impl Platform {
         match self {
             Platform::MacOS => 24,
             Platform::Linux => 32,
+            Platform::Web => 0,
         }
     }
 
@@ -301,6 +325,7 @@ impl Platform {
         match self {
             Platform::MacOS => 48,
             Platform::Linux => 88,
+            Platform::Web => 0,
         }
     }
 
@@ -309,6 +334,7 @@ impl Platform {
         match self {
             Platform::MacOS => 32,
             Platform::Linux => 72,
+            Platform::Web => 0,
         }
     }
 
@@ -317,6 +343,7 @@ impl Platform {
         match self {
             Platform::MacOS => 64,
             Platform::Linux => 104,
+            Platform::Web => 0,
         }
     }
 
@@ -325,6 +352,7 @@ impl Platform {
         match self {
             Platform::MacOS => 8,
             Platform::Linux => 8,
+            Platform::Web => 0,
         }
     }
 
@@ -333,6 +361,7 @@ impl Platform {
         match self {
             Platform::MacOS => 16,
             Platform::Linux => 24,
+            Platform::Web => 0,
         }
     }
 
@@ -341,6 +370,7 @@ impl Platform {
         match self {
             Platform::MacOS => 20,
             Platform::Linux => 28,
+            Platform::Web => 0,
         }
     }
 
@@ -352,6 +382,7 @@ impl Platform {
         match self {
             Platform::MacOS => 0,
             Platform::Linux => 0,
+            Platform::Web => 0,
         }
     }
 
@@ -360,6 +391,7 @@ impl Platform {
         match self {
             Platform::MacOS => 24,
             Platform::Linux => 32,
+            Platform::Web => 0,
         }
     }
 
@@ -368,6 +400,7 @@ impl Platform {
         match self {
             Platform::MacOS => 6,
             Platform::Linux => 20,
+            Platform::Web => 0,
         }
     }
 
@@ -376,6 +409,7 @@ impl Platform {
         match self {
             Platform::MacOS => 112,
             Platform::Linux => 56,
+            Platform::Web => 0,
         }
     }
 
@@ -384,6 +418,7 @@ impl Platform {
         match self {
             Platform::MacOS => 104,
             Platform::Linux => 64,
+            Platform::Web => 0,
         }
     }
 
@@ -395,6 +430,7 @@ impl Platform {
         match self {
             Platform::MacOS => format!("ldrsw {}, [{}, #{}]", dest_x, base, offset),
             Platform::Linux => format!("ldr {}, [{}, #{}]", dest_x, base, offset),
+            Platform::Web => panic!("native stat layout is not available for wasm32-web"),
         }
     }
 
@@ -405,6 +441,7 @@ impl Platform {
         match self {
             Platform::MacOS => format!("ldrsw {}, [{}, #{}]", dest_x, base, offset),
             Platform::Linux => format!("ldr {}, [{}, #{}]", dest_x, base, offset),
+            Platform::Web => panic!("native stat layout is not available for wasm32-web"),
         }
     }
 
@@ -415,6 +452,7 @@ impl Platform {
         match self {
             Platform::MacOS => format!("ldrh {}, [{}, #{}]", dest_w, base, offset),
             Platform::Linux => format!("ldr {}, [{}, #{}]", dest_w, base, offset),
+            Platform::Web => panic!("native stat layout is not available for wasm32-web"),
         }
     }
 
@@ -426,6 +464,7 @@ impl Platform {
         match self {
             Platform::MacOS => -2,
             Platform::Linux => -100,
+            Platform::Web => 0,
         }
     }
 
@@ -437,6 +476,7 @@ impl Platform {
         match self {
             Platform::MacOS => -1,
             Platform::Linux => 0x3FFF_FFFF,
+            Platform::Web => 0,
         }
     }
 
@@ -445,6 +485,7 @@ impl Platform {
         match self {
             Platform::MacOS => 21,
             Platform::Linux => 19,
+            Platform::Web => 0,
         }
     }
 
@@ -453,12 +494,16 @@ impl Platform {
         match self {
             Platform::MacOS => 32,
             Platform::Linux => 8,
+            Platform::Web => 0,
         }
     }
 
     /// Returns the size of PCRE2 POSIX-wrapper `struct regex_t` in bytes.
     pub fn regex_t_size(&self) -> usize {
-        48
+        match self {
+            Platform::MacOS | Platform::Linux => 48,
+            Platform::Web => 0,
+        }
     }
 
     /// Returns the byte offset of `re_nsub` within PCRE2 POSIX-wrapper `struct regex_t`.
@@ -471,24 +516,34 @@ impl Platform {
         match self {
             Platform::MacOS => 2,
             Platform::Linux => 0,
+            Platform::Web => 0,
         }
     }
 
     /// Returns the size of PCRE2 POSIX-wrapper `struct regmatch_t` in bytes.
     pub fn regmatch_t_size(&self) -> usize {
-        8
+        match self {
+            Platform::MacOS | Platform::Linux => 8,
+            Platform::Web => 0,
+        }
     }
 
     /// Returns the byte offset of `rm_eo` within PCRE2 POSIX-wrapper `struct regmatch_t`.
     pub fn regmatch_rm_eo_offset(&self) -> usize {
-        4
+        match self {
+            Platform::MacOS | Platform::Linux => 4,
+            Platform::Web => 0,
+        }
     }
 
     /// Returns the ARM64 load instruction for a `regoff_t` field (regex match offset).
     ///
     /// PCRE2's POSIX wrapper uses signed 32-bit offsets on all supported targets.
     pub fn regoff_load_instr(&self, dest: &str, base: &str, offset: usize) -> String {
-        format!("ldrsw {}, [{}, #{}]", dest, base, offset)
+        match self {
+            Platform::MacOS | Platform::Linux => format!("ldrsw {}, [{}, #{}]", dest, base, offset),
+            Platform::Web => panic!("native regex layout is not available for wasm32-web"),
+        }
     }
 }
 
@@ -541,8 +596,11 @@ impl Target {
             "linux-x86_64" | "x86_64-unknown-linux-gnu" => {
                 Ok(Self::new(Platform::Linux, Arch::X86_64))
             }
+            "wasm32-web" | "wasm32-unknown-unknown" => {
+                Ok(Self::new(Platform::Web, Arch::X86_64))
+            }
             _ => Err(format!(
-                "unsupported target '{}'; expected one of: macos-aarch64, macos-x86_64, linux-aarch64, linux-x86_64",
+                "unsupported target '{}'; expected one of: macos-aarch64, macos-x86_64, linux-aarch64, linux-x86_64, wasm32-web",
                 value
             )),
         }
@@ -557,6 +615,7 @@ impl Target {
             (Platform::MacOS, Arch::X86_64) => "macos-x86_64",
             (Platform::Linux, Arch::AArch64) => "linux-aarch64",
             (Platform::Linux, Arch::X86_64) => "linux-x86_64",
+            (Platform::Web, _) => "wasm32-web",
         }
     }
 
@@ -569,12 +628,18 @@ impl Target {
             (Platform::MacOS, Arch::AArch64)
                 | (Platform::Linux, Arch::AArch64)
                 | (Platform::Linux, Arch::X86_64)
+                | (Platform::Web, _)
         )
     }
 
     /// Returns the Darwin architecture name used in Mach-O files and `AS`/`LD` flags.
     ///
     /// Returns `"arm64"` for `AArch64` and `"x86_64"` for `X86_64`.
+
+    pub fn is_wasm(&self) -> bool {
+        matches!(self.platform, Platform::Web)
+    }
+
     pub fn darwin_arch_name(&self) -> &'static str {
         match self.arch {
             Arch::AArch64 => "arm64",
@@ -604,6 +669,7 @@ impl Target {
         match (self.platform, self.arch) {
             (Platform::MacOS, Arch::AArch64) => asm.to_string(),
             (Platform::Linux, Arch::AArch64) => transform_for_linux(asm),
+            (Platform::Web, _) => asm.to_string(),
             _ => asm.to_string(),
         }
     }
@@ -615,6 +681,7 @@ impl Target {
         match (self.platform, self.arch) {
             (Platform::MacOS, Arch::AArch64) => ";",
             (Platform::Linux, Arch::AArch64) => "//",
+            (Platform::Web, _) => ";;",
             (_, Arch::X86_64) => "#",
         }
     }
@@ -684,7 +751,6 @@ impl Target {
         emitter.instruction("svc #0");                                          // invoke the Linux kernel supervisor call
     }
 
-
     /// Returns the platform-mangled extern symbol name.
     ///
     /// macOS prefixes C symbols with `_` (e.g., `"printf"` → `"_printf"`);
@@ -693,6 +759,7 @@ impl Target {
         match self.platform {
             Platform::MacOS => format!("_{}", name),
             Platform::Linux => name.to_string(),
+            Platform::Web => name.to_string(),
         }
     }
 
@@ -711,6 +778,7 @@ impl Target {
                 }
             }
             (Platform::Linux, Arch::X86_64) => "as",
+            (Platform::Web, _) => "wat2wasm",
         }
     }
 
@@ -729,6 +797,7 @@ impl Target {
                 }
             }
             (Platform::Linux, Arch::X86_64) => "gcc",
+            (Platform::Web, _) => "wasm-ld",
         }
     }
 }

@@ -102,6 +102,32 @@ pub(in crate::parser::stmt) fn parse_variable_stmt(
                     span,
                 ));
             }
+            if let ExprKind::DynamicPropertyAccess { object, property } = expr.kind {
+                let target = Expr::new(
+                    ExprKind::DynamicPropertyAccess {
+                        object: object.clone(),
+                        property: property.clone(),
+                    },
+                    span,
+                );
+                let value = match op {
+                    compound::AssignmentOperator::Assign => rhs,
+                    _ => compound::assignment_value(target.clone(), op, rhs, span),
+                };
+                return Ok(Stmt::new(
+                    StmtKind::ExprStmt(Expr::new(
+                        ExprKind::Assignment {
+                            target: Box::new(target),
+                            value: Box::new(value),
+                            result_target: None,
+                            prelude: Vec::new(),
+                            conditional_value_temp: None,
+                        },
+                        span,
+                    )),
+                    span,
+                ));
+            }
             return Err(CompileError::new(span, "Invalid assignment target"));
         }
         expect_semicolon(tokens, pos)?;

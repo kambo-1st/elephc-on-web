@@ -445,6 +445,22 @@ fn test_error_ifdef_requires_braced_body() {
 
 /// Verifies the error diagnostic for missing while paren.
 #[test]
+fn test_error_runtime_dynamic_method_calls_remain_unsupported() {
+    expect_error(
+        "<?php $method = \"label\"; echo $o->{$method}();",
+        "Dynamic method calls are not supported yet",
+    );
+}
+
+#[test]
+fn test_error_runtime_dynamic_static_method_calls_remain_unsupported() {
+    expect_error(
+        "<?php $method = \"label\"; echo Box::{$method}();",
+        "Dynamic static method calls are not supported yet",
+    );
+}
+
+#[test]
 fn test_error_missing_while_paren() {
     // A `while` statement missing the opening `(` after `while` produces "Expected '(' after 'while'".
     expect_error("<?php while 1 { }", "Expected '(' after 'while'");

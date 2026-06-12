@@ -61,6 +61,9 @@ pub fn emit(
         (Platform::MacOS, Arch::X86_64) => {
             panic!("exit() is not implemented yet for target macos-x86_64");
         }
+        (Platform::Web, _) => {
+            panic!("native exit() emission is not available for wasm32-web");
+        }
     }
 
     Some(PhpType::Void)

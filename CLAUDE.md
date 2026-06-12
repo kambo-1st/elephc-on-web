@@ -58,6 +58,26 @@ The full test suite is slow because each codegen test spawns `as` + `ld` + runs 
 3. **When the feature is complete**: run the full suite once (`cargo test`) to check for regressions
 4. **PHP cross-check**: opt-in via `ELEPHC_PHP_CHECK=1 cargo test` — verifies output matches PHP interpreter
 
+For wasm32-web work specifically, keep the inner loop short and use three
+verification levels:
+
+1. **Inner loop**: run the specific failing or touched wasm test first.
+2. **Slice loop**: run a small focused filter for the touched feature area,
+   such as `pipe`, `array_map`, `unknown_mixed_array`, `object_cell`, or
+   `foreach_by_reference`.
+3. **Commit gate**: run the full wasm gate before each risky semantic commit.
+   For purely mechanical splits, it is acceptable to batch 2-3 tight edits
+   before the full gate if focused tests stay green.
+
+```bash
+cargo test --test wasm_tests -- --nocapture --test-threads=1 && cargo check && git diff --check
+```
+
+Prefer compile-only WAT assertions for pure lowering or rejection checks, then
+add PHP-oracle e2e coverage for supported PHP behavior. The full wasm gate
+currently takes about 7 minutes, so use it as the commit gate, not the inner
+development loop.
+
 ### Pre-commit verification
 
 Before committing code changes, run the smallest useful focused tests first, then the full gates:
@@ -347,6 +367,12 @@ Adding or updating function docblocks must not change code behavior. Do not alte
 - Do not add an ARM64-only runtime helper, builtin emitter, ABI path, or ownership cleanup path unless the feature is intentionally target-gated and documented as unsupported elsewhere.
 - Test target-sensitive changes on every supported target they can affect. Use the Docker Linux scripts when the change can affect Linux x86_64 or Linux ARM64.
 
+### wasm32-web runtime-helper policy
+
+- wasm32-web must follow the native backend's runtime-helper approach for PHP runtime semantics: value cells, hash/associative arrays, refcounting/COW, and callables belong in WASM-only `__rt_*` helpers emitted from `src/codegen/wasm/`.
+- wasm codegen should call those helpers instead of growing large ad hoc inline WAT for each feature case. Small bridge sequences are fine when they only marshal helper arguments or unpack helper results.
+- Keep this isolated from native codegen. When migrating existing inline wasm behavior, move it in vertical green slices with PHP-oracle e2e coverage and reject unsupported forms with `CompileError`.
+
 ### ARM64 quick reference
 
 - **Integers**: result in `x0`
@@ -417,6 +443,12 @@ cargo run -- examples/fizzbuzz/main.php
 - Built-in function signatures must match PHP (argument count, order, types)
 
 When in doubt, test with `php -r '...'` to verify behavior.
+
+When investigating compatibility, record any confirmed disparity between native
+elephc and Zend PHP in `found-zend-php-disparities.md`. Include the PHP snippet,
+the observed Zend PHP behavior, the observed native elephc behavior, and source
+pointers when known. Do not log wasm-only gaps there unless the same disparity is
+also present in native elephc.
 
 **elephc also provides compiler-specific extensions** beyond standard PHP (e.g., `ptr`, `extern`, `buffer<T>`, `packed class`). These features have no PHP equivalent and are not expected to run under the PHP interpreter. They are clearly distinguishable from PHP syntax and exist to enable use cases (FFI, game development, low-level memory access) that PHP cannot address.
 

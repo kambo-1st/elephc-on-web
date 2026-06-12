@@ -84,6 +84,7 @@ The full PHP `JSON_*` family is exposed and can be combined with the bitwise OR 
 | `JSON_UNESCAPED_UNICODE` | 256 | | |
 | `JSON_PARTIAL_OUTPUT_ON_ERROR` | 512 | | |
 | `JSON_PRESERVE_ZERO_FRACTION` | 1024 | | |
+| `JSON_UNESCAPED_LINE_TERMINATORS` | 2048 | | |
 | `JSON_INVALID_UTF8_IGNORE` | 1048576 | | |
 | `JSON_INVALID_UTF8_SUBSTITUTE` | 2097152 | | |
 | `JSON_THROW_ON_ERROR` | 4194304 | | |
@@ -95,7 +96,7 @@ The full PHP `JSON_*` family is exposed and can be combined with the bitwise OR 
 | `JSON_ERROR_STATE_MISMATCH` | 2 | `JSON_ERROR_UNSUPPORTED_TYPE` | 8 |
 | `JSON_ERROR_CTRL_CHAR` | 3 | `JSON_ERROR_INVALID_PROPERTY_NAME` | 9 |
 | `JSON_ERROR_SYNTAX` | 4 | `JSON_ERROR_UTF16` | 10 |
-| `JSON_ERROR_UTF8` | 5 | | |
+| `JSON_ERROR_UTF8` | 5 | `JSON_ERROR_NON_BACKED_ENUM` | 11 |
 
 ### Classes and interfaces
 

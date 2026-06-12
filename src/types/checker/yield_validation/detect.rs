@@ -118,7 +118,8 @@ fn stmt_contains_yield(stmt: &Stmt) -> bool {
         StmtKind::ArrayAssign { index, value, .. } => {
             expr_contains_yield(index) || expr_contains_yield(value)
         }
-        StmtKind::NestedArrayAssign { target, value } => {
+        StmtKind::NestedArrayAssign { target, value }
+        | StmtKind::NestedArrayPush { target, value } => {
             expr_contains_yield(target) || expr_contains_yield(value)
         }
         StmtKind::ArrayPush { value, .. } => expr_contains_yield(value),

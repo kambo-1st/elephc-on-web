@@ -156,6 +156,10 @@ fn rewrite_stmt_kind(kind: StmtKind, defines: &HashSet<String>) -> StmtKind {
             target: rewrite_expr(target, defines),
             value: rewrite_expr(value, defines),
         },
+        StmtKind::NestedArrayPush { target, value } => StmtKind::NestedArrayPush {
+            target: rewrite_expr(target, defines),
+            value: rewrite_expr(value, defines),
+        },
         StmtKind::ArrayPush { array, value } => StmtKind::ArrayPush {
             array,
             value: rewrite_expr(value, defines),

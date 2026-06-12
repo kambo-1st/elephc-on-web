@@ -1382,6 +1382,18 @@ pub(super) fn check_builtin(
             }
             Ok(Some(PhpType::Array(Box::new(PhpType::Str))))
         }
+        "method_exists" | "property_exists" => {
+            if args.len() != 2 {
+                return Err(CompileError::new(
+                    span,
+                    &format!("{}() takes exactly 2 arguments", name),
+                ));
+            }
+            for arg in args {
+                checker.infer_type(arg, env)?;
+            }
+            Ok(Some(PhpType::Bool))
+        }
         "function_exists" => {
             if args.len() != 1 {
                 return Err(CompileError::new(

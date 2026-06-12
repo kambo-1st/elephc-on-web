@@ -28,6 +28,8 @@ struct OutputPaths {
     asm: PathBuf,
     obj: PathBuf,
     bin: PathBuf,
+    wat: PathBuf,
+    wasm: PathBuf,
     source_map: PathBuf,
 }
 
@@ -232,6 +234,33 @@ pub(crate) fn compile(config: CliConfig) {
         return;
     }
 
+    if target.is_wasm() {
+        let format = if emit_asm {
+            codegen::wasm::WasmOutputFormat::Wat
+        } else {
+            codegen::wasm::WasmOutputFormat::Wasm
+        };
+        let output = match codegen::wasm::generate(&ast, format) {
+            Ok(output) => output,
+            Err(e) => {
+                errors::report(&e.with_file(filename.to_string()));
+                process::exit(1);
+            }
+        };
+        let output_path = if emit_asm {
+            &output_paths.wat
+        } else {
+            &output_paths.wasm
+        };
+        if let Err(e) = fs::write(output_path, &output) {
+            eprintln!("Error writing '{}': {}", output_path.display(), e);
+            process::exit(1);
+        }
+        timings.report();
+        println!("Compiled '{}' -> '{}'", filename, output_path.display());
+        return;
+    }
+
     let ir_module = if matches!(backend, CodegenBackend::Eir) {
         let phase_started = Instant::now();
         let module = match ir_lower::lower_program(&ast, &check_result, target) {
@@ -259,7 +288,6 @@ pub(crate) fn compile(config: CliConfig) {
             .required_libraries
             .iter()
             .any(|lib| lib == "elephc_tls");
-
     let phase_started = Instant::now();
     let runtime_pic = matches!(emit, Emit::Cdylib);
     let runtime_object = match runtime_cache::prepare_runtime_object(heap_size, target, runtime_features, runtime_pic) {
@@ -397,12 +425,15 @@ fn output_paths(filename: &str, target: Target, emit: Emit) -> OutputPaths {
         Emit::Cdylib => match target.platform {
             Platform::MacOS => format!("lib{}.dylib", stem),
             Platform::Linux => format!("lib{}.so", stem),
+            Platform::Web => format!("{}.wasm", stem),
         },
     };
     OutputPaths {
         asm: parent.join(format!("{}.s", stem)),
         obj: parent.join(format!("{}.o", stem)),
         bin: parent.join(bin_name),
+        wat: parent.join(format!("{}.wat", stem)),
+        wasm: parent.join(format!("{}.wasm", stem)),
         source_map: parent.join(format!("{}.map", stem)),
     }
 }

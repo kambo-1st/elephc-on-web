@@ -146,6 +146,8 @@ pub(crate) fn builtin_call_sig(name: &str) -> Option<FunctionSig> {
         "get_declared_classes" | "get_declared_interfaces" | "get_declared_traits" => {
             Some(fixed(&[]))
         }
+        "method_exists" => Some(fixed(&["object_or_class", "method"])),
+        "property_exists" => Some(fixed(&["object_or_class", "property"])),
         "is_a" => Some(optional(
             &["object_or_class", "class", "allow_string"],
             2,

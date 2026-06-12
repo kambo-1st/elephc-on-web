@@ -126,7 +126,8 @@ fn stmt_has_dynamic_instanceof(stmt: &Stmt) -> bool {
         | StmtKind::StaticPropertyArrayAssign { index, value, .. } => {
             expr_has_dynamic_instanceof(index) || expr_has_dynamic_instanceof(value)
         }
-        StmtKind::NestedArrayAssign { target, value } => {
+        StmtKind::NestedArrayAssign { target, value }
+        | StmtKind::NestedArrayPush { target, value } => {
             expr_has_dynamic_instanceof(target) || expr_has_dynamic_instanceof(value)
         }
         _ => false,

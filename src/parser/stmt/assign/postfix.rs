@@ -101,6 +101,10 @@ pub(in crate::parser::stmt) fn try_parse_postfix_assignment(
                     index: *index,
                     value,
                 },
+                _ if is_append => StmtKind::NestedArrayPush {
+                    target: Expr::new(ExprKind::ArrayAccess { array, index }, span),
+                    value,
+                },
                 _ => StmtKind::NestedArrayAssign {
                     target: Expr::new(ExprKind::ArrayAccess { array, index }, span),
                     value,
@@ -112,6 +116,21 @@ pub(in crate::parser::stmt) fn try_parse_postfix_assignment(
             property,
             value,
         },
+        ExprKind::DynamicPropertyAccess { object, property } if !is_append => StmtKind::ExprStmt(
+            Expr::new(
+                ExprKind::Assignment {
+                    target: Box::new(Expr::new(
+                        ExprKind::DynamicPropertyAccess { object, property },
+                        span,
+                    )),
+                    value: Box::new(value),
+                    result_target: None,
+                    prelude: Vec::new(),
+                    conditional_value_temp: None,
+                },
+                span,
+            ),
+        ),
         _ => return Err(CompileError::new(span, "Invalid assignment target")),
     };
 
@@ -302,6 +321,10 @@ pub(in crate::parser::stmt) fn try_parse_scoped_property_assignment(
                     value,
                 }
             }
+            _ if is_append => StmtKind::NestedArrayPush {
+                target: Expr::new(ExprKind::ArrayAccess { array, index }, span),
+                value,
+            },
             _ => StmtKind::NestedArrayAssign {
                 target: Expr::new(ExprKind::ArrayAccess { array, index }, span),
                 value,
@@ -401,6 +424,10 @@ pub(crate) fn can_replay_assignment_target(expr: &Expr) -> bool {
             can_replay_assignment_target(array) && can_replay_assignment_target(index)
         }
         ExprKind::PropertyAccess { object, .. } => can_replay_assignment_target(object),
+        ExprKind::DynamicPropertyAccess { object, property }
+        | ExprKind::NullsafeDynamicPropertyAccess { object, property } => {
+            can_replay_assignment_target(object) && can_replay_assignment_target(property)
+        }
         ExprKind::BinaryOp { left, right, .. } => {
             can_replay_assignment_target(left) && can_replay_assignment_target(right)
         }

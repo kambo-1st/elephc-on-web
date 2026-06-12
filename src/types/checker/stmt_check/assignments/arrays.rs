@@ -163,6 +163,7 @@ pub(super) fn check_nested_array_assign(
     checker.infer_type_with_assignment_effects(value, env)?;
     match arr_ty {
         PhpType::Mixed => Ok(()),
+        PhpType::Array(_) | PhpType::AssocArray { .. } => Ok(()),
         PhpType::Str => Err(CompileError::new(
             span,
             "String offset assignment is not supported",

@@ -39,6 +39,7 @@ mod runtime_features;
 pub(crate) mod sentinels;
 mod stmt;
 pub(crate) mod visibility;
+pub mod wasm;
 
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};

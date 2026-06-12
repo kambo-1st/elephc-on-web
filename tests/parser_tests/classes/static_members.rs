@@ -115,6 +115,66 @@ fn test_parse_first_class_callable_static_method() {
 /// Parses `$f = static function() { return 1; };` and verifies the closure expression
 /// has `is_static = true` and `is_arrow = false`.
 #[test]
+fn test_parse_static_string_dynamic_static_method_call_as_fixed_method_call() {
+    let stmts = parse_source("<?php Foo::{\"build\"}(\"web\");");
+    match &stmts[0].kind {
+        StmtKind::ExprStmt(expr) => match &expr.kind {
+            ExprKind::StaticMethodCall {
+                receiver,
+                method,
+                args,
+            } => {
+                assert_eq!(method, "build");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0].kind, ExprKind::StringLiteral(ref value) if value == "web"));
+                match receiver {
+                    StaticReceiver::Named(name) => assert_eq!(name.as_str(), "Foo"),
+                    other => panic!("Expected named static receiver, got {:?}", other),
+                }
+            }
+            other => panic!("Expected static method call, got {:?}", other),
+        },
+        other => panic!("Expected expression statement, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_parse_static_string_dynamic_static_method_first_class_callable() {
+    let stmts = parse_source("<?php Foo::{\"build\"}(...);");
+    match &stmts[0].kind {
+        StmtKind::ExprStmt(expr) => match &expr.kind {
+            ExprKind::FirstClassCallable(CallableTarget::StaticMethod { receiver, method }) => {
+                assert_eq!(method, "build");
+                match receiver {
+                    StaticReceiver::Named(name) => assert_eq!(name.as_str(), "Foo"),
+                    other => panic!("Expected named static receiver, got {:?}", other),
+                }
+            }
+            other => panic!("Expected static first-class callable, got {:?}", other),
+        },
+        other => panic!("Expected expression statement, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_parse_static_string_dynamic_class_constant_as_scoped_constant() {
+    let stmts = parse_source("<?php echo Foo::{\"NAME\"};");
+    match &stmts[0].kind {
+        StmtKind::Echo(expr) => match &expr.kind {
+            ExprKind::ScopedConstantAccess { receiver, name } => {
+                assert_eq!(name, "NAME");
+                match receiver {
+                    StaticReceiver::Named(class_name) => assert_eq!(class_name.as_str(), "Foo"),
+                    other => panic!("Expected named static receiver, got {:?}", other),
+                }
+            }
+            other => panic!("Expected scoped constant access, got {:?}", other),
+        },
+        other => panic!("Expected echo, got {:?}", other),
+    }
+}
+
+#[test]
 fn test_parse_static_closure_sets_is_static() {
     let stmts = parse_source("<?php $f = static function() { return 1; };");
     match &stmts[0].kind {

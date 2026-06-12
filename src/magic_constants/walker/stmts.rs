@@ -87,6 +87,10 @@ pub(super) fn walk_stmt<P: Pass>(stmt: Stmt, pass: &mut P) -> Stmt {
             target: walk_expr(target, pass),
             value: walk_expr(value, pass),
         },
+        StmtKind::NestedArrayPush { target, value } => StmtKind::NestedArrayPush {
+            target: walk_expr(target, pass),
+            value: walk_expr(value, pass),
+        },
         StmtKind::ArrayPush { array, value } => StmtKind::ArrayPush {
             array,
             value: walk_expr(value, pass),

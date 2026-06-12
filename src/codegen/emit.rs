@@ -104,6 +104,7 @@ impl Emitter {
         match self.platform {
             Platform::MacOS => self.instruction(&format!("adrp {}, {}@PAGE", reg, sym)),
             Platform::Linux => self.instruction(&format!("adrp {}, {}", reg, sym)),
+            Platform::Web => panic!("native relocation emission is not available for wasm32-web"),
         }
     }
 
@@ -114,6 +115,7 @@ impl Emitter {
         match self.platform {
             Platform::MacOS => self.instruction(&format!("add {}, {}, {}@PAGEOFF", dst, src, sym)),
             Platform::Linux => self.instruction(&format!("add {}, {}, :lo12:{}", dst, src, sym)),
+            Platform::Web => panic!("native relocation emission is not available for wasm32-web"),
         }
     }
 
@@ -125,6 +127,7 @@ impl Emitter {
                 self.instruction(&format!("ldr {}, [{}, {}@PAGEOFF]", reg, base, sym))
             }
             Platform::Linux => self.instruction(&format!("ldr {}, [{}, :lo12:{}]", reg, base, sym)),
+            Platform::Web => panic!("native relocation emission is not available for wasm32-web"),
         }
     }
 
@@ -135,6 +138,7 @@ impl Emitter {
         match self.platform {
             Platform::MacOS => self.instruction(&format!("adrp {}, {}@GOTPAGE", reg, sym)),
             Platform::Linux => self.instruction(&format!("adrp {}, :got:{}", reg, sym)),
+            Platform::Web => panic!("native relocation emission is not available for wasm32-web"),
         }
     }
 
@@ -148,6 +152,7 @@ impl Emitter {
             Platform::Linux => {
                 self.instruction(&format!("ldr {}, [{}, :got_lo12:{}]", reg, base, sym))
             }
+            Platform::Web => panic!("native relocation emission is not available for wasm32-web"),
         }
     }
 
@@ -167,6 +172,7 @@ impl Emitter {
                 let target = self.target;
                 target.emit_linux_syscall(self, macos_num);
             }
+            Platform::Web => panic!("native syscall emission is not available for wasm32-web"),
         }
     }
 
@@ -181,6 +187,9 @@ impl Emitter {
             (Platform::MacOS, Arch::X86_64) => {
                 panic!("C symbol calls are not implemented yet for target macos-x86_64");
             }
+            (Platform::Web, _) => {
+                panic!("native C symbol calls are not available for wasm32-web");
+            }
         }
     }
 
@@ -192,6 +201,7 @@ impl Emitter {
             Arch::AArch64 => match self.platform {
                 Platform::MacOS => self.label_global("_main"),
                 Platform::Linux => self.label_global("main"),
+                Platform::Web => panic!("native entry labels are not available for wasm32-web"),
             },
             Arch::X86_64 => self.label_global("main"),
         }

@@ -62,6 +62,9 @@ pub(crate) fn lower_stmt(ctx: &mut LoweringContext<'_, '_>, stmt: &Stmt) {
         StmtKind::NestedArrayAssign { target, value } => {
             lower_nested_array_assign(ctx, target, value, stmt.span);
         }
+        StmtKind::NestedArrayPush { .. } => {
+            panic!("Nested array push is not supported by the EIR backend yet");
+        }
         StmtKind::ArrayPush { array, value } => lower_array_push(ctx, array, value, stmt.span),
         StmtKind::TypedAssign {
             type_expr,

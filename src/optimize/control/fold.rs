@@ -91,6 +91,10 @@ pub(crate) fn fold_stmt(stmt: Stmt) -> Stmt {
             target: fold_expr(target),
             value: fold_expr(value),
         },
+        StmtKind::NestedArrayPush { target, value } => StmtKind::NestedArrayPush {
+            target: fold_expr(target),
+            value: fold_expr(value),
+        },
         StmtKind::ArrayPush { array, value } => StmtKind::ArrayPush {
             array,
             value: fold_expr(value),

@@ -1,0 +1,222 @@
+//! Purpose:
+//! Infers key local kinds for wasm32-web `foreach ($array as $key => ...)`.
+//! Keeps foreach key metadata separate from broader local collection.
+//!
+//! Called from:
+//! - `super::collect_stmt_locals()` when a foreach binds an explicit key.
+//!
+//! Key details:
+//! - PHP-normalized runtime keys are mixed because integer and string keys can coexist.
+//! - Key-preserving transforms reuse source metadata instead of duplicating array semantics.
+
+use super::*;
+
+pub(super) fn foreach_key_local_kind(
+    array: &Expr,
+    array_nested_values: &HashMap<String, Vec<Option<NestedArrayMetadata>>>,
+    array_runtime_nested_values: &HashMap<String, NestedArrayMetadata>,
+    array_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+    array_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
+    array_runtime_value_kinds: &HashMap<String, ValueCellKind>,
+    php_normalized_key_arrays: &HashSet<String>,
+    function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
+    function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+) -> LocalKind {
+    if expr_has_marked_php_normalized_runtime_keys(array, php_normalized_key_arrays) {
+        return LocalKind::Mixed;
+    }
+    if array_access_has_unknown_assoc_keys(array, array_nested_values, array_runtime_nested_values)
+    {
+        return LocalKind::Mixed;
+    }
+    let key_kinds = match &array.kind {
+        ExprKind::ArrayLiteralAssoc(items) => static_assoc_key_kinds_for_items(items),
+        ExprKind::Variable(name) => array_key_kinds.get(name).cloned(),
+        ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("array_filter") => {
+            array_filter_foreach_key_kinds(
+                args,
+                array_key_kinds,
+                array_value_kinds,
+                array_runtime_value_kinds,
+                function_array_return_key_kinds,
+            )
+        }
+        ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("array_map") => {
+            array_map_foreach_key_kinds(
+                args,
+                array_key_kinds,
+                array_value_kinds,
+                array_runtime_value_kinds,
+                function_array_return_value_kinds,
+                function_array_return_key_kinds,
+            )
+        }
+        ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("array_reverse") => {
+            key_preserving_transform_foreach_key_kinds(
+                args,
+                array_key_kinds,
+                array_value_kinds,
+                array_runtime_value_kinds,
+                function_array_return_value_kinds,
+                function_array_return_key_kinds,
+            )
+        }
+        ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("array_unique") => {
+            key_preserving_transform_foreach_key_kinds(
+                args,
+                array_key_kinds,
+                array_value_kinds,
+                array_runtime_value_kinds,
+                function_array_return_value_kinds,
+                function_array_return_key_kinds,
+            )
+        }
+        ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("array_slice") => {
+            if args.first().is_some_and(array_method_source_needs_mixed_key) {
+                return LocalKind::Mixed;
+            }
+            key_preserving_transform_foreach_key_kinds(
+                args,
+                array_key_kinds,
+                array_value_kinds,
+                array_runtime_value_kinds,
+                function_array_return_value_kinds,
+                function_array_return_key_kinds,
+            )
+        }
+        ExprKind::FunctionCall { name, .. } if name.eq_ignore_ascii_case("pathinfo") => {
+            Some(vec![AssocKeyKind::Str])
+        }
+        ExprKind::FunctionCall { name, args }
+            if matches!(name.to_ascii_lowercase().as_str(), "array_diff" | "array_intersect") =>
+        {
+            key_preserving_transform_foreach_key_kinds(
+                args,
+                array_key_kinds,
+                array_value_kinds,
+                array_runtime_value_kinds,
+                function_array_return_value_kinds,
+                function_array_return_key_kinds,
+            )
+        }
+        ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("array_flip") => {
+            array_flip_foreach_key_kinds(args, array_value_kinds)
+        }
+        ExprKind::FunctionCall { name, args }
+            if matches!(
+                name.to_ascii_lowercase().as_str(),
+                "array_diff_key" | "array_intersect_key"
+            ) =>
+        {
+            key_preserving_transform_foreach_key_kinds(
+                args,
+                array_key_kinds,
+                array_value_kinds,
+                array_runtime_value_kinds,
+                function_array_return_value_kinds,
+                function_array_return_key_kinds,
+            )
+        }
+        ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("array_flip") => {
+            return array_flip_foreach_key_local_kind(args, array_value_kinds);
+        }
+        ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("array_merge") => {
+            return array_merge_foreach_key_local_kind(
+                args,
+                array_key_kinds,
+                array_value_kinds,
+                array_runtime_value_kinds,
+                php_normalized_key_arrays,
+            );
+        }
+        ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("array_pad") => {
+            if args.first().is_some_and(array_method_source_needs_mixed_key) {
+                return LocalKind::Mixed;
+            }
+            key_preserving_transform_foreach_key_kinds(
+                args,
+                array_key_kinds,
+                array_value_kinds,
+                array_runtime_value_kinds,
+                function_array_return_value_kinds,
+                function_array_return_key_kinds,
+            )
+        }
+        ExprKind::FunctionCall { name, args }
+            if matches!(name.to_ascii_lowercase().as_str(), "array_fill_keys" | "array_combine") =>
+        {
+            direct_assoc_builder_key_kinds_for_foreach(
+                args,
+                array_value_kinds,
+                array_runtime_value_kinds,
+            )
+        }
+        ExprKind::FunctionCall { name, .. }
+            if matches!(name.to_ascii_lowercase().as_str(), "array_values" | "array_keys") =>
+        {
+            None
+        }
+        ExprKind::FunctionCall { name, .. } => function_array_return_key_kinds
+            .get(&function_key(name))
+            .cloned(),
+        ExprKind::StaticMethodCall {
+            receiver: StaticReceiver::Named(class_name),
+            method,
+            ..
+        } => function_array_return_key_kinds
+            .get(&static_method_call_return_key(class_name.as_str(), method))
+            .cloned(),
+        ExprKind::MethodCall { .. } | ExprKind::NullsafeMethodCall { .. } => {
+            return LocalKind::Mixed;
+        }
+        _ => None,
+    };
+    let Some(key_kinds) = key_kinds else {
+        return LocalKind::I64;
+    };
+    if key_kinds.is_empty() || key_kinds.iter().all(|kind| *kind == AssocKeyKind::Int) {
+        LocalKind::I64
+    } else if key_kinds.iter().all(|kind| *kind == AssocKeyKind::Str) {
+        LocalKind::Str
+    } else {
+        LocalKind::Mixed
+    }
+}
+
+fn array_method_source_needs_mixed_key(source: &Expr) -> bool {
+    matches!(
+        source.kind,
+        ExprKind::MethodCall { .. }
+            | ExprKind::NullsafeMethodCall { .. }
+            | ExprKind::PropertyAccess { .. }
+            | ExprKind::NullsafePropertyAccess { .. }
+            | ExprKind::DynamicPropertyAccess { .. }
+            | ExprKind::NullsafeDynamicPropertyAccess { .. }
+    )
+}
+
+fn array_access_has_unknown_assoc_keys(
+    array: &Expr,
+    array_nested_values: &HashMap<String, Vec<Option<NestedArrayMetadata>>>,
+    array_runtime_nested_values: &HashMap<String, NestedArrayMetadata>,
+) -> bool {
+    let ExprKind::ArrayAccess { array: outer, index } = &array.kind else {
+        return false;
+    };
+    let ExprKind::Variable(name) = &outer.kind else {
+        return false;
+    };
+    let metadata = static_or_const_int_value_for_locals(index)
+        .and_then(|offset| usize::try_from(offset).ok())
+        .and_then(|offset| {
+            array_nested_values
+                .get(name)
+                .and_then(|values| values.get(offset))
+                .cloned()
+                .flatten()
+        })
+        .or_else(|| array_runtime_nested_values.get(name).cloned());
+    metadata.is_some_and(|metadata| {
+        metadata.layout == ArrayLayout::Assoc && metadata.key_values.is_none()
+    })
+}

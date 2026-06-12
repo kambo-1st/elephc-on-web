@@ -194,6 +194,9 @@ pub fn emit_stmt(stmt: &Stmt, emitter: &mut Emitter, ctx: &mut Context, data: &m
         StmtKind::NestedArrayAssign { target, value } => {
             arrays::emit_nested_array_assign_stmt(target, value, emitter, ctx, data);
         }
+        StmtKind::NestedArrayPush { .. } => {
+            panic!("Nested array append is not supported by this backend");
+        }
         StmtKind::ArrayPush { array, value } => {
             arrays::emit_array_push_stmt(array, value, emitter, ctx, data);
         }

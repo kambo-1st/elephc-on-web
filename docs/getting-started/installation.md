@@ -20,6 +20,14 @@ This provides the assembler (`as`) and linker (`ld`) that elephc uses to produce
 
 On Linux, install your distro's standard native toolchain so `as`, `ld`, and the libc development files are available.
 
+For the experimental browser WebAssembly target, install WABT if you want binary `.wasm` output:
+
+```bash
+wat2wasm --version
+```
+
+Without `wat2wasm`, `--target wasm32-web --emit-asm` still emits `.wat` text output.
+
 ## Homebrew (macOS)
 
 ```bash

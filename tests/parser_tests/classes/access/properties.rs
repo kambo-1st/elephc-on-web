@@ -49,6 +49,31 @@ fn test_parse_dynamic_property_access() {
 /// Fixture: `<?php echo $obj->items[0];`
 /// Asserts outer ExprKind::ArrayAccess with IntLiteral index 0 and inner PropertyAccess with property "items".
 #[test]
+fn test_parse_dynamic_property_assign() {
+    let stmts = parse_source("<?php $obj->{$name} = 42;");
+    match &stmts[0].kind {
+        StmtKind::ExprStmt(expr) => match &expr.kind {
+            ExprKind::Assignment { target, value, .. } => {
+                match &target.kind {
+                    ExprKind::DynamicPropertyAccess { object, property } => {
+                        assert!(
+                            matches!(object.kind, ExprKind::Variable(ref name) if name == "obj")
+                        );
+                        assert!(
+                            matches!(property.kind, ExprKind::Variable(ref name) if name == "name")
+                        );
+                    }
+                    other => panic!("Expected DynamicPropertyAccess target, got {:?}", other),
+                }
+                assert!(matches!(value.kind, ExprKind::IntLiteral(42)));
+            }
+            other => panic!("Expected Assignment expression, got {:?}", other),
+        },
+        other => panic!("Expected ExprStmt, got {:?}", other),
+    }
+}
+
+#[test]
 fn test_parse_property_array_access() {
     let stmts = parse_source("<?php echo $obj->items[0];");
     match &stmts[0].kind {

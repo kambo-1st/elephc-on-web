@@ -36,7 +36,8 @@ fn stmt_uses_variable(stmt: &Stmt, needle: &str) -> bool {
                 || expr_uses_variable(index, needle)
                 || expr_uses_variable(value, needle)
         }
-        StmtKind::NestedArrayAssign { target, value } => {
+        StmtKind::NestedArrayAssign { target, value }
+        | StmtKind::NestedArrayPush { target, value } => {
             expr_uses_variable(target, needle) || expr_uses_variable(value, needle)
         }
         StmtKind::ArrayPush { array, value } => {

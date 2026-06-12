@@ -65,6 +65,7 @@ impl Checker {
             | StmtKind::RefAssign { .. }
             | StmtKind::ArrayAssign { .. }
             | StmtKind::NestedArrayAssign { .. }
+            | StmtKind::NestedArrayPush { .. }
             | StmtKind::ArrayPush { .. }
             | StmtKind::TypedAssign { .. }
             | StmtKind::ConstDecl { .. }

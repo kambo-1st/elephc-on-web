@@ -164,7 +164,8 @@ fn stmt_has_regex_call(stmt: &Stmt) -> bool {
         | StmtKind::StaticPropertyArrayAssign { index, value, .. } => {
             expr_has_regex_call(index) || expr_has_regex_call(value)
         }
-        StmtKind::NestedArrayAssign { target, value } => {
+        StmtKind::NestedArrayAssign { target, value }
+        | StmtKind::NestedArrayPush { target, value } => {
             expr_has_regex_call(target) || expr_has_regex_call(value)
         }
         StmtKind::If {
@@ -468,7 +469,8 @@ fn stmt_needs_descriptor_invoker(stmt: &Stmt) -> bool {
         | StmtKind::StaticPropertyArrayAssign { index, value, .. } => {
             expr_needs_descriptor_invoker(index) || expr_needs_descriptor_invoker(value)
         }
-        StmtKind::NestedArrayAssign { target, value } => {
+        StmtKind::NestedArrayAssign { target, value }
+        | StmtKind::NestedArrayPush { target, value } => {
             expr_needs_descriptor_invoker(target) || expr_needs_descriptor_invoker(value)
         }
         StmtKind::If {

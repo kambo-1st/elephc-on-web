@@ -12,13 +12,11 @@ use std::collections::HashSet;
 
 use crate::errors::CompileError;
 use crate::lexer::Token;
-use crate::parser::ast::{
-    CallableTarget, Expr, ExprKind, StaticReceiver, Stmt, StmtKind,
-};
+use crate::parser::ast::{CallableTarget, Expr, ExprKind, StaticReceiver, Stmt, StmtKind};
 use crate::parser::stmt::{looks_like_typed_param, parse_block, parse_name, parse_type_expr};
 use crate::span::Span;
 
-use super::calls::parse_first_class_callable_parens;
+use super::calls::{parse_first_class_callable_parens, parse_scoped_static_call};
 use super::{parse_args, parse_expr};
 
 /// Parses a PHP `match` expression: `match ($subject) { pattern => result, default => fallback }`.
@@ -649,79 +647,13 @@ pub(super) fn parse_named_expr(
             Ok(Expr::new(ExprKind::FunctionCall { name, args }, span))
         }
     } else if *pos < tokens.len() && tokens[*pos].0 == Token::DoubleColon {
-        *pos += 1;
-        let member = match tokens.get(*pos).map(|(token, _)| token) {
-            Some(Token::Variable(property)) => {
-                let property = property.clone();
-                *pos += 1;
-                return Ok(Expr::new(
-                    ExprKind::StaticPropertyAccess {
-                        receiver: StaticReceiver::Named(name),
-                        property,
-                    },
-                    span,
-                ));
-            }
-            Some(Token::Class) => {
-                *pos += 1;
-                return Ok(Expr::new(
-                    ExprKind::ClassConstant {
-                        receiver: StaticReceiver::Named(name),
-                    },
-                    span,
-                ));
-            }
-            Some(Token::Identifier(member)) => {
-                let member = member.clone();
-                *pos += 1;
-                member
-            }
-            Some(Token::Match) => {
-                *pos += 1;
-                "MATCH".to_string()
-            }
-            // PHP 8 allows semi-reserved keywords as static method / class-constant names
-            // (e.g. `Foo::self()`, `Foo::print`); `class` and `$var` are handled above.
-            Some(t) if crate::parser::keyword_name::bareword_name_from_token(t).is_some() => {
-                let member = crate::parser::keyword_name::bareword_name_from_token(t).unwrap();
-                *pos += 1;
-                member
-            }
-            _ => return Err(CompileError::new(span, "Expected member name after '::'")),
-        };
-        if *pos < tokens.len() && tokens[*pos].0 == Token::LParen {
-            *pos += 1;
-            if parse_first_class_callable_parens(tokens, pos)? {
-                Ok(Expr::new(
-                    ExprKind::FirstClassCallable(CallableTarget::StaticMethod {
-                        receiver: StaticReceiver::Named(name),
-                        method: member,
-                    }),
-                    span,
-                ))
-            } else {
-                let args = parse_args(tokens, pos, span)?;
-                Ok(Expr::new(
-                    ExprKind::StaticMethodCall {
-                        receiver: StaticReceiver::Named(name),
-                        method: member,
-                        args,
-                    },
-                    span,
-                ))
-            }
-        } else {
-            // `Foo::BAR` (no parens) is either an enum case access or a
-            // user-declared class constant. Disambiguation is done by the
-            // type checker, which falls back from enum lookup to class const.
-            Ok(Expr::new(
-                ExprKind::ScopedConstantAccess {
-                    receiver: StaticReceiver::Named(name),
-                    name: member,
-                },
-                span,
-            ))
-        }
+        parse_scoped_static_call(
+            tokens,
+            pos,
+            span,
+            StaticReceiver::Named(name.clone()),
+            &name,
+        )
     } else {
         Ok(Expr::new(ExprKind::ConstRef(name), span))
     }
