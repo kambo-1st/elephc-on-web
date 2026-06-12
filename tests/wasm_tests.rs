@@ -38568,6 +38568,21 @@ echo (ROWS["missing"] ? "T" : "F") . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_user_array_constant_scalar_offset_reads() {
+    assert_wasm_matches_php(
+        r#"<?php
+const MIXED = [7, "web", 2.5, true, false, null];
+const ROWS = ["name" => "Ada", "score" => 4.5, "ok" => true, "no" => false, "none" => null, "name" => "Lin", "12" => "numeric"];
+$label = MIXED[1];
+$score = ROWS["score"];
+$none = ROWS["none"];
+echo MIXED[0] . ":" . $label . ":" . MIXED[2] . ":" . (MIXED[3] ? "T" : "F") . ":" . (MIXED[4] ? "T" : "F") . ":" . gettype(MIXED[5]) . "\n";
+echo ROWS["name"] . ":" . $score . ":" . (ROWS["ok"] ? "T" : "F") . ":" . (ROWS["no"] ? "T" : "F") . ":" . gettype($none) . ":" . ROWS[12] . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_user_array_constant_output_marker() {
     assert_wasm_matches_php(
         r#"<?php

@@ -146,14 +146,7 @@ pub(super) fn emit_array_index_expr(
             }) else {
                 return Ok(ValueKind::Null);
             };
-            if matches!(
-                item.kind,
-                ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_)
-            ) {
-                return emit_array_constant_child_expr(expr, item, module);
-            }
-            require_int(item, module)?;
-            return Ok(ValueKind::Int);
+            return emit_array_constant_item_expr(expr, item, module);
         }
         let Some(index_value) = static_or_const_int_value(index) else {
             return Err(CompileError::new(
@@ -170,14 +163,7 @@ pub(super) fn emit_array_index_expr(
         let Some(item) = items.get(index_value) else {
             return Ok(ValueKind::Null);
         };
-        if matches!(
-            item.kind,
-            ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_)
-        ) {
-            return emit_array_constant_child_expr(expr, item, module);
-        }
-        require_int(item, module)?;
-        return Ok(ValueKind::Int);
+        return emit_array_constant_item_expr(expr, item, module);
     }
     if let ExprKind::Variable(name) = &array.kind {
         if module.local_kind(name) == Some(LocalKind::Array)
@@ -286,6 +272,26 @@ pub(super) fn emit_array_index_expr(
         }
         _ => Err(array_unsupported(array)),
     }
+}
+
+fn emit_array_constant_item_expr(
+    expr: &Expr,
+    item: &Expr,
+    module: &mut WasmModule,
+) -> Result<ValueKind, CompileError> {
+    if matches!(
+        item.kind,
+        ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_)
+    ) {
+        return emit_array_constant_child_expr(expr, item, module);
+    }
+    if let Some(value) = static_string_value(item, module) {
+        let (ptr, len) = module.intern_string(&value);
+        module.body().line(&format!("i32.const {}", ptr));
+        module.body().line(&format!("i32.const {}", len));
+        return Ok(ValueKind::Str);
+    }
+    emit_expr(item, module)
 }
 
 fn emit_array_constant_child_expr(

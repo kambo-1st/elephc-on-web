@@ -39,8 +39,45 @@ pub(in crate::codegen::wasm) fn static_scalar_value(expr: &Expr, module: &WasmMo
         ExprKind::ScopedConstantAccess { receiver, name } => {
             module.class_constant_value(receiver, name)
         }
+        ExprKind::ArrayAccess { array, index } => {
+            static_array_constant_scalar_value(array, index, module)
+        }
         _ => None,
     }
+}
+
+fn static_array_constant_scalar_value(
+    array: &Expr,
+    index: &Expr,
+    module: &WasmModule,
+) -> Option<ConstantValue> {
+    let ExprKind::ConstRef(name) = &array.kind else {
+        return None;
+    };
+    match module.array_constant_value(name)? {
+        ConstantArrayValue::Indexed(items) => {
+            let index = usize::try_from(static_or_const_int_value(index)?).ok()?;
+            static_scalar_value(items.get(index)?, module)
+        }
+        ConstantArrayValue::Assoc(items) => {
+            let key = static_array_constant_assoc_key(index, module)?;
+            let normalized = normalize_assoc_items(&items).unwrap_or(items);
+            let (_, item) = normalized.iter().rev().find(|(candidate, _)| {
+                assoc_key_value_for_expr(candidate).is_some_and(|candidate| candidate == key)
+            })?;
+            static_scalar_value(item, module)
+        }
+    }
+}
+
+fn static_array_constant_assoc_key(index: &Expr, module: &WasmModule) -> Option<AssocKeyValue> {
+    if let Some(value) = static_or_const_int_value(index) {
+        return Some(AssocKeyValue::Int(value));
+    }
+    let value = static_string_value(index, module)?;
+    literal_php_array_int_key(&value)
+        .map(AssocKeyValue::Int)
+        .or_else(|| Some(AssocKeyValue::Str(value)))
 }
 
 pub(in crate::codegen::wasm) fn compare_static_scalars(left: &ConstantValue, op: &BinOp, right: &ConstantValue) -> bool {

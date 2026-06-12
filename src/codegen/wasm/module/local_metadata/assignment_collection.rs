@@ -51,6 +51,8 @@ pub(super) fn collect_assignment_locals(
         ExprKind::ConstRef(const_name) if array_constants.contains_key(const_name.as_str())
     ) {
         LocalKind::Array
+    } else if let Some(kind) = array_constant_offset_local_kind(value, array_constants) {
+        kind
     } else {
         infer_assignment_local_kind(
             value,
@@ -732,6 +734,34 @@ pub(super) fn collect_assignment_locals(
         array_key_values.remove(name);
         php_normalized_key_arrays.insert(name.clone());
     }
+}
+
+fn array_constant_offset_local_kind(
+    value: &Expr,
+    array_constants: &HashMap<String, ConstantArrayValue>,
+) -> Option<LocalKind> {
+    let ExprKind::ArrayAccess { array, index } = &value.kind else {
+        return None;
+    };
+    let ExprKind::ConstRef(const_name) = &array.kind else {
+        return None;
+    };
+    let kind = match array_constants.get(const_name.as_str())? {
+        ConstantArrayValue::Indexed(items) => {
+            let index = usize::try_from(static_or_const_int_value_for_locals(index)?).ok()?;
+            static_value_cell_kinds_for_items(items).and_then(|items| items.get(index).copied())?
+        }
+        ConstantArrayValue::Assoc(items) => {
+            let key = static_assoc_key_value_for_expr(index)?;
+            let normalized = normalized_static_assoc_items(items).unwrap_or_else(|| items.clone());
+            let (_, item) = normalized.iter().rev().find(|(candidate, _)| {
+                static_assoc_key_value_for_expr(candidate)
+                    .is_some_and(|candidate| candidate == key)
+            })?;
+            static_value_cell_kind_for_expr(item)?
+        }
+    };
+    Some(local_kind_for_value_cell(kind))
 }
 
 fn collect_array_constant_assignment_metadata(

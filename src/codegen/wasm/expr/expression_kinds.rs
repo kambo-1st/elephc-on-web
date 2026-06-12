@@ -201,6 +201,9 @@ pub(in crate::codegen::wasm) fn expression_is_floaty(expr: &Expr, module: &WasmM
             true
         }
         ExprKind::ArrayAccess { array, index } => {
+            if matches!(static_scalar_value(expr, module), Some(ConstantValue::Float(_))) {
+                return true;
+            }
             assoc_static_access_kind(array, index, module) == Some(ValueCellKind::Float)
                 || method_call_assoc_static_access_kind(array, index, module)
                     == Some(ValueCellKind::Float)
@@ -331,6 +334,9 @@ pub(in crate::codegen::wasm) fn expression_is_stringy(expr: &Expr, module: &Wasm
             expression_is_stringy(&synthetic, module)
         }
         ExprKind::ArrayAccess { array, index } => {
+            if matches!(static_scalar_value(expr, module), Some(ConstantValue::Str(_))) {
+                return true;
+            }
             expression_is_stringy(array, module)
                 || assoc_static_access_kind(array, index, module) == Some(ValueCellKind::Str)
                 || method_call_assoc_static_access_kind(array, index, module)

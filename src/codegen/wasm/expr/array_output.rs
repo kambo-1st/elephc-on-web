@@ -104,9 +104,7 @@ pub(super) fn emit_output_array_index(
                 }) else {
                     return Ok(());
                 };
-                require_int(item, module)?;
-                module.body().line("call $host_write_int");
-                return Ok(());
+                return emit_output_expr(item, module);
             }
             let Some(index) = static_or_const_int_value(index) else {
                 return Err(CompileError::new(
@@ -123,9 +121,7 @@ pub(super) fn emit_output_array_index(
             let Some(item) = items.get(index) else {
                 return Ok(());
             };
-            require_int(item, module)?;
-            module.body().line("call $host_write_int");
-            Ok(())
+            emit_output_expr(item, module)
         }
         ExprKind::Variable(name) if module.local_kind(name) == Some(LocalKind::Array) => {
             if module.array_layout(name) == ArrayLayout::Assoc {

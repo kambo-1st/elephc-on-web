@@ -38,6 +38,12 @@ pub(in crate::codegen::wasm) fn static_string_value(expr: &Expr, module: &WasmMo
             expr,
         } => static_scalar_cast_string(expr, module),
         ExprKind::ArrayAccess { array, index } => {
+            if matches!(array.kind, ExprKind::ConstRef(_)) {
+                return match static_scalar_value(expr, module)? {
+                    ConstantValue::Str(value) => Some(value),
+                    _ => None,
+                };
+            }
             let value = static_string_value(array, module)?;
             let index = static_or_const_int_value(index)?;
             php_string_index(&value, index)
