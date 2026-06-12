@@ -38612,6 +38612,20 @@ echo ROWS["name"] . ":" . $score . ":" . $float . ":" . (ROWS["ok"] ? "T" : "F")
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_user_array_constant_comparison_expression_offset_reads() {
+    assert_wasm_matches_php(
+        r#"<?php
+const BASE = 3;
+const LABEL = "web";
+const FLAGS = [BASE > 2, BASE <= 3, LABEL === "web", LABEL != "php", "10" < "2", "10" <=> "2"];
+const ROWS = ["same" => LABEL === "web", "loose" => "03" == BASE, "order" => BASE <=> 5];
+echo (FLAGS[0] ? "T" : "F") . ":" . (FLAGS[1] ? "T" : "F") . ":" . (FLAGS[2] ? "T" : "F") . ":" . (FLAGS[3] ? "T" : "F") . ":" . (FLAGS[4] ? "T" : "F") . ":" . FLAGS[5] . "\n";
+echo (ROWS["same"] ? "T" : "F") . ":" . (ROWS["loose"] ? "T" : "F") . ":" . ROWS["order"] . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_user_array_constant_output_marker() {
     assert_wasm_matches_php(
         r#"<?php

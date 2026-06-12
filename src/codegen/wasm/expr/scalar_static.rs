@@ -102,6 +102,15 @@ fn eval_static_scalar_binary(
             static_scalar_string_value(left)?,
             static_scalar_string_value(right)?
         ))),
+        BinOp::Eq
+        | BinOp::NotEq
+        | BinOp::StrictEq
+        | BinOp::StrictNotEq
+        | BinOp::Lt
+        | BinOp::Gt
+        | BinOp::LtEq
+        | BinOp::GtEq => Some(ConstantValue::Bool(compare_static_scalars(&left, op, &right))),
+        BinOp::Spaceship => Some(ConstantValue::Int(static_scalar_spaceship(&left, &right))),
         BinOp::And => Some(ConstantValue::Bool(
             static_scalar_truthiness(&left) && static_scalar_truthiness(&right),
         )),
@@ -112,6 +121,16 @@ fn eval_static_scalar_binary(
             static_scalar_truthiness(&left) ^ static_scalar_truthiness(&right),
         )),
         _ => None,
+    }
+}
+
+fn static_scalar_spaceship(left: &ConstantValue, right: &ConstantValue) -> i64 {
+    if compare_loose_static_scalars(left, &BinOp::Lt, right) {
+        -1
+    } else if compare_loose_static_scalars(left, &BinOp::Gt, right) {
+        1
+    } else {
+        0
     }
 }
 
