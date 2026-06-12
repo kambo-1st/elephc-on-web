@@ -38547,6 +38547,27 @@ echo (empty(ROWS["missing"]) ? 1 : 0) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_user_array_constant_offset_truthiness() {
+    assert_wasm_matches_php(
+        r#"<?php
+const SCORES = [2, null, "", false, [5]];
+const ROWS = ["x" => 1, "n" => null, "e" => "", 3 => false];
+echo boolval(SCORES[0]) . ",";
+echo boolval(SCORES[1]) . ",";
+echo boolval(SCORES[2]) . ",";
+echo boolval(SCORES[3]) . ",";
+echo boolval(SCORES[4]) . ",";
+echo boolval(SCORES[9]) . "\n";
+echo (ROWS["x"] ? "T" : "F") . ",";
+echo (ROWS["n"] ? "T" : "F") . ",";
+echo (ROWS["e"] ? "T" : "F") . ",";
+echo (ROWS[3] ? "T" : "F") . ",";
+echo (ROWS["missing"] ? "T" : "F") . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_user_array_constant_output_marker() {
     assert_wasm_matches_php(
         r#"<?php

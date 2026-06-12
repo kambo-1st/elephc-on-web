@@ -76,6 +76,12 @@ pub(crate) fn emit_condition(
                 }
             }
         }
+        ExprKind::ArrayAccess { array, index } => {
+            if let Some(truthy) = static_array_offset_truthiness(array, index, module) {
+                module.body().line(&format!("i32.const {}", i32::from(truthy)));
+                return Ok(());
+            }
+        }
         _ => {}
     }
 
@@ -182,4 +188,69 @@ pub(crate) fn emit_string_local_truthiness(name: &str, module: &mut WasmModule) 
 pub(crate) fn emit_mixed_local_truthiness(name: &str, module: &mut WasmModule) {
     module.body().line(&format!("local.get ${}", name));
     module.body().line("call $__rt_mixed_truthy");
+}
+
+fn static_array_offset_truthiness(
+    array: &Expr,
+    index: &Expr,
+    module: &WasmModule,
+) -> Option<bool> {
+    match &array.kind {
+        ExprKind::ConstRef(name) => match module.array_constant_value(name)? {
+            ConstantArrayValue::Indexed(items) => {
+                let offset = usize::try_from(static_or_const_or_i64_local_value(index, module)?).ok()?;
+                Some(
+                    items
+                        .get(offset)
+                        .and_then(static_value_cell_truthiness_for_filter)
+                        .unwrap_or(false),
+                )
+            }
+            ConstantArrayValue::Assoc(items) => {
+                let key = static_truthiness_assoc_access_key(index, module)?;
+                Some(
+                    items
+                        .iter()
+                        .rev()
+                        .find_map(|(candidate, value)| {
+                            let candidate = static_truthiness_assoc_access_key(candidate, module)?;
+                            (candidate == key).then(|| static_value_cell_truthiness_for_filter(value))
+                        })
+                        .flatten()
+                        .unwrap_or(false),
+                )
+            }
+        },
+        ExprKind::ArrayLiteral(items) => {
+            let offset = usize::try_from(static_or_const_or_i64_local_value(index, module)?).ok()?;
+            Some(
+                items
+                    .get(offset)
+                    .and_then(static_value_cell_truthiness_for_filter)
+                    .unwrap_or(false),
+            )
+        }
+        ExprKind::ArrayLiteralAssoc(items) => {
+            let key = static_truthiness_assoc_access_key(index, module)?;
+            Some(
+                items
+                    .iter()
+                    .rev()
+                    .find_map(|(candidate, value)| {
+                        let candidate = static_truthiness_assoc_access_key(candidate, module)?;
+                        (candidate == key).then(|| static_value_cell_truthiness_for_filter(value))
+                    })
+                    .flatten()
+                    .unwrap_or(false),
+            )
+        }
+        _ => None,
+    }
+}
+
+fn static_truthiness_assoc_access_key(index: &Expr, module: &WasmModule) -> Option<AssocKeyValue> {
+    static_assoc_access_key(index, module).or_else(|| match &index.kind {
+        ExprKind::Variable(name) => module.string_static_value(name).map(AssocKeyValue::Str),
+        _ => None,
+    })
 }
