@@ -37,6 +37,43 @@ pub(super) fn emit_numeric_array_fold_call(
             }
             Ok(ValueKind::Int)
         }
+        ExprKind::ConstRef(const_name) => match module.array_constant_value(const_name) {
+            Some(ConstantArrayValue::Indexed(items)) => {
+                if let Some(kind) = emit_static_array_fold(&items, product, name, expr, module)? {
+                    return Ok(kind);
+                }
+                module.body().line(&format!("i64.const {}", if product { 1 } else { 0 }));
+                for item in items {
+                    require_int(&item, module)?;
+                    module
+                        .body()
+                        .line(if product { "i64.mul" } else { "i64.add" });
+                }
+                Ok(ValueKind::Int)
+            }
+            Some(ConstantArrayValue::Assoc(items)) => {
+                let values = normalize_assoc_items(&items)
+                    .unwrap_or(items)
+                    .into_iter()
+                    .map(|(_, value)| value)
+                    .collect::<Vec<_>>();
+                if let Some(kind) = emit_static_array_fold(&values, product, name, expr, module)? {
+                    return Ok(kind);
+                }
+                module.body().line(&format!("i64.const {}", if product { 1 } else { 0 }));
+                for item in values {
+                    require_int(&item, module)?;
+                    module
+                        .body()
+                        .line(if product { "i64.mul" } else { "i64.add" });
+                }
+                Ok(ValueKind::Int)
+            }
+            None => Err(CompileError::new(
+                args[0].span,
+                &format!("wasm32-web {name}() requires a known array constant"),
+            )),
+        },
         ExprKind::Variable(var) if module.local_kind(var) == Some(LocalKind::Array) => {
             emit_numeric_array_fold_from_local(expr, name, var, product, module)
         }

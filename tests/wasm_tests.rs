@@ -1357,6 +1357,23 @@ echo $value;
 }
 
 #[test]
+fn test_wasm32_web_wat_user_array_constant_numeric_folds() {
+    let program = parse_program(
+        r#"<?php
+const SCORES = [2, 3, 4];
+const WEIGHTS = ["a" => 2, "b" => 3, "b" => 5];
+echo array_sum(SCORES);
+echo array_product(WEIGHTS);
+"#,
+    );
+    let bytes = generate(&program, WasmOutputFormat::Wat).expect("WAT generation failed");
+    let wat = String::from_utf8(bytes).expect("WAT output was not UTF-8");
+
+    assert!(wat.contains("i64.const 9"));
+    assert!(wat.contains("i64.const 10"));
+}
+
+#[test]
 fn test_wasm32_web_wat_class_name_and_scalar_constants() {
     let program = parse_program(
         r#"<?php
@@ -38240,6 +38257,18 @@ fn test_wasm32_web_e2e_matches_php_user_assoc_array_constant_count_and_read() {
 const ITEMS = ["a" => 4, "b" => 8, "01" => 15, "b" => 16];
 $value = ITEMS["b"];
 echo count(ITEMS) . ":" . $value . ":" . ITEMS["01"] . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_user_array_constant_numeric_folds() {
+    assert_wasm_matches_php(
+        r#"<?php
+const SCORES = [2, 3, "4.5"];
+const WEIGHTS = ["a" => 2, "b" => 3, "b" => 5];
+echo gettype(array_sum(SCORES)) . ":" . array_sum(SCORES) . "\n";
+echo array_product(SCORES) . ":" . array_sum(WEIGHTS) . ":" . array_product(WEIGHTS) . "\n";
 "#,
     );
 }
