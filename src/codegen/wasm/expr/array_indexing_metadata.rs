@@ -52,6 +52,32 @@ pub(in crate::codegen::wasm) fn nested_array_metadata_for_access_expr(
         return None;
     };
     match &outer.kind {
+        ExprKind::ConstRef(name) => {
+            let array_constant = module.array_constant_value(name)?;
+            match array_constant {
+                ConstantArrayValue::Indexed(items) => {
+                    let index =
+                        usize::try_from(static_or_const_or_i64_local_value(outer_index, module)?)
+                            .ok()?;
+                    items
+                        .get(index)
+                        .and_then(|item| array_constant_nested_metadata_for_expr(item, module))
+                }
+                ConstantArrayValue::Assoc(items) => {
+                    let key = static_assoc_access_key(outer_index, module)?;
+                    let normalized = normalize_assoc_items(&items);
+                    let items = normalized.as_deref().unwrap_or(&items);
+                    items
+                        .iter()
+                        .rev()
+                        .find(|(candidate, _)| {
+                            assoc_key_value_for_expr(candidate)
+                                .is_some_and(|candidate| candidate == key)
+                        })
+                        .and_then(|(_, item)| array_constant_nested_metadata_for_expr(item, module))
+                }
+            }
+        }
         ExprKind::Variable(name) => {
             if module.local_kind(name) != Some(LocalKind::Array) {
                 return None;
@@ -107,6 +133,64 @@ pub(in crate::codegen::wasm) fn nested_array_metadata_for_access_expr(
         }
         _ => None,
     }
+}
+
+fn array_constant_nested_metadata_for_expr(
+    value: &Expr,
+    module: &WasmModule,
+) -> Option<NestedArrayMetadata> {
+    match &value.kind {
+        ExprKind::ArrayLiteral(items) => {
+            let value_kinds = array_literal_needs_value_cells(items)
+                .then(|| value_cell_kinds_for_items(items, module))
+                .flatten();
+            Some(NestedArrayMetadata {
+                layout: if value_kinds.is_some() {
+                    ArrayLayout::Value
+                } else {
+                    ArrayLayout::CompactInt
+                },
+                len: items.len(),
+                value_kinds,
+                key_values: None,
+                nested_values: array_constant_nested_metadata_for_items(items, module),
+            })
+        }
+        ExprKind::ArrayLiteralAssoc(items) => {
+            let normalized = normalize_assoc_items(items);
+            let items = normalized.as_deref().unwrap_or(items);
+            Some(NestedArrayMetadata {
+                layout: ArrayLayout::Assoc,
+                len: items.len(),
+                value_kinds: value_cell_kinds_for_assoc_items(items, module),
+                key_values: key_values_for_assoc_items(items),
+                nested_values: array_constant_nested_metadata_for_assoc_items(items, module),
+            })
+        }
+        _ => None,
+    }
+}
+
+fn array_constant_nested_metadata_for_items(
+    items: &[Expr],
+    module: &WasmModule,
+) -> Option<Vec<Option<NestedArrayMetadata>>> {
+    let metadata = items
+        .iter()
+        .map(|item| array_constant_nested_metadata_for_expr(item, module))
+        .collect::<Vec<_>>();
+    metadata.iter().any(Option::is_some).then_some(metadata)
+}
+
+fn array_constant_nested_metadata_for_assoc_items(
+    items: &[(Expr, Expr)],
+    module: &WasmModule,
+) -> Option<Vec<Option<NestedArrayMetadata>>> {
+    let metadata = items
+        .iter()
+        .map(|(_, value)| array_constant_nested_metadata_for_expr(value, module))
+        .collect::<Vec<_>>();
+    metadata.iter().any(Option::is_some).then_some(metadata)
 }
 
 fn nested_array_metadata_child(

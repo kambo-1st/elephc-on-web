@@ -1476,6 +1476,25 @@ foreach ($rows as $key => $value) {
 }
 
 #[test]
+fn test_wasm32_web_wat_user_nested_array_constant_reads() {
+    let program = parse_program(
+        r#"<?php
+const MATRIX = [[1, 2], [3, 4]];
+const ROWS = ["first" => ["name" => "Ada", "city" => "Rome"]];
+echo MATRIX[1][0];
+echo count(MATRIX[0]);
+echo ROWS["first"]["city"];
+echo count(ROWS["first"]);
+"#,
+    );
+    let bytes = generate(&program, WasmOutputFormat::Wat).expect("WAT generation failed");
+    let wat = String::from_utf8(bytes).expect("WAT output was not UTF-8");
+
+    assert!(wat.contains("array_constant_child"));
+    assert!(wat.contains("nested_assoc"));
+}
+
+#[test]
 fn test_wasm32_web_wat_class_name_and_scalar_constants() {
     let program = parse_program(
         r#"<?php
@@ -38467,6 +38486,20 @@ echo "\n";
 $values = array_values($rows);
 $unique = array_unique($rows);
 echo $values[0] . ":" . array_search("Ada", $rows, true) . ":" . count($unique) . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_user_nested_array_constant_reads() {
+    assert_wasm_matches_php(
+        r#"<?php
+const MATRIX = [[1, 2], [3, 4]];
+const ROWS = ["first" => ["name" => "Ada", "city" => "Rome"], "second" => ["name" => "Lin", "city" => "Oslo"]];
+echo MATRIX[1][0] . ":" . count(MATRIX[0]) . "\n";
+echo ROWS["first"]["city"] . ":" . count(ROWS["second"]) . "\n";
+$rows = ROWS;
+echo $rows["second"]["name"] . ":" . count($rows["first"]) . "\n";
 "#,
     );
 }

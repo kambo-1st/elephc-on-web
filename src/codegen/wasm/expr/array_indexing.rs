@@ -146,6 +146,12 @@ pub(super) fn emit_array_index_expr(
             }) else {
                 return Ok(ValueKind::Null);
             };
+            if matches!(
+                item.kind,
+                ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_)
+            ) {
+                return emit_array_constant_child_expr(expr, item, module);
+            }
             require_int(item, module)?;
             return Ok(ValueKind::Int);
         }
@@ -164,6 +170,12 @@ pub(super) fn emit_array_index_expr(
         let Some(item) = items.get(index_value) else {
             return Ok(ValueKind::Null);
         };
+        if matches!(
+            item.kind,
+            ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_)
+        ) {
+            return emit_array_constant_child_expr(expr, item, module);
+        }
         require_int(item, module)?;
         return Ok(ValueKind::Int);
     }
@@ -273,6 +285,25 @@ pub(super) fn emit_array_index_expr(
             Ok(ValueKind::Int)
         }
         _ => Err(array_unsupported(array)),
+    }
+}
+
+fn emit_array_constant_child_expr(
+    expr: &Expr,
+    item: &Expr,
+    module: &mut WasmModule,
+) -> Result<ValueKind, CompileError> {
+    let temp = module
+        .next_label("array_constant_child")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_array_local(temp.clone());
+    emit_array_assign(&temp, item, module)?;
+    module.body().line(&format!("local.get ${}_ptr", temp));
+    module.body().line(&format!("local.get ${}_len", temp));
+    match item.kind {
+        ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_) => Ok(ValueKind::Array),
+        _ => Err(array_unsupported(expr)),
     }
 }
 
