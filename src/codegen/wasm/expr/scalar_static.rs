@@ -51,6 +51,34 @@ pub(in crate::codegen::wasm) fn static_scalar_value(expr: &Expr, module: &WasmMo
         ExprKind::ArrayAccess { array, index } => {
             static_array_constant_scalar_value(array, index, module)
         }
+        ExprKind::Ternary {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
+            let condition = static_scalar_value(condition, module)?;
+            if static_scalar_truthiness(&condition) {
+                static_scalar_value(then_expr, module)
+            } else {
+                static_scalar_value(else_expr, module)
+            }
+        }
+        ExprKind::ShortTernary { value, default } => {
+            let value = static_scalar_value(value, module)?;
+            if static_scalar_truthiness(&value) {
+                Some(value)
+            } else {
+                static_scalar_value(default, module)
+            }
+        }
+        ExprKind::NullCoalesce { value, default } => {
+            let value = static_scalar_value(value, module)?;
+            if matches!(value, ConstantValue::Null) {
+                static_scalar_value(default, module)
+            } else {
+                Some(value)
+            }
+        }
         _ => None,
     }
 }

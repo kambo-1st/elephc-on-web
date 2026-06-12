@@ -38626,6 +38626,19 @@ echo (ROWS["same"] ? "T" : "F") . ":" . (ROWS["loose"] ? "T" : "F") . ":" . ROWS
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_user_array_constant_branch_expression_offset_reads() {
+    assert_wasm_matches_php(
+        r#"<?php
+const BASE = 3;
+const VALUES = [BASE > 2 ? "yes" : "no", BASE < 2 ? "bad" : "fallback", "" ?: "short", null ?? "coalesced", "keep" ?? "bad"];
+const ROWS = ["pick" => false ? "bad" : "ok", "short" => "value" ?: "bad", "nullish" => null ?? "ok"];
+echo VALUES[0] . ":" . VALUES[1] . ":" . VALUES[2] . ":" . VALUES[3] . ":" . VALUES[4] . "\n";
+echo ROWS["pick"] . ":" . ROWS["short"] . ":" . ROWS["nullish"] . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_user_array_constant_output_marker() {
     assert_wasm_matches_php(
         r#"<?php
