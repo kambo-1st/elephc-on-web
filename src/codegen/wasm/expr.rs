@@ -492,8 +492,8 @@ use self::numeric_predicates::{
 };
 pub(super) use self::output::emit_output_expr;
 use self::output_helpers::{
-    emit_output_class_name, emit_output_constant, emit_output_match, emit_output_scoped_constant,
-    emit_output_short_ternary, emit_output_ternary,
+    emit_output_class_name, emit_output_constant, emit_output_constant_value, emit_output_match,
+    emit_output_scoped_constant, emit_output_short_ternary, emit_output_ternary,
 };
 pub(super) use self::objects::{
     emit_dynamic_object_property_assign, emit_dynamic_object_property_assignment_expr,
@@ -519,7 +519,7 @@ pub(super) use self::scalar_mixed_numeric::{
 use self::scalar_mixed_numeric::*;
 use self::scalar_ops::*;
 use self::scalar_string_coercion::*;
-use self::scalar_constants::{emit_constant_expr, emit_scoped_constant_expr};
+use self::scalar_constants::{emit_constant_expr, emit_constant_value, emit_scoped_constant_expr};
 use self::type_predicates::emit_type_predicate_call;
 use self::scalar_casts::{
     emit_boolval_call, emit_cast_expr, emit_empty_call, emit_floatval_call, emit_intval_call,

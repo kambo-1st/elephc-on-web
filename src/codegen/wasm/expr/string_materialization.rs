@@ -360,6 +360,9 @@ pub(in crate::codegen::wasm) fn emit_string_value_to_stack(
         module.body().line(&format!("i32.const {}", len));
         return Ok(());
     }
+    if emit_static_array_constant_string_access(value, module)? {
+        return Ok(());
+    }
     if emit_object_tostring_value_to_stack(value, module)? {
         return Ok(());
     }
@@ -627,6 +630,55 @@ pub(in crate::codegen::wasm) fn emit_string_value_to_stack(
             "wasm32-web string value currently requires a string literal, string variable, or string-returning user function",
         )),
     }
+}
+
+fn emit_static_array_constant_string_access(
+    value: &Expr,
+    module: &mut WasmModule,
+) -> Result<bool, CompileError> {
+    let ExprKind::ArrayAccess { array, index } = &value.kind else {
+        return Ok(false);
+    };
+    let ExprKind::ConstRef(name) = &array.kind else {
+        return Ok(false);
+    };
+    let Some(array_constant) = module.array_constant_value(name) else {
+        return Ok(false);
+    };
+    let item = match array_constant {
+        ConstantArrayValue::Indexed(items) => {
+            let Some(index) = static_or_const_int_value(index) else {
+                return Ok(false);
+            };
+            let Ok(index) = usize::try_from(index) else {
+                return Ok(false);
+            };
+            items.get(index).cloned()
+        }
+        ConstantArrayValue::Assoc(items) => {
+            let Some(key) = static_assoc_access_key(index, module) else {
+                return Ok(false);
+            };
+            let normalized = normalize_assoc_items(&items).unwrap_or(items);
+            normalized
+                .iter()
+                .rev()
+                .find(|(candidate, _)| {
+                    assoc_key_value_for_expr(candidate).is_some_and(|candidate| candidate == key)
+                })
+                .map(|(_, item)| item.clone())
+        }
+    };
+    let Some(item) = item else {
+        return Ok(false);
+    };
+    let Some(value) = static_string_value(&item, module) else {
+        return Ok(false);
+    };
+    let (ptr, len) = module.intern_string(&value);
+    module.body().line(&format!("i32.const {}", ptr));
+    module.body().line(&format!("i32.const {}", len));
+    Ok(true)
 }
 
 fn synthetic_pipe_call_expr(value: &Expr, callable: &Expr, span: Span) -> Expr {

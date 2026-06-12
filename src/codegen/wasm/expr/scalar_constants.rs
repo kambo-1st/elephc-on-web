@@ -26,7 +26,7 @@ pub(super) fn emit_constant_expr(
     Ok(ValueKind::Int)
 }
 
-fn emit_constant_value(
+pub(super) fn emit_constant_value(
     expr: &Expr,
     value: ConstantValue,
     module: &mut WasmModule,

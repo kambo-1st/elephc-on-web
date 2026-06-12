@@ -83,6 +83,10 @@ pub(super) fn emit_output_array_index(
             let Some(item) = items.get(index) else {
                 return Ok(());
             };
+            if let Some(value) = static_scalar_value(item, module) {
+                emit_output_constant_value(value, module);
+                return Ok(());
+            }
             emit_output_expr(item, module)
         }
         ExprKind::ConstRef(name) => {
@@ -102,6 +106,10 @@ pub(super) fn emit_output_array_index(
                 }) else {
                     return Ok(());
                 };
+                if let Some(value) = static_scalar_value(item, module) {
+                    emit_output_constant_value(value, module);
+                    return Ok(());
+                }
                 return emit_output_expr(item, module);
             }
             let Some(index) = static_or_const_int_value(index) else {
@@ -119,6 +127,10 @@ pub(super) fn emit_output_array_index(
             let Some(item) = items.get(index) else {
                 return Ok(());
             };
+            if let Some(value) = static_scalar_value(item, module) {
+                emit_output_constant_value(value, module);
+                return Ok(());
+            }
             emit_output_expr(item, module)
         }
         ExprKind::Variable(name) if module.local_kind(name) == Some(LocalKind::Array) => {

@@ -347,6 +347,10 @@ pub(in crate::codegen::wasm) fn emit_store_value_cell(
             Ok(())
         }
         _ => {
+            if let Some(value) = static_scalar_value(value, module) {
+                emit_store_static_scalar_value_cell(cell, value, module);
+                return Ok(());
+            }
             if value_cell_kind_for_expr(value, module)
                 .is_some_and(|kind| kind != ValueCellKind::Array)
             {
@@ -357,6 +361,41 @@ pub(in crate::codegen::wasm) fn emit_store_value_cell(
             require_int(value, module)?;
             module.body().line("call $__rt_value_store_int");
             Ok(())
+        }
+    }
+}
+
+fn emit_store_static_scalar_value_cell(
+    cell: &str,
+    value: ConstantValue,
+    module: &mut WasmModule,
+) {
+    match value {
+        ConstantValue::Int(value) => {
+            module.body().line(&format!("local.get {}", cell));
+            module.body().line(&format!("i64.const {}", value));
+            module.body().line("call $__rt_value_store_int");
+        }
+        ConstantValue::Float(value) => {
+            module.body().line(&format!("local.get {}", cell));
+            module.body().line(&format!("f64.const {}", value));
+            module.body().line("call $__rt_value_store_float");
+        }
+        ConstantValue::Bool(value) => {
+            module.body().line(&format!("local.get {}", cell));
+            module.body().line(&format!("i32.const {}", i32::from(value)));
+            module.body().line("call $__rt_value_store_bool");
+        }
+        ConstantValue::Str(value) => {
+            let (ptr, len) = module.intern_string(&value);
+            module.body().line(&format!("local.get {}", cell));
+            module.body().line(&format!("i32.const {}", ptr));
+            module.body().line(&format!("i32.const {}", len));
+            module.body().line("call $__rt_value_store_string");
+        }
+        ConstantValue::Null => {
+            module.body().line(&format!("local.get {}", cell));
+            module.body().line("call $__rt_value_store_null");
         }
     }
 }

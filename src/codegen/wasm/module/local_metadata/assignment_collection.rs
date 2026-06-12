@@ -51,7 +51,14 @@ pub(super) fn collect_assignment_locals(
         ExprKind::ConstRef(const_name) if array_constants.contains_key(const_name.as_str())
     ) {
         LocalKind::Array
-    } else if let Some(kind) = array_constant_offset_local_kind(value, array_constants) {
+    } else if let Some(kind) = array_constant_offset_local_kind(
+        value,
+        locals,
+        function_return_kinds,
+        constants,
+        class_constants,
+        array_constants,
+    ) {
         kind
     } else {
         infer_assignment_local_kind(
@@ -738,6 +745,10 @@ pub(super) fn collect_assignment_locals(
 
 fn array_constant_offset_local_kind(
     value: &Expr,
+    locals: &HashMap<String, LocalKind>,
+    function_return_kinds: &HashMap<String, ValueKind>,
+    constants: &HashMap<String, ConstantValue>,
+    class_constants: &HashMap<String, ConstantValue>,
     array_constants: &HashMap<String, ConstantArrayValue>,
 ) -> Option<LocalKind> {
     let ExprKind::ArrayAccess { array, index } = &value.kind else {
@@ -746,10 +757,17 @@ fn array_constant_offset_local_kind(
     let ExprKind::ConstRef(const_name) = &array.kind else {
         return None;
     };
-    let kind = match array_constants.get(const_name.as_str())? {
+    match array_constants.get(const_name.as_str())? {
         ConstantArrayValue::Indexed(items) => {
             let index = usize::try_from(static_or_const_int_value_for_locals(index)?).ok()?;
-            static_value_cell_kinds_for_items(items).and_then(|items| items.get(index).copied())?
+            let item = items.get(index)?;
+            return Some(array_constant_offset_item_local_kind(
+                item,
+                locals,
+                function_return_kinds,
+                constants,
+                class_constants,
+            ));
         }
         ConstantArrayValue::Assoc(items) => {
             let key = static_assoc_key_value_for_expr(index)?;
@@ -758,10 +776,35 @@ fn array_constant_offset_local_kind(
                 static_assoc_key_value_for_expr(candidate)
                     .is_some_and(|candidate| candidate == key)
             })?;
-            static_value_cell_kind_for_expr(item)?
+            return Some(array_constant_offset_item_local_kind(
+                item,
+                locals,
+                function_return_kinds,
+                constants,
+                class_constants,
+            ));
         }
-    };
-    Some(local_kind_for_value_cell(kind))
+    }
+}
+
+fn array_constant_offset_item_local_kind(
+    item: &Expr,
+    locals: &HashMap<String, LocalKind>,
+    function_return_kinds: &HashMap<String, ValueKind>,
+    constants: &HashMap<String, ConstantValue>,
+    class_constants: &HashMap<String, ConstantValue>,
+) -> LocalKind {
+    static_value_cell_kind_for_expr(item)
+        .map(local_kind_for_value_cell)
+        .unwrap_or_else(|| {
+            infer_local_kind(
+                item,
+                locals,
+                function_return_kinds,
+                constants,
+                class_constants,
+            )
+        })
 }
 
 fn collect_array_constant_assignment_metadata(

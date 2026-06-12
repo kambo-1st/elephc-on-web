@@ -32,6 +32,15 @@ pub(in crate::codegen::wasm) fn static_scalar_value(expr: &Expr, module: &WasmMo
             ConstantValue::Float(value) => Some(ConstantValue::Float(-value)),
             _ => None,
         },
+        ExprKind::Not(inner) => {
+            let value = static_scalar_value(inner, module)?;
+            Some(ConstantValue::Bool(!static_scalar_truthiness(&value)))
+        }
+        ExprKind::BinaryOp { left, op, right } => {
+            let left = static_scalar_value(left, module)?;
+            let right = static_scalar_value(right, module)?;
+            eval_static_scalar_binary(left, op, right)
+        }
         ExprKind::ConstRef(name) => module.constant_value(name),
         ExprKind::ClassConstant { receiver } => module
             .class_name_for_receiver(receiver)
@@ -42,6 +51,97 @@ pub(in crate::codegen::wasm) fn static_scalar_value(expr: &Expr, module: &WasmMo
         ExprKind::ArrayAccess { array, index } => {
             static_array_constant_scalar_value(array, index, module)
         }
+        _ => None,
+    }
+}
+
+fn eval_static_scalar_binary(
+    left: ConstantValue,
+    op: &BinOp,
+    right: ConstantValue,
+) -> Option<ConstantValue> {
+    match op {
+        BinOp::Add => eval_static_int_float(left, right, i64::checked_add, |a, b| a + b),
+        BinOp::Sub => eval_static_int_float(left, right, i64::checked_sub, |a, b| a - b),
+        BinOp::Mul => eval_static_int_float(left, right, i64::checked_mul, |a, b| a * b),
+        BinOp::Div => Some(ConstantValue::Float(
+            static_scalar_numeric_as_float(&left)? / static_scalar_numeric_as_float(&right)?,
+        )),
+        BinOp::Mod => {
+            let (left, right) = static_int_pair(left, right)?;
+            if right == 0 {
+                return None;
+            }
+            Some(ConstantValue::Int(left % right))
+        }
+        BinOp::Pow => Some(ConstantValue::Float(
+            static_scalar_numeric_as_float(&left)?.powf(static_scalar_numeric_as_float(&right)?),
+        )),
+        BinOp::BitAnd => {
+            let (left, right) = static_int_pair(left, right)?;
+            Some(ConstantValue::Int(left & right))
+        }
+        BinOp::BitOr => {
+            let (left, right) = static_int_pair(left, right)?;
+            Some(ConstantValue::Int(left | right))
+        }
+        BinOp::BitXor => {
+            let (left, right) = static_int_pair(left, right)?;
+            Some(ConstantValue::Int(left ^ right))
+        }
+        BinOp::ShiftLeft => {
+            let (left, right) = static_int_pair(left, right)?;
+            Some(ConstantValue::Int(left.checked_shl(u32::try_from(right).ok()?)?))
+        }
+        BinOp::ShiftRight => {
+            let (left, right) = static_int_pair(left, right)?;
+            Some(ConstantValue::Int(left.checked_shr(u32::try_from(right).ok()?)?))
+        }
+        BinOp::Concat => Some(ConstantValue::Str(format!(
+            "{}{}",
+            static_scalar_string_value(left)?,
+            static_scalar_string_value(right)?
+        ))),
+        BinOp::And => Some(ConstantValue::Bool(
+            static_scalar_truthiness(&left) && static_scalar_truthiness(&right),
+        )),
+        BinOp::Or => Some(ConstantValue::Bool(
+            static_scalar_truthiness(&left) || static_scalar_truthiness(&right),
+        )),
+        BinOp::Xor => Some(ConstantValue::Bool(
+            static_scalar_truthiness(&left) ^ static_scalar_truthiness(&right),
+        )),
+        _ => None,
+    }
+}
+
+fn eval_static_int_float(
+    left: ConstantValue,
+    right: ConstantValue,
+    int_op: fn(i64, i64) -> Option<i64>,
+    float_op: fn(f64, f64) -> f64,
+) -> Option<ConstantValue> {
+    match (left, right) {
+        (ConstantValue::Int(left), ConstantValue::Int(right)) => {
+            Some(ConstantValue::Int(int_op(left, right)?))
+        }
+        (left, right) => Some(ConstantValue::Float(float_op(
+            static_scalar_numeric_as_float(&left)?,
+            static_scalar_numeric_as_float(&right)?,
+        ))),
+    }
+}
+
+fn static_int_pair(left: ConstantValue, right: ConstantValue) -> Option<(i64, i64)> {
+    match (left, right) {
+        (ConstantValue::Int(left), ConstantValue::Int(right)) => Some((left, right)),
+        _ => None,
+    }
+}
+
+fn static_scalar_string_value(value: ConstantValue) -> Option<String> {
+    match value {
+        ConstantValue::Str(value) => Some(value),
         _ => None,
     }
 }

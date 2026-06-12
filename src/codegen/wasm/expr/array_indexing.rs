@@ -291,6 +291,9 @@ fn emit_array_constant_item_expr(
         module.body().line(&format!("i32.const {}", len));
         return Ok(ValueKind::Str);
     }
+    if let Some(value) = static_scalar_value(item, module) {
+        return emit_constant_value(expr, value, module);
+    }
     emit_expr(item, module)
 }
 

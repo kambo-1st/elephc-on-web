@@ -38595,6 +38595,23 @@ echo ROWS["name"] . ":" . $score . ":" . (ROWS["ok"] ? "T" : "F") . ":" . (ROWS[
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_user_array_constant_scalar_expression_offset_reads() {
+    assert_wasm_matches_php(
+        r#"<?php
+const BASE = 3;
+const LABEL = "web";
+const MIXED = [BASE + 4, LABEL . "-ok", 2.5 + 0.5, !false, null];
+const ROWS = ["name" => LABEL . "-row", "score" => BASE + 2, "float" => 1.25 * 2, "ok" => !false];
+$label = MIXED[1];
+$score = ROWS["score"];
+$float = ROWS["float"];
+echo MIXED[0] . ":" . $label . ":" . MIXED[2] . ":" . (MIXED[3] ? "T" : "F") . ":" . gettype(MIXED[4]) . "\n";
+echo ROWS["name"] . ":" . $score . ":" . $float . ":" . (ROWS["ok"] ? "T" : "F") . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_user_array_constant_output_marker() {
     assert_wasm_matches_php(
         r#"<?php

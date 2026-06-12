@@ -65,7 +65,7 @@ pub(super) fn emit_output_constant(
     Ok(())
 }
 
-fn emit_output_constant_value(value: ConstantValue, module: &mut WasmModule) {
+pub(super) fn emit_output_constant_value(value: ConstantValue, module: &mut WasmModule) {
     match value {
         ConstantValue::Str(value) => {
             let (ptr, len) = module.intern_string(&value);

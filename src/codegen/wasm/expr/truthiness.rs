@@ -202,7 +202,7 @@ fn static_array_offset_truthiness(
                 Some(
                     items
                         .get(offset)
-                        .and_then(static_value_cell_truthiness_for_filter)
+                        .and_then(|value| static_array_item_truthiness(value, module))
                         .unwrap_or(false),
                 )
             }
@@ -214,7 +214,7 @@ fn static_array_offset_truthiness(
                         .rev()
                         .find_map(|(candidate, value)| {
                             let candidate = static_truthiness_assoc_access_key(candidate, module)?;
-                            (candidate == key).then(|| static_value_cell_truthiness_for_filter(value))
+                            (candidate == key).then(|| static_array_item_truthiness(value, module))
                         })
                         .flatten()
                         .unwrap_or(false),
@@ -226,7 +226,7 @@ fn static_array_offset_truthiness(
             Some(
                 items
                     .get(offset)
-                    .and_then(static_value_cell_truthiness_for_filter)
+                    .and_then(|value| static_array_item_truthiness(value, module))
                     .unwrap_or(false),
             )
         }
@@ -238,7 +238,7 @@ fn static_array_offset_truthiness(
                     .rev()
                     .find_map(|(candidate, value)| {
                         let candidate = static_truthiness_assoc_access_key(candidate, module)?;
-                        (candidate == key).then(|| static_value_cell_truthiness_for_filter(value))
+                        (candidate == key).then(|| static_array_item_truthiness(value, module))
                     })
                     .flatten()
                     .unwrap_or(false),
@@ -246,6 +246,12 @@ fn static_array_offset_truthiness(
         }
         _ => None,
     }
+}
+
+fn static_array_item_truthiness(value: &Expr, module: &WasmModule) -> Option<bool> {
+    static_scalar_value(value, module)
+        .map(|value| static_scalar_truthiness(&value))
+        .or_else(|| static_value_cell_truthiness_for_filter(value))
 }
 
 fn static_truthiness_assoc_access_key(index: &Expr, module: &WasmModule) -> Option<AssocKeyValue> {

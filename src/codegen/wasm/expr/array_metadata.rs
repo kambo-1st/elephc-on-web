@@ -95,6 +95,15 @@ pub(in crate::codegen::wasm) fn value_cell_kind_for_expr(
     value: &Expr,
     module: &WasmModule,
 ) -> Option<ValueCellKind> {
+    if let Some(value) = static_scalar_value(value, module) {
+        return Some(match value {
+            ConstantValue::Int(_) => ValueCellKind::Int,
+            ConstantValue::Float(_) => ValueCellKind::Float,
+            ConstantValue::Bool(_) => ValueCellKind::Bool,
+            ConstantValue::Str(_) => ValueCellKind::Str,
+            ConstantValue::Null => ValueCellKind::Null,
+        });
+    }
     match &value.kind {
         ExprKind::Null => Some(ValueCellKind::Null),
         ExprKind::NullsafePropertyAccess { object, .. }
