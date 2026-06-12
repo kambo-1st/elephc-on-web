@@ -137,6 +137,24 @@ pub(super) fn emit_array_key_exists_call(
         emit_assoc_array_items_assign(&temp, items, module)?;
         return emit_assoc_array_key_exists_call(expr, &args[0], &temp, module);
     }
+    if let ExprKind::ConstRef(name) = &args[1].kind {
+        match module.array_constant_value(name) {
+            Some(ConstantArrayValue::Indexed(items)) => {
+                let array = Expr::new(ExprKind::ArrayLiteral(items), args[1].span);
+                return emit_indexed_array_key_exists_call(&args[0], &array, module);
+            }
+            Some(ConstantArrayValue::Assoc(items)) => {
+                let temp = module
+                    .next_label("assoc_const_key_exists_source")
+                    .trim_start_matches('$')
+                    .to_string();
+                module.declare_array_local(temp.clone());
+                emit_assoc_array_items_assign(&temp, &items, module)?;
+                return emit_assoc_array_key_exists_call(expr, &args[0], &temp, module);
+            }
+            None => {}
+        }
+    }
     if let ExprKind::StaticMethodCall {
         receiver,
         method,

@@ -22,6 +22,20 @@ pub(super) fn emit_array_contains_int(
     found: &str,
     module: &mut WasmModule,
 ) -> Result<(), CompileError> {
+    if let ExprKind::ConstRef(name) = &array.kind {
+        match module.array_constant_value(name) {
+            Some(ConstantArrayValue::Indexed(items)) => {
+                let array = Expr::new(ExprKind::ArrayLiteral(items), array.span);
+                return emit_array_contains_int(&array, needle, strict, found, module);
+            }
+            Some(ConstantArrayValue::Assoc(items)) => {
+                let items = normalize_assoc_items(&items).unwrap_or(items);
+                let array = Expr::new(ExprKind::ArrayLiteralAssoc(items), array.span);
+                return emit_array_contains_int(&array, needle, strict, found, module);
+            }
+            None => {}
+        }
+    }
     if let ExprKind::ArrayLiteralAssoc(items) = &array.kind {
         if !strict {
             let values = assoc_array_value_exprs(items);
