@@ -4274,6 +4274,24 @@ echo $child->name() . ":" . $child->suffix() . ":" . Child::staticName() . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_abstract_parent_method_dispatch() {
+    assert_wasm_matches_php(
+        r#"<?php
+abstract class AbstractLabel {
+    public string $prefix = "base";
+    abstract public function name(): string;
+    public function label(): string { return $this->name(); }
+}
+class ConcreteLabel extends AbstractLabel {
+    public function name(): string { return "child"; }
+}
+$item = new ConcreteLabel();
+echo $item->prefix . ":" . $item->label() . ":" . $item->name() . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_wat_output_string_builtins() {
     let program = parse_program(
         "<?php echo ord(\"A\"); echo strtolower(\"WEB\"); echo strtoupper(\"web\"); echo lcfirst(\"Web\"); echo ucfirst(\"web\"); echo strrev(\"abc\"); echo trim(\" web \"); echo ltrim(\" web\"); echo rtrim(\"web \"); echo str_repeat(\"ab\", 2); echo substr(\"abcdef\", 1, 3);",
