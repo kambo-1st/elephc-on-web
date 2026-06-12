@@ -2784,6 +2784,13 @@ fn test_wasm32_web_e2e_matches_php_object_is_a_string_class_mode() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_is_a_assigned_string_class_mode_helpers() {
+    assert_wasm_matches_php(
+        "<?php\ninterface AssignedNamed {}\nclass AssignedBase {}\nclass AssignedChild extends AssignedBase implements AssignedNamed {}\nfunction assigned_is_a_value(): string { echo \"value\\n\"; return AssignedChild::class; }\nfunction assigned_is_a_target(): string { echo \"target\\n\"; return AssignedBase::class; }\n$value = assigned_is_a_value();\n$target = assigned_is_a_target();\necho (is_a($value, $target, true) ? 1 : 0); echo \":\";\necho (is_a($value, AssignedNamed::class, true) ? 1 : 0); echo \":\";\necho (is_a($target, $target, true) ? 1 : 0); echo \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_is_subclass_of_exact_false_and_assigned() {
     assert_wasm_matches_php(
         "<?php\nclass ParentBox {}\nclass Box extends ParentBox {}\nclass Other {}\nfunction object_subclass_value(): Box { echo \"value\\n\"; return new Box(); }\nfunction object_subclass_target(): string { echo \"target\\n\"; return \"ParentBox\"; }\nfunction object_subclass_other(): string { echo \"other\\n\"; return \"Other\"; }\n$o = new Box();\n$ok = is_subclass_of($o, Box::class);\necho ($ok ? 1 : 0) . \",\" . (is_subclass_of($o, \"Other\") ? 1 : 0) . \",\" . (is_subclass_of(42, Box::class) ? 1 : 0) . \":\";\necho (is_subclass_of($o, object_subclass_target()) ? 1 : 0); echo \":\";\necho (is_subclass_of(42, object_subclass_other()) ? 1 : 0); echo \":\";\necho (is_subclass_of(object_subclass_value(), object_subclass_target()) ? 1 : 0); echo \"\\n\";\n",
@@ -2808,6 +2815,13 @@ fn test_wasm32_web_e2e_matches_php_object_inherited_is_subclass_of() {
 fn test_wasm32_web_e2e_matches_php_object_is_subclass_of_string_class_mode() {
     assert_wasm_matches_php(
         "<?php\ninterface Named {}\nclass Base {}\nclass Child extends Base implements Named {}\nfunction subclass_name_value(): string { echo \"value\\n\"; return \"Child\"; }\nfunction subclass_name_target(): string { echo \"target\\n\"; return \"Base\"; }\n$class = \"Child\";\n$base = \"Base\";\n$missing = \"Missing\";\necho (is_subclass_of(\"Child\", Base::class) ? 1 : 0); echo \":\";\necho (is_subclass_of($class, Named::class) ? 1 : 0); echo \":\";\necho (is_subclass_of($base, Base::class) ? 1 : 0); echo \":\";\necho (is_subclass_of($missing, Base::class) ? 1 : 0); echo \":\";\necho (is_subclass_of(subclass_name_value(), subclass_name_target()) ? 1 : 0); echo \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_object_is_subclass_of_assigned_string_class_mode_helpers() {
+    assert_wasm_matches_php(
+        "<?php\ninterface AssignedSubNamed {}\nclass AssignedSubBase {}\nclass AssignedSubChild extends AssignedSubBase implements AssignedSubNamed {}\nfunction assigned_subclass_value(): string { echo \"value\\n\"; return AssignedSubChild::class; }\nfunction assigned_subclass_target(): string { echo \"target\\n\"; return AssignedSubBase::class; }\n$value = assigned_subclass_value();\n$target = assigned_subclass_target();\necho (is_subclass_of($value, $target) ? 1 : 0); echo \":\";\necho (is_subclass_of($value, AssignedSubNamed::class) ? 1 : 0); echo \":\";\necho (is_subclass_of($target, $target) ? 1 : 0); echo \"\\n\";\n",
     );
 }
 
