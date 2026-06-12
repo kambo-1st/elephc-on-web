@@ -145,10 +145,11 @@ pub(super) fn collect_class_constants(program: &Program) -> HashMap<String, Cons
     let mut class_parents = HashMap::new();
     let trait_constants = collect_simple_trait_constants(program, &top_level_constants);
     for stmt in program {
-        collect_stmt_class_constants(stmt, &top_level_constants, &mut constants);
+        collect_stmt_class_constants(stmt, &top_level_constants, None, &mut constants);
         collect_stmt_trait_class_constants(stmt, &trait_constants, &mut constants);
         collect_stmt_class_parents(stmt, &mut class_parents);
     }
+    collect_dependent_class_constants(program, &top_level_constants, &mut constants);
     add_inherited_class_constants(&class_parents, &mut constants);
     constants
 }
@@ -280,6 +281,7 @@ fn collect_stmt_trait_class_constants(
 fn collect_stmt_class_constants(
     stmt: &Stmt,
     top_level_constants: &HashMap<String, ConstantValue>,
+    known_class_constants: Option<&HashMap<String, ConstantValue>>,
     constants: &mut HashMap<String, ConstantValue>,
 ) {
     match &stmt.kind {
@@ -299,7 +301,11 @@ fn collect_stmt_class_constants(
             ..
         } => {
             for class_const in class_constants {
-                if let Some(value) = constant_value_from_expr(&class_const.value, top_level_constants)
+                if let Some(value) = constant_value_from_expr_with_class_constants(
+                    &class_const.value,
+                    top_level_constants,
+                    known_class_constants,
+                )
                 {
                     constants.insert(class_const_key(name, &class_const.name), value);
                 }
@@ -307,10 +313,39 @@ fn collect_stmt_class_constants(
         }
         StmtKind::Synthetic(stmts) | StmtKind::NamespaceBlock { body: stmts, .. } => {
             for stmt in stmts {
-                collect_stmt_class_constants(stmt, top_level_constants, constants);
+                collect_stmt_class_constants(
+                    stmt,
+                    top_level_constants,
+                    known_class_constants,
+                    constants,
+                );
             }
         }
         _ => {}
+    }
+}
+
+fn collect_dependent_class_constants(
+    program: &Program,
+    top_level_constants: &HashMap<String, ConstantValue>,
+    constants: &mut HashMap<String, ConstantValue>,
+) {
+    let mut changed = true;
+    while changed {
+        changed = false;
+        let snapshot = constants.clone();
+        let before = constants.len();
+        for stmt in program {
+            collect_stmt_class_constants(
+                stmt,
+                top_level_constants,
+                Some(&snapshot),
+                constants,
+            );
+        }
+        if constants.len() != before {
+            changed = true;
+        }
     }
 }
 

@@ -1299,6 +1299,28 @@ echo $message;
 }
 
 #[test]
+fn test_wasm32_web_wat_user_dependent_scoped_constant_expressions() {
+    let program = parse_program(
+        r#"<?php
+class ConstBase {
+    public const CODE = "base";
+}
+class ConstDerived {
+    public const LABEL = ConstBase::CODE . ":derived";
+}
+const MESSAGE = ConstDerived::LABEL;
+$message = MESSAGE;
+echo $message;
+"#,
+    );
+    let bytes = generate(&program, WasmOutputFormat::Wat).expect("WAT generation failed");
+    let wat = String::from_utf8(bytes).expect("WAT output was not UTF-8");
+
+    assert!(wat.contains("base:derived"));
+    assert!(wat.contains("local.set $message_ptr"));
+}
+
+#[test]
 fn test_wasm32_web_wat_class_name_and_scalar_constants() {
     let program = parse_program(
         r#"<?php
@@ -38138,6 +38160,27 @@ const LABEL = "class:" . ConstSource::CODE;
 const TOTAL = ConstSource::COUNT + 4;
 $message = LABEL;
 echo $message . ":" . strlen(LABEL) . "\n";
+echo TOTAL . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_user_dependent_scoped_constant_expressions() {
+    assert_wasm_matches_php(
+        r#"<?php
+class ConstBase {
+    public const CODE = "base";
+    public const COUNT = 2;
+}
+class ConstDerived {
+    public const LABEL = ConstBase::CODE . ":derived";
+    public const TOTAL = ConstBase::COUNT + 5;
+}
+const MESSAGE = ConstDerived::LABEL;
+const TOTAL = ConstDerived::TOTAL;
+$message = MESSAGE;
+echo $message . ":" . strlen(MESSAGE) . "\n";
 echo TOTAL . "\n";
 "#,
     );
