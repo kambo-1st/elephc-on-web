@@ -1200,6 +1200,12 @@ WebAssembly.instantiate(wasm, {{
     );
 }
 
+fn assert_wasm_compile_error(source: &str) {
+    let program = parse_program(source);
+    let result = generate(&program, WasmOutputFormat::Wasm);
+    assert!(result.is_err(), "expected WASM generation to fail");
+}
+
 #[test]
 fn test_wasm32_web_target_parse() {
     let target = Target::parse("wasm32-web").expect("target parse failed");
@@ -38425,6 +38431,18 @@ class NameConstChild extends NameConstBase {
 }
 echo NameConstBase::BASE_NAME . "\n";
 echo NameConstChild::CHILD_NAME . ":" . NameConstChild::PARENT_NAME . ":" . NameConstChild::PICK . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_static_class_constant_expression_is_rejected() {
+    assert_wasm_compile_error(
+        r#"<?php
+class BadStaticConst {
+    public const NAME = static::class;
+}
+echo BadStaticConst::NAME . "\n";
 "#,
     );
 }
