@@ -4355,6 +4355,25 @@ echo $item->id . ":" . $item->base() . ":" . $item->name . ":" . $item->label() 
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_final_readonly_class_reads() {
+    assert_wasm_matches_php(
+        r#"<?php
+final readonly class FinalReadonlyItem {
+    public int $id;
+    public string $name;
+    public function __construct(int $id, string $name) {
+        $this->id = $id;
+        $this->name = $name;
+    }
+    public function label(): string { return $this->name . ":" . $this->id; }
+}
+$item = new FinalReadonlyItem(11, "final");
+echo $item->id . ":" . $item->name . ":" . $item->label() . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_wat_output_string_builtins() {
     let program = parse_program(
         "<?php echo ord(\"A\"); echo strtolower(\"WEB\"); echo strtoupper(\"web\"); echo lcfirst(\"Web\"); echo ucfirst(\"web\"); echo strrev(\"abc\"); echo trim(\" web \"); echo ltrim(\" web\"); echo rtrim(\"web \"); echo str_repeat(\"ab\", 2); echo substr(\"abcdef\", 1, 3);",
