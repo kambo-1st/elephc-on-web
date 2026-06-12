@@ -1407,6 +1407,28 @@ echo array_search("3", SCORES);
 }
 
 #[test]
+fn test_wasm32_web_wat_user_array_constant_transforms() {
+    let program = parse_program(
+        r#"<?php
+const SCORES = [2, 3, 2];
+const ROWS = ["name" => "Ada", "city" => "Rome", "again" => "Ada"];
+$values = array_values(ROWS);
+$keys = array_keys(ROWS);
+$reverse = array_reverse(SCORES);
+$unique = array_unique(ROWS);
+echo $values[0] . $keys[1] . $reverse[0] . count($unique);
+"#,
+    );
+    let bytes = generate(&program, WasmOutputFormat::Wat).expect("WAT generation failed");
+    let wat = String::from_utf8(bytes).expect("WAT output was not UTF-8");
+
+    assert!(wat.contains("array_values_assoc_literal"));
+    assert!(wat.contains("array_keys_assoc_literal"));
+    assert!(wat.contains("local.set $values_ptr"));
+    assert!(wat.contains("local.set $keys_ptr"));
+}
+
+#[test]
 fn test_wasm32_web_wat_class_name_and_scalar_constants() {
     let program = parse_program(
         r#"<?php
@@ -38335,6 +38357,30 @@ echo array_search("3", SCORES) . ":";
 echo (array_search("9", SCORES) === false ? "false" : "bad") . "\n";
 echo array_search(5, WEIGHTS, true) . ":";
 echo (array_search(3, WEIGHTS, true) === false ? "false" : "bad") . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_user_array_constant_transforms() {
+    assert_wasm_matches_php(
+        r#"<?php
+const SCORES = [2, 3, 2, 5];
+const ROWS = ["name" => "Ada", "city" => "Rome", "again" => "Ada", "zip" => "001"];
+$values = array_values(ROWS);
+$keys = array_keys(ROWS);
+$reverse = array_reverse(SCORES);
+$preserved = array_reverse(ROWS, true);
+$unique = array_unique(ROWS);
+$flip = array_flip(ROWS);
+$diff = array_diff(ROWS, ["Rome"]);
+$intersect = array_intersect(ROWS, ["Ada"]);
+echo $values[0] . ":" . $values[2] . ":" . $keys[1] . ":" . $reverse[0] . ":" . $preserved["zip"] . "\n";
+echo count($unique) . ":" . $unique["name"] . ":" . $flip["Ada"] . ":" . $diff["name"] . ":" . $intersect["again"] . "\n";
+foreach ($unique as $key => $value) {
+    echo $key . "=" . $value . ";";
+}
+echo "\n";
 "#,
     );
 }

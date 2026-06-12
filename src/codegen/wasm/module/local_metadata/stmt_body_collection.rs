@@ -37,6 +37,7 @@ pub(super) fn collect_if_locals(
     function_array_return_param_indices: &HashMap<String, usize>,
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
+    array_constants: &HashMap<String, ConstantArrayValue>,
 ) {
     collect_stmt_body_locals(
         then_body,
@@ -62,6 +63,7 @@ pub(super) fn collect_if_locals(
         function_array_return_param_indices,
         constants,
         class_constants,
+                array_constants,
     );
     for (_, body) in elseif_clauses {
         collect_stmt_body_locals(
@@ -88,6 +90,7 @@ pub(super) fn collect_if_locals(
             function_array_return_param_indices,
             constants,
             class_constants,
+                array_constants,
         );
     }
     if let Some(else_body) = else_body {
@@ -115,6 +118,7 @@ pub(super) fn collect_if_locals(
             function_array_return_param_indices,
             constants,
             class_constants,
+                array_constants,
         );
     }
 }
@@ -145,6 +149,7 @@ pub(super) fn collect_for_locals(
     function_array_return_param_indices: &HashMap<String, usize>,
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
+    array_constants: &HashMap<String, ConstantArrayValue>,
 ) {
     if let Some(init) = init {
         super::collect_stmt_locals(
@@ -171,6 +176,7 @@ pub(super) fn collect_for_locals(
             function_array_return_param_indices,
             constants,
             class_constants,
+                array_constants,
         );
     }
     collect_stmt_body_locals(
@@ -197,6 +203,7 @@ pub(super) fn collect_for_locals(
         function_array_return_param_indices,
         constants,
         class_constants,
+                array_constants,
     );
     if let Some(update) = update {
         super::collect_stmt_locals(
@@ -223,6 +230,7 @@ pub(super) fn collect_for_locals(
             function_array_return_param_indices,
             constants,
             class_constants,
+                array_constants,
         );
     }
 }
@@ -252,6 +260,7 @@ pub(super) fn collect_switch_locals(
     function_array_return_param_indices: &HashMap<String, usize>,
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
+    array_constants: &HashMap<String, ConstantArrayValue>,
 ) {
     for (_, body) in cases {
         collect_stmt_body_locals(
@@ -278,6 +287,7 @@ pub(super) fn collect_switch_locals(
             function_array_return_param_indices,
             constants,
             class_constants,
+                array_constants,
         );
     }
     if let Some(default) = default {
@@ -305,6 +315,7 @@ pub(super) fn collect_switch_locals(
             function_array_return_param_indices,
             constants,
             class_constants,
+                array_constants,
         );
     }
 }
@@ -333,6 +344,7 @@ pub(super) fn collect_stmt_body_locals(
     function_array_return_param_indices: &HashMap<String, usize>,
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
+    array_constants: &HashMap<String, ConstantArrayValue>,
 ) {
     for stmt in body {
         super::collect_stmt_locals(
@@ -359,6 +371,7 @@ pub(super) fn collect_stmt_body_locals(
             function_array_return_param_indices,
             constants,
             class_constants,
+                array_constants,
         );
     }
 }

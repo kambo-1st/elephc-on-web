@@ -126,6 +126,7 @@ pub(super) fn collect_stmt_locals(
     function_array_return_param_indices: &HashMap<String, usize>,
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
+    array_constants: &HashMap<String, ConstantArrayValue>,
 ) {
     match &stmt.kind {
         StmtKind::Assign { name, value } => {
@@ -153,6 +154,7 @@ pub(super) fn collect_stmt_locals(
                 function_array_return_param_indices,
                 constants,
                 class_constants,
+                array_constants,
             );
             collect_assignment_locals(
                 name,
@@ -179,6 +181,7 @@ pub(super) fn collect_stmt_locals(
                 function_array_return_param_indices,
                 constants,
                 class_constants,
+                array_constants,
             );
         }
         StmtKind::TypedAssign {
@@ -210,6 +213,7 @@ pub(super) fn collect_stmt_locals(
                 function_array_return_param_indices,
                 constants,
                 class_constants,
+                array_constants,
             );
             if is_uninitialized_null_coalesce_assignment(name, value, locals) {
                 return;
@@ -247,6 +251,7 @@ pub(super) fn collect_stmt_locals(
             function_array_return_param_indices,
             constants,
             class_constants,
+            array_constants,
         ),
         StmtKind::While { body, .. }
         | StmtKind::DoWhile { body, .. }
@@ -275,6 +280,7 @@ pub(super) fn collect_stmt_locals(
             function_array_return_param_indices,
             constants,
             class_constants,
+            array_constants,
         ),
         StmtKind::Foreach {
             array,
@@ -408,6 +414,7 @@ pub(super) fn collect_stmt_locals(
                 function_array_return_param_indices,
                 constants,
                 class_constants,
+                array_constants,
             );
         }
         StmtKind::ListUnpack { vars, value } => {
@@ -435,6 +442,7 @@ pub(super) fn collect_stmt_locals(
                 function_array_return_param_indices,
                 constants,
                 class_constants,
+                array_constants,
             );
             for (index, var) in vars.iter().enumerate() {
                 let access = Expr::new(
@@ -469,6 +477,7 @@ pub(super) fn collect_stmt_locals(
                     function_array_return_param_indices,
                     constants,
                     class_constants,
+                    array_constants,
                 );
             }
         }
@@ -500,6 +509,7 @@ pub(super) fn collect_stmt_locals(
             function_array_return_param_indices,
             constants,
             class_constants,
+            array_constants,
         ),
         StmtKind::Switch { cases, default, .. } => collect_switch_locals(
             cases,
@@ -526,6 +536,7 @@ pub(super) fn collect_stmt_locals(
             function_array_return_param_indices,
             constants,
             class_constants,
+            array_constants,
         ),
         StmtKind::ArrayAssign {
             array,
@@ -556,6 +567,7 @@ pub(super) fn collect_stmt_locals(
                 function_array_return_param_indices,
                 constants,
                 class_constants,
+                array_constants,
             );
             collect_expr_assignment_prelude_locals(
                 value,
@@ -581,6 +593,7 @@ pub(super) fn collect_stmt_locals(
                 function_array_return_param_indices,
                 constants,
                 class_constants,
+                array_constants,
             );
             collect_array_assign_locals(
                 array,
@@ -617,6 +630,7 @@ pub(super) fn collect_stmt_locals(
                 function_array_return_param_indices,
                 constants,
                 class_constants,
+                array_constants,
             );
             collect_array_push_locals(
                 array,
@@ -651,6 +665,7 @@ pub(super) fn collect_stmt_locals(
             function_array_return_param_indices,
             constants,
             class_constants,
+            array_constants,
         ),
         _ => {}
     }
@@ -680,6 +695,7 @@ fn collect_expr_assignment_prelude_locals(
     function_array_return_param_indices: &HashMap<String, usize>,
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
+    array_constants: &HashMap<String, ConstantArrayValue>,
 ) {
     macro_rules! collect_child {
         ($child:expr) => {
@@ -707,6 +723,7 @@ fn collect_expr_assignment_prelude_locals(
                 function_array_return_param_indices,
                 constants,
                 class_constants,
+                array_constants,
             )
         };
     }
@@ -743,6 +760,7 @@ fn collect_expr_assignment_prelude_locals(
                     function_array_return_param_indices,
                     constants,
                     class_constants,
+                    array_constants,
                 );
             }
             collect_child!(target);
@@ -887,6 +905,7 @@ fn collect_expr_assignment_prelude_locals(
                     function_array_return_param_indices,
                     constants,
                     class_constants,
+                array_constants,
                 );
             }
         }

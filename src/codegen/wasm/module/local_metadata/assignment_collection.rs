@@ -37,6 +37,7 @@ pub(super) fn collect_assignment_locals(
     function_array_return_param_indices: &HashMap<String, usize>,
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
+    array_constants: &HashMap<String, ConstantArrayValue>,
 ) {
     if is_uninitialized_null_coalesce_assignment(name, value, locals) {
         return;
@@ -486,7 +487,12 @@ pub(super) fn collect_assignment_locals(
         array_key_values.remove(name);
     }
     if let Some((keys, values)) =
-        array_unique_source_metadata_for_assignment(value, array_value_kinds, array_key_kinds)
+        array_unique_source_metadata_for_assignment(
+            value,
+            array_value_kinds,
+            array_key_kinds,
+            array_constants,
+        )
     {
         array_value_kinds.insert(name.clone(), values);
         array_runtime_value_kinds.remove(name);
@@ -1242,6 +1248,7 @@ fn array_unique_source_metadata_for_assignment(
     value: &Expr,
     array_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
     array_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+    array_constants: &HashMap<String, ConstantArrayValue>,
 ) -> Option<(Vec<AssocKeyKind>, Vec<ValueCellKind>)> {
     let ExprKind::FunctionCall { name, args } = &value.kind else {
         return None;
@@ -1249,15 +1256,35 @@ fn array_unique_source_metadata_for_assignment(
     if !name.eq_ignore_ascii_case("array_unique") {
         return None;
     }
-    let ExprKind::Variable(source) = &args.first()?.kind else {
-        return None;
+    let (keys, values) = match &args.first()?.kind {
+        ExprKind::Variable(source) => {
+            let values = array_value_kinds.get(source)?.clone();
+            let keys = array_key_kinds
+                .get(source)
+                .cloned()
+                .unwrap_or_else(|| vec![AssocKeyKind::Int; values.len()]);
+            (keys, values)
+        }
+        ExprKind::ConstRef(source) => array_constant_key_value_kinds(source, array_constants)?,
+        _ => return None,
     };
-    let values = array_value_kinds.get(source)?.clone();
-    let keys = array_key_kinds
-        .get(source)
-        .cloned()
-        .unwrap_or_else(|| vec![AssocKeyKind::Int; values.len()]);
     Some((keys, values))
+}
+
+fn array_constant_key_value_kinds(
+    source: &str,
+    array_constants: &HashMap<String, ConstantArrayValue>,
+) -> Option<(Vec<AssocKeyKind>, Vec<ValueCellKind>)> {
+    match array_constants.get(source)? {
+        ConstantArrayValue::Indexed(items) => Some((
+            vec![AssocKeyKind::Int; items.len()],
+            static_value_cell_kinds_for_items(items)?,
+        )),
+        ConstantArrayValue::Assoc(items) => Some((
+            static_assoc_key_kinds_for_items(items)?,
+            static_value_cell_kinds_for_assoc_items(items)?,
+        )),
+    }
 }
 
 fn array_filter_source_has_unknown_nested_assoc_keys(

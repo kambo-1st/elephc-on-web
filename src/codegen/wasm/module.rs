@@ -948,6 +948,7 @@ impl WasmModule {
                 &self.function_array_return_param_indices,
                 &self.constants,
                 &self.class_constants,
+                &self.array_constants,
             );
         }
         function.locals.extend(inferred);
@@ -1185,6 +1186,7 @@ impl WasmModule {
                 &self.function_array_return_param_indices,
                 &self.constants,
                 &self.class_constants,
+                &self.array_constants,
             );
         }
         self.current.locals.extend(inferred);

@@ -37,6 +37,32 @@ pub(in crate::codegen::wasm::expr) fn emit_indexed_array_transform_assign(
         ));
     }
     match &args[0].kind {
+        ExprKind::ConstRef(const_name) => match module.array_constant_value(const_name) {
+            Some(ConstantArrayValue::Indexed(items)) => {
+                let mut rewritten_args = args.to_vec();
+                rewritten_args[0] = Expr::new(ExprKind::ArrayLiteral(items), args[0].span);
+                emit_indexed_array_transform_assign(
+                    name,
+                    expr,
+                    function_name,
+                    &rewritten_args,
+                    module,
+                )
+            }
+            Some(ConstantArrayValue::Assoc(items)) => {
+                let mut rewritten_args = args.to_vec();
+                let items = normalize_assoc_items(&items).unwrap_or(items);
+                rewritten_args[0] = Expr::new(ExprKind::ArrayLiteralAssoc(items), args[0].span);
+                emit_indexed_array_transform_assign(
+                    name,
+                    expr,
+                    function_name,
+                    &rewritten_args,
+                    module,
+                )
+            }
+            None => Err(array_unsupported(&args[0])),
+        },
         ExprKind::ArrayLiteral(items) if function_name.eq_ignore_ascii_case("array_unique") => {
             match array_unique_sort_mode(args, expr.span, module)? {
                 ArrayUniqueSortMode::Regular => {
