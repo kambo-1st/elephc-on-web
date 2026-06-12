@@ -123,7 +123,7 @@ fn collect_stmt_interface_parents(stmt: &Stmt, parents: &mut HashMap<String, Vec
 pub(super) fn collect_constants(program: &Program) -> HashMap<String, ConstantValue> {
     let mut constants = HashMap::new();
     for stmt in program {
-        collect_stmt_constants(stmt, &mut constants, None);
+        collect_stmt_constants(stmt, &mut constants, None, None, None);
     }
     constants
 }
@@ -134,7 +134,7 @@ pub(super) fn collect_constants_with_class_constants(
 ) -> HashMap<String, ConstantValue> {
     let mut constants = HashMap::new();
     for stmt in program {
-        collect_stmt_constants(stmt, &mut constants, Some(class_constants));
+        collect_stmt_constants(stmt, &mut constants, Some(class_constants), None, None);
     }
     constants
 }
@@ -153,11 +153,19 @@ pub(super) fn collect_class_constants(program: &Program) -> HashMap<String, Cons
     let mut class_parents = HashMap::new();
     let trait_constants = collect_simple_trait_constants(program, &top_level_constants);
     for stmt in program {
-        collect_stmt_class_constants(stmt, &top_level_constants, None, &mut constants);
-        collect_stmt_trait_class_constants(stmt, &trait_constants, &mut constants);
         collect_stmt_class_parents(stmt, &mut class_parents);
     }
-    collect_dependent_class_constants(program, &top_level_constants, &mut constants);
+    for stmt in program {
+        collect_stmt_class_constants(
+            stmt,
+            &top_level_constants,
+            None,
+            &class_parents,
+            &mut constants,
+        );
+        collect_stmt_trait_class_constants(stmt, &trait_constants, &mut constants);
+    }
+    collect_dependent_class_constants(program, &top_level_constants, &class_parents, &mut constants);
     add_inherited_class_constants(&class_parents, &mut constants);
     constants
 }
@@ -204,7 +212,13 @@ fn collect_simple_trait_constants(
         };
         let mut trait_constants = HashMap::new();
         for class_const in constants {
-            if let Some(value) = constant_value_from_expr(&class_const.value, top_level_constants)
+            if let Some(value) = constant_value_from_expr_with_class_constants(
+                &class_const.value,
+                top_level_constants,
+                None,
+                Some(name.as_str()),
+                None,
+            )
             {
                 trait_constants.insert(class_const.name.clone(), value);
             }
@@ -315,6 +329,7 @@ fn collect_stmt_class_constants(
     stmt: &Stmt,
     top_level_constants: &HashMap<String, ConstantValue>,
     known_class_constants: Option<&HashMap<String, ConstantValue>>,
+    class_parents: &HashMap<String, String>,
     constants: &mut HashMap<String, ConstantValue>,
 ) {
     match &stmt.kind {
@@ -333,11 +348,14 @@ fn collect_stmt_class_constants(
             constants: class_constants,
             ..
         } => {
+            let parent = class_parents.get(&function_key(name)).map(String::as_str);
             for class_const in class_constants {
                 if let Some(value) = constant_value_from_expr_with_class_constants(
                     &class_const.value,
                     top_level_constants,
                     known_class_constants,
+                    Some(name.as_str()),
+                    parent,
                 )
                 {
                     constants.insert(class_const_key(name, &class_const.name), value);
@@ -350,6 +368,7 @@ fn collect_stmt_class_constants(
                     stmt,
                     top_level_constants,
                     known_class_constants,
+                    class_parents,
                     constants,
                 );
             }
@@ -361,6 +380,7 @@ fn collect_stmt_class_constants(
 fn collect_dependent_class_constants(
     program: &Program,
     top_level_constants: &HashMap<String, ConstantValue>,
+    class_parents: &HashMap<String, String>,
     constants: &mut HashMap<String, ConstantValue>,
 ) {
     let mut changed = true;
@@ -373,6 +393,7 @@ fn collect_dependent_class_constants(
                 stmt,
                 top_level_constants,
                 Some(&snapshot),
+                class_parents,
                 constants,
             );
         }
@@ -389,7 +410,7 @@ fn collect_stmt_class_parents(stmt: &Stmt, class_parents: &mut HashMap<String, S
             extends: Some(parent),
             ..
         } => {
-            class_parents.insert(function_key(name), function_key(parent));
+            class_parents.insert(function_key(name), parent.as_str().to_string());
         }
         StmtKind::Synthetic(stmts) | StmtKind::NamespaceBlock { body: stmts, .. } => {
             for stmt in stmts {
@@ -408,7 +429,8 @@ fn add_inherited_class_constants(
     while changed {
         changed = false;
         let snapshot = constants.clone();
-        for (class_key, parent_key) in class_parents {
+        for (class_key, parent_name) in class_parents {
+            let parent_key = function_key(parent_name);
             let inherited: Vec<_> = snapshot
                 .iter()
                 .filter_map(|(key, value)| {
@@ -437,18 +459,32 @@ fn collect_stmt_constants(
     stmt: &Stmt,
     constants: &mut HashMap<String, ConstantValue>,
     class_constants: Option<&HashMap<String, ConstantValue>>,
+    current_class: Option<&str>,
+    parent_class: Option<&str>,
 ) {
     match &stmt.kind {
         StmtKind::ConstDecl { name, value } => {
             if let Some(value) =
-                constant_value_from_expr_with_class_constants(value, constants, class_constants)
+                constant_value_from_expr_with_class_constants(
+                    value,
+                    constants,
+                    class_constants,
+                    current_class,
+                    parent_class,
+                )
             {
                 constants.insert(name.clone(), value);
             }
         }
         StmtKind::Synthetic(stmts) | StmtKind::NamespaceBlock { body: stmts, .. } => {
             for stmt in stmts {
-                collect_stmt_constants(stmt, constants, class_constants);
+                collect_stmt_constants(
+                    stmt,
+                    constants,
+                    class_constants,
+                    current_class,
+                    parent_class,
+                );
             }
         }
         _ => {}
@@ -459,13 +495,15 @@ pub(super) fn constant_value_from_expr(
     expr: &Expr,
     constants: &HashMap<String, ConstantValue>,
 ) -> Option<ConstantValue> {
-    constant_value_from_expr_with_class_constants(expr, constants, None)
+    constant_value_from_expr_with_class_constants(expr, constants, None, None, None)
 }
 
 fn constant_value_from_expr_with_class_constants(
     expr: &Expr,
     constants: &HashMap<String, ConstantValue>,
     class_constants: Option<&HashMap<String, ConstantValue>>,
+    current_class: Option<&str>,
+    parent_class: Option<&str>,
 ) -> Option<ConstantValue> {
     match &expr.kind {
         ExprKind::IntLiteral(value) => Some(ConstantValue::Int(*value)),
@@ -474,25 +512,36 @@ fn constant_value_from_expr_with_class_constants(
         ExprKind::StringLiteral(value) => Some(ConstantValue::Str(value.clone())),
         ExprKind::Null => Some(ConstantValue::Null),
         ExprKind::ConstRef(name) => constants.get(name.as_str()).cloned(),
-        ExprKind::ClassConstant { receiver: StaticReceiver::Named(class_name) } => {
-            Some(ConstantValue::Str(class_name.as_str().to_string()))
-        }
+        ExprKind::ClassConstant { receiver } => metadata_class_name_for_receiver(
+            receiver,
+            current_class,
+            parent_class,
+        )
+        .map(ConstantValue::Str),
         ExprKind::ScopedConstantAccess {
-            receiver: StaticReceiver::Named(class_name),
+            receiver,
             name,
         } => class_constants
-            .and_then(|values| values.get(&class_const_key(class_name, name)))
+            .and_then(|values| {
+                let class_name =
+                    metadata_class_name_for_receiver(receiver, current_class, parent_class)?;
+                values.get(&class_const_key(&class_name, name))
+            })
             .cloned(),
         ExprKind::Negate(inner) => negate_constant(constant_value_from_expr_with_class_constants(
             inner,
             constants,
             class_constants,
+            current_class,
+            parent_class,
         )?),
         ExprKind::Not(inner) => {
             let value = constant_value_from_expr_with_class_constants(
                 inner,
                 constants,
                 class_constants,
+                current_class,
+                parent_class,
             )?;
             Some(ConstantValue::Bool(!constant_truthiness(&value)))
         }
@@ -501,11 +550,15 @@ fn constant_value_from_expr_with_class_constants(
                 left,
                 constants,
                 class_constants,
+                current_class,
+                parent_class,
             )?;
             let right = constant_value_from_expr_with_class_constants(
                 right,
                 constants,
                 class_constants,
+                current_class,
+                parent_class,
             )?;
             eval_constant_binary(left, op, right)
         }
@@ -518,18 +571,24 @@ fn constant_value_from_expr_with_class_constants(
                 condition,
                 constants,
                 class_constants,
+                current_class,
+                parent_class,
             )?;
             if constant_truthiness(&condition) {
                 constant_value_from_expr_with_class_constants(
                     then_expr,
                     constants,
                     class_constants,
+                    current_class,
+                    parent_class,
                 )
             } else {
                 constant_value_from_expr_with_class_constants(
                     else_expr,
                     constants,
                     class_constants,
+                    current_class,
+                    parent_class,
                 )
             }
         }
@@ -538,6 +597,8 @@ fn constant_value_from_expr_with_class_constants(
                 value,
                 constants,
                 class_constants,
+                current_class,
+                parent_class,
             )?;
             if constant_truthiness(&value) {
                 Some(value)
@@ -546,6 +607,8 @@ fn constant_value_from_expr_with_class_constants(
                     default,
                     constants,
                     class_constants,
+                    current_class,
+                    parent_class,
                 )
             }
         }
@@ -554,18 +617,35 @@ fn constant_value_from_expr_with_class_constants(
                 value,
                 constants,
                 class_constants,
+                current_class,
+                parent_class,
             )?;
             if matches!(value, ConstantValue::Null) {
                 constant_value_from_expr_with_class_constants(
                     default,
                     constants,
                     class_constants,
+                    current_class,
+                    parent_class,
                 )
             } else {
                 Some(value)
             }
         }
         _ => None,
+    }
+}
+
+fn metadata_class_name_for_receiver(
+    receiver: &StaticReceiver,
+    current_class: Option<&str>,
+    parent_class: Option<&str>,
+) -> Option<String> {
+    match receiver {
+        StaticReceiver::Named(class_name) => Some(class_name.as_str().to_string()),
+        StaticReceiver::Self_ => current_class.map(str::to_string),
+        StaticReceiver::Parent => parent_class.map(str::to_string),
+        StaticReceiver::Static => None,
     }
 }
 

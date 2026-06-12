@@ -6,8 +6,8 @@
 //! - `crate::codegen::wasm::expr::emit_expr`
 //!
 //! Key details:
-//! - String constants are rejected here because they are currently supported
-//!   only by output-specific lowering.
+//! - String constants use the normal wasm string value ABI: pointer then length
+//!   on the operand stack.
 
 use super::*;
 
@@ -27,7 +27,7 @@ pub(super) fn emit_constant_expr(
 }
 
 pub(super) fn emit_constant_value(
-    expr: &Expr,
+    _expr: &Expr,
     value: ConstantValue,
     module: &mut WasmModule,
 ) -> Result<ValueKind, CompileError> {
@@ -48,10 +48,12 @@ pub(super) fn emit_constant_value(
             module.body().line("i32.const 0");
             Ok(ValueKind::Null)
         }
-        ConstantValue::Str(_) => Err(CompileError::new(
-            expr.span,
-            "wasm32-web string constants are only supported in output position",
-        )),
+        ConstantValue::Str(value) => {
+            let (ptr, len) = module.intern_string(&value);
+            module.body().line(&format!("i32.const {}", ptr));
+            module.body().line(&format!("i32.const {}", len));
+            Ok(ValueKind::Str)
+        }
     }
 }
 

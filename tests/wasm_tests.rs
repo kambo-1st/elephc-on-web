@@ -38392,6 +38392,26 @@ echo TOTAL . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_user_class_constant_branch_expressions() {
+    assert_wasm_matches_php(
+        r#"<?php
+class BaseBranchConst {
+    public const ROOT = "base";
+}
+class BranchConst extends BaseBranchConst {
+    public const BASE = 3;
+    public const PICK = self::BASE > 2 ? "yes" : "no";
+    public const FALLBACK = self::BASE < 2 ? "bad" : parent::ROOT;
+    public const SHORT = "" ?: self::PICK;
+    public const NULLISH = null ?? parent::ROOT;
+}
+echo BranchConst::PICK . ":" . BranchConst::FALLBACK . ":" . BranchConst::SHORT . ":" . BranchConst::NULLISH . "\n";
+echo strlen(BranchConst::PICK) . ":" . (BranchConst::NULLISH === "base" ? 1 : 0) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_user_indexed_array_constant_count_and_read() {
     assert_wasm_matches_php(
         r#"<?php
