@@ -26754,7 +26754,24 @@ echo "\n";
 }
 
 #[test]
-fn test_wasm32_web_object_callable_resource_value_cells_are_rejected() {
+fn test_wasm32_web_e2e_matches_php_object_value_array_cells() {
+    assert_wasm_matches_php(
+        r#"<?php
+class Item {
+    public string $name = "";
+    public function __construct(string $name) { $this->name = $name; }
+    public function label(): string { return "item-" . $this->name; }
+}
+$items = [new Item("a"), new Item("b")];
+echo count($items) . ":";
+echo gettype($items[0]) . ":" . get_class($items[1]) . ":";
+echo $items[0]->label() . ":" . $items[1]->name . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_callable_resource_value_cells_are_rejected() {
     for (source, expected) in [
         (
             "<?php $a = [strlen(...)]; echo count($a);",
