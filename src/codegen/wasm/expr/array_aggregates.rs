@@ -47,6 +47,13 @@ pub(super) fn emit_count_call(
                 module.body().line(&format!("i64.const {}", items.len()));
                 Ok(ValueKind::Int)
             }
+            Some(ConstantArrayValue::Assoc(items)) => {
+                let len = normalize_assoc_items(&items)
+                    .map(|items| items.len())
+                    .unwrap_or(items.len());
+                module.body().line(&format!("i64.const {}", len));
+                Ok(ValueKind::Int)
+            }
             None => Err(CompileError::new(
                 args[0].span,
                 "wasm32-web count() currently supports indexed array values only",

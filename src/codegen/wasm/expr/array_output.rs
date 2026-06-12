@@ -88,6 +88,26 @@ pub(super) fn emit_output_array_index(
             Ok(())
         }
         ExprKind::ConstRef(name) => {
+            let Some(array_constant) = module.array_constant_value(name) else {
+                return Err(array_unsupported(array));
+            };
+            if let ConstantArrayValue::Assoc(items) = array_constant {
+                let Some(key) = assoc_key_value_for_output_const_index(index, module) else {
+                    return Err(CompileError::new(
+                        index.span,
+                        "wasm32-web array constant access requires a static integer or string key",
+                    ));
+                };
+                let normalized = normalize_assoc_items(&items).unwrap_or(items);
+                let Some((_, item)) = normalized.iter().rev().find(|(candidate, _)| {
+                    assoc_key_value_for_expr(candidate).is_some_and(|candidate| candidate == key)
+                }) else {
+                    return Ok(());
+                };
+                require_int(item, module)?;
+                module.body().line("call $host_write_int");
+                return Ok(());
+            }
             let Some(index) = static_or_const_int_value(index) else {
                 return Err(CompileError::new(
                     index.span,
@@ -97,8 +117,8 @@ pub(super) fn emit_output_array_index(
             let Ok(index) = usize::try_from(index) else {
                 return Ok(());
             };
-            let Some(ConstantArrayValue::Indexed(items)) = module.array_constant_value(name) else {
-                return Err(array_unsupported(array));
+            let ConstantArrayValue::Indexed(items) = array_constant else {
+                unreachable!("associative array constants were handled above");
             };
             let Some(item) = items.get(index) else {
                 return Ok(());
@@ -214,6 +234,16 @@ fn emit_output_assoc_array_local_mixed_key(
     emit_output_value_cell(&cell, module);
     let _ = expr;
     Ok(())
+}
+
+fn assoc_key_value_for_output_const_index(index: &Expr, module: &WasmModule) -> Option<AssocKeyValue> {
+    if let Some(value) = static_or_const_int_value(index) {
+        return Some(AssocKeyValue::Int(value));
+    }
+    let value = static_string_value(index, module)?;
+    literal_php_array_int_key(&value)
+        .map(AssocKeyValue::Int)
+        .or_else(|| Some(AssocKeyValue::Str(value)))
 }
 
 fn emit_output_assoc_array_local_int_key(

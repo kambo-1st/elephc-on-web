@@ -127,6 +127,7 @@ pub(super) enum ConstantValue {
 #[derive(Clone, Debug, PartialEq)]
 pub(super) enum ConstantArrayValue {
     Indexed(Vec<Expr>),
+    Assoc(Vec<(Expr, Expr)>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

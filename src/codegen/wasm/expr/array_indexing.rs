@@ -130,6 +130,25 @@ pub(super) fn emit_array_index_expr(
         return Err(nested_array_access_unsupported(expr));
     }
     if let ExprKind::ConstRef(name) = &array.kind {
+        let Some(array_constant) = module.array_constant_value(name) else {
+            return Err(array_unsupported(array));
+        };
+        if let ConstantArrayValue::Assoc(items) = array_constant {
+            let Some(key) = assoc_key_value_for_const_index(index, module) else {
+                return Err(CompileError::new(
+                    index.span,
+                    "wasm32-web array constant access requires a static integer or string key",
+                ));
+            };
+            let normalized = normalize_assoc_items(&items).unwrap_or(items);
+            let Some((_, item)) = normalized.iter().rev().find(|(candidate, _)| {
+                assoc_key_value_for_expr(candidate).is_some_and(|candidate| candidate == key)
+            }) else {
+                return Ok(ValueKind::Null);
+            };
+            require_int(item, module)?;
+            return Ok(ValueKind::Int);
+        }
         let Some(index_value) = static_or_const_int_value(index) else {
             return Err(CompileError::new(
                 index.span,
@@ -139,8 +158,8 @@ pub(super) fn emit_array_index_expr(
         let Ok(index_value) = usize::try_from(index_value) else {
             return Ok(ValueKind::Null);
         };
-        let Some(ConstantArrayValue::Indexed(items)) = module.array_constant_value(name) else {
-            return Err(array_unsupported(array));
+        let ConstantArrayValue::Indexed(items) = array_constant else {
+            unreachable!("associative array constants were handled above");
         };
         let Some(item) = items.get(index_value) else {
             return Ok(ValueKind::Null);
@@ -255,6 +274,16 @@ pub(super) fn emit_array_index_expr(
         }
         _ => Err(array_unsupported(array)),
     }
+}
+
+fn assoc_key_value_for_const_index(index: &Expr, module: &WasmModule) -> Option<AssocKeyValue> {
+    if let Some(value) = static_or_const_int_value(index) {
+        return Some(AssocKeyValue::Int(value));
+    }
+    let value = static_string_value(index, module)?;
+    literal_php_array_int_key(&value)
+        .map(AssocKeyValue::Int)
+        .or_else(|| Some(AssocKeyValue::Str(value)))
 }
 
 pub(super) use super::array_indexing_assoc::*;

@@ -1339,6 +1339,24 @@ echo $value;
 }
 
 #[test]
+fn test_wasm32_web_wat_user_assoc_array_constant_count_and_read() {
+    let program = parse_program(
+        r#"<?php
+const ITEMS = ["a" => 4, "b" => 8, "01" => 15, "b" => 16];
+$value = ITEMS["b"];
+echo count(ITEMS);
+echo $value;
+"#,
+    );
+    let bytes = generate(&program, WasmOutputFormat::Wat).expect("WAT generation failed");
+    let wat = String::from_utf8(bytes).expect("WAT output was not UTF-8");
+
+    assert!(wat.contains("i64.const 3"));
+    assert!(wat.contains("i64.const 16"));
+    assert!(wat.contains("local.set $value"));
+}
+
+#[test]
 fn test_wasm32_web_wat_class_name_and_scalar_constants() {
     let program = parse_program(
         r#"<?php
@@ -38211,6 +38229,17 @@ fn test_wasm32_web_e2e_matches_php_user_indexed_array_constant_count_and_read() 
 const ITEMS = [4, 8, 15];
 $value = ITEMS[1];
 echo count(ITEMS) . ":" . $value . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_user_assoc_array_constant_count_and_read() {
+    assert_wasm_matches_php(
+        r#"<?php
+const ITEMS = ["a" => 4, "b" => 8, "01" => 15, "b" => 16];
+$value = ITEMS["b"];
+echo count(ITEMS) . ":" . $value . ":" . ITEMS["01"] . "\n";
 "#,
     );
 }

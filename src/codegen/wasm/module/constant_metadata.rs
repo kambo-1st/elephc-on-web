@@ -168,8 +168,14 @@ fn collect_stmt_array_constants(
 ) {
     match &stmt.kind {
         StmtKind::ConstDecl { name, value } => {
-            if let ExprKind::ArrayLiteral(items) = &value.kind {
-                constants.insert(name.clone(), ConstantArrayValue::Indexed(items.clone()));
+            match &value.kind {
+                ExprKind::ArrayLiteral(items) => {
+                    constants.insert(name.clone(), ConstantArrayValue::Indexed(items.clone()));
+                }
+                ExprKind::ArrayLiteralAssoc(items) => {
+                    constants.insert(name.clone(), ConstantArrayValue::Assoc(items.clone()));
+                }
+                _ => {}
             }
         }
         StmtKind::Synthetic(stmts) | StmtKind::NamespaceBlock { body: stmts, .. } => {
