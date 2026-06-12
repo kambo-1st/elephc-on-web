@@ -549,6 +549,7 @@ pub(in crate::codegen::wasm) fn static_property_array_access_kind(
 pub(in crate::codegen::wasm) fn expression_is_arrayy(expr: &Expr, module: &WasmModule) -> bool {
     match &expr.kind {
         ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_) => true,
+        ExprKind::ConstRef(name) => module.array_constant_value(name).is_some(),
         ExprKind::Variable(name) => module.local_kind(name) == Some(LocalKind::Array),
         ExprKind::FunctionCall { name, .. } => {
             module.function_return_kind(name) == Some(ValueKind::Array)
@@ -560,6 +561,7 @@ pub(in crate::codegen::wasm) fn expression_is_arrayy(expr: &Expr, module: &WasmM
 pub(in crate::codegen::wasm) fn expression_has_array_type(expr: &Expr, module: &WasmModule) -> bool {
     match &expr.kind {
         ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_) => true,
+        ExprKind::ConstRef(name) => module.array_constant_value(name).is_some(),
         ExprKind::Variable(name) => module.local_kind(name) == Some(LocalKind::Array),
         ExprKind::FunctionCall { name, .. } => {
             let builtin_name = name.trim_start_matches('\\').to_ascii_lowercase();

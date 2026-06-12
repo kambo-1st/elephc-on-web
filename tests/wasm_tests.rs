@@ -38491,6 +38491,20 @@ echo $values[0] . ":" . array_search("Ada", $rows, true) . ":" . count($unique) 
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_user_array_constant_scalar_consumers() {
+    assert_wasm_matches_php(
+        r#"<?php
+const SCORES = [2, 3, 4];
+const EMPTY_SCORES = [];
+const ROWS = ["name" => "Ada"];
+echo gettype(SCORES) . ":" . is_iterable(SCORES) . ":" . boolval(SCORES) . ":" . empty(SCORES) . "\n";
+echo gettype(ROWS) . ":" . is_iterable(ROWS) . ":" . boolval(ROWS) . ":" . empty(ROWS) . "\n";
+echo gettype(EMPTY_SCORES) . ":" . is_iterable(EMPTY_SCORES) . ":" . boolval(EMPTY_SCORES) . ":" . empty(EMPTY_SCORES) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_user_nested_array_constant_reads() {
     assert_wasm_matches_php(
         r#"<?php
