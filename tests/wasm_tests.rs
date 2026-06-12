@@ -38505,6 +38505,27 @@ echo gettype(EMPTY_SCORES) . ":" . is_iterable(EMPTY_SCORES) . ":" . boolval(EMP
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_user_array_constant_isset_offsets() {
+    assert_wasm_matches_php(
+        r#"<?php
+const SCORES = [2, null, "", false, [5]];
+const ROWS = ["x" => 1, "n" => null, "e" => "", 3 => false];
+echo (isset(SCORES[0]) ? 1 : 0) . ",";
+echo (isset(SCORES[1]) ? 1 : 0) . ",";
+echo (isset(SCORES[2]) ? 1 : 0) . ",";
+echo (isset(SCORES[3]) ? 1 : 0) . ",";
+echo (isset(SCORES[4]) ? 1 : 0) . ",";
+echo (isset(SCORES[9]) ? 1 : 0) . "\n";
+echo (isset(ROWS["x"]) ? 1 : 0) . ",";
+echo (isset(ROWS["n"]) ? 1 : 0) . ",";
+echo (isset(ROWS["e"]) ? 1 : 0) . ",";
+echo (isset(ROWS[3]) ? 1 : 0) . ",";
+echo (isset(ROWS["missing"]) ? 1 : 0) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_user_array_constant_output_marker() {
     assert_wasm_matches_php(
         r#"<?php

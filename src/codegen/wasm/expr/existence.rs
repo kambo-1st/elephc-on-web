@@ -693,6 +693,32 @@ fn static_array_offset_isset_value_cell_kind(
     module: &WasmModule,
 ) -> Option<ValueCellKind> {
     match &array.kind {
+        ExprKind::ConstRef(name) => match module.array_constant_value(name)? {
+            ConstantArrayValue::Indexed(items) => {
+                let offset = usize::try_from(static_or_const_or_i64_local_value(index, module)?).ok()?;
+                Some(
+                    items
+                        .get(offset)
+                        .and_then(|item| value_cell_kind_for_expr(item, module))
+                        .unwrap_or(ValueCellKind::Null),
+                )
+            }
+            ConstantArrayValue::Assoc(items) => {
+                let key = static_isset_assoc_access_key(index, module)?;
+                Some(
+                    items
+                        .iter()
+                        .rev()
+                        .find_map(|(candidate, value)| {
+                            let candidate = static_isset_assoc_access_key(candidate, module)?;
+                            (candidate == key).then(|| {
+                                value_cell_kind_for_expr(value, module).unwrap_or(ValueCellKind::Null)
+                            })
+                        })
+                        .unwrap_or(ValueCellKind::Null),
+                )
+            }
+        },
         ExprKind::ArrayLiteral(items) => {
             let offset = usize::try_from(static_or_const_or_i64_local_value(index, module)?).ok()?;
             Some(
