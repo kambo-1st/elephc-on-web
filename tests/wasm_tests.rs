@@ -30523,17 +30523,6 @@ fn test_wasm32_web_callback_array_builtin_dynamic_callable_variables_are_rejecte
     let cases = [
         (
             r#"<?php
-function callback_name(bool $flag): string { return $flag ? "sum_it" : "other"; }
-function sum_it(int $carry, int $value): int { return $carry + $value; }
-function runtime_callback_flag(): bool { return true; }
-$flag = runtime_callback_flag();
-$cb = callback_name($flag);
-$reduced = array_reduce([1, 2], $cb, 0);
-"#,
-            "array_reduce() currently requires a static string, direct first-class function callback, or simple callable variable alias",
-        ),
-        (
-            r#"<?php
 function callback_name(bool $flag): string { return $flag ? "walk_it" : "other"; }
 function walk_it(int $x): int { return $x; }
 function runtime_callback_flag(): bool { return true; }
@@ -30636,6 +30625,23 @@ foreach ($filtered_copy as $key => $value) {
     echo $key . ":" . $value . "|";
 }
 echo "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_array_reduce_dynamic_callable_variable() {
+    assert_wasm_matches_php(
+        r#"<?php
+function callback_name(bool $flag): string { echo "reduce-pick\n"; return $flag ? "sum_it" : "mul_it"; }
+function sum_it(int $carry, int $value): int { return $carry + $value; }
+function mul_it(int $carry, int $value): int { return $carry * $value; }
+function runtime_callback_flag(): bool { return strlen("yes") === 3; }
+$flag = runtime_callback_flag();
+$cb = callback_name($flag);
+echo array_reduce([1, 2, 3], $cb, 10) . "\n";
+$copy = $cb;
+echo array_reduce([2, 3, 4], $copy, 1) . "\n";
 "#,
     );
 }

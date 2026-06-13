@@ -826,16 +826,7 @@ fn emit_array_reduce_dynamic_static_return_callback_call(
     let [source, callback_expr, initial] = args else {
         return Ok(None);
     };
-    let ExprKind::FunctionCall {
-        name: callback_function,
-        ..
-    } = &callback_expr.kind else {
-        return Ok(None);
-    };
-    let Some(callbacks) = module
-        .function_possible_static_string_returns(callback_function.as_str())
-        .map(|callbacks| callbacks.to_vec())
-    else {
+    let Some(callbacks) = dynamic_array_reduce_callback_names(callback_expr, module) else {
         return Ok(None);
     };
     let source_storage;
@@ -888,6 +879,16 @@ fn emit_array_reduce_dynamic_static_return_callback_call(
         callback_shape,
         module,
     )
+}
+
+fn dynamic_array_reduce_callback_names(expr: &Expr, module: &WasmModule) -> Option<Vec<String>> {
+    match &expr.kind {
+        ExprKind::FunctionCall { name, .. } => module
+            .function_possible_static_string_returns(name.as_str())
+            .map(<[_]>::to_vec),
+        ExprKind::Variable(name) => module.possible_static_string_values(name).map(<[_]>::to_vec),
+        _ => None,
+    }
 }
 
 fn emit_array_reduce_dynamic_source_call(
