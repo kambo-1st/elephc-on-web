@@ -30742,6 +30742,25 @@ echo run($second, 3);
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_callable_typed_function_static_method_params() {
+    assert_wasm_matches_php(
+        r#"<?php
+class Formatter {
+    public static function bracket(string $value): string {
+        return "[" . $value . "]";
+    }
+}
+function run(callable $callback, string $value): string {
+    return $callback($value);
+}
+$callback = Formatter::bracket(...);
+echo run($callback, "ok") . "\n";
+echo run(Formatter::bracket(...), "web") . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_array_reduce_string_callback_null_values_are_rejected() {
     let source = r#"<?php
 function join_word(string $carry, string $value): string {
