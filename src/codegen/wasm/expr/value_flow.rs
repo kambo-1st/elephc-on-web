@@ -97,6 +97,10 @@ pub(in crate::codegen::wasm) fn expression_is_booly(expr: &Expr, module: &WasmMo
     }
 }
 
+fn expression_is_objecty(expr: &Expr, module: &WasmModule) -> bool {
+    object_class_name_for_expr(expr, module).is_some() || object_expr_is_known_non_null(expr, module)
+}
+
 pub(in crate::codegen::wasm) fn emit_scalar_ternary(
     _expr: &Expr,
     condition: &Expr,
@@ -120,6 +124,18 @@ pub(in crate::codegen::wasm) fn emit_scalar_ternary(
         emit_condition(else_expr, module)?;
         module.body().close("end");
         return Ok(ValueKind::Bool);
+    }
+    if expression_is_objecty(then_expr, module) && expression_is_objecty(else_expr, module) {
+        module.body().open("if (result i32)");
+        if emit_expr(then_expr, module)? != ValueKind::Object {
+            return Err(CompileError::new(then_expr.span, "wasm32-web expected object value"));
+        }
+        module.body().line("else");
+        if emit_expr(else_expr, module)? != ValueKind::Object {
+            return Err(CompileError::new(else_expr.span, "wasm32-web expected object value"));
+        }
+        module.body().close("end");
+        return Ok(ValueKind::Object);
     }
     module.body().open("if (result i64)");
     require_int(then_expr, module)?;

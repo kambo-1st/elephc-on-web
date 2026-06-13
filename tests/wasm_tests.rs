@@ -39569,6 +39569,29 @@ echo get_class(ExprDirection::tryFrom(choose_direction(true))) . ":" . ExprDirec
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_enum_typed_params_and_returns() {
+    assert_wasm_matches_php(
+        r#"<?php
+enum WorkflowStatus: string {
+    case Draft = "draft";
+    case Published = "pub";
+}
+function keep_status(WorkflowStatus $status): WorkflowStatus {
+    echo get_class($status) . ":" . $status->value . "\n";
+    return $status;
+}
+function choose_status(bool $published): WorkflowStatus {
+    return $published ? WorkflowStatus::Published : WorkflowStatus::Draft;
+}
+$draft = keep_status(WorkflowStatus::Draft);
+$published = keep_status(choose_status(true));
+echo ($draft === WorkflowStatus::Draft ? 1 : 0) . ":" . $draft->value . "\n";
+echo ($published === WorkflowStatus::Published ? 1 : 0) . ":" . $published->value . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_enum_cases_array_filter_get_class() {
     assert_wasm_matches_php(
         r#"<?php
