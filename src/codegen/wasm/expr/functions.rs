@@ -455,10 +455,18 @@ pub(super) fn emit_callable_assign(
                 ));
             };
             if !then_target.eq_ignore_ascii_case(&else_target) {
-                return Err(CompileError::new(
-                    value.span,
-                    "wasm32-web callable ternaries require both arms to resolve to the same target",
-                ));
+                let then_id = module.callable_target_id(&then_target);
+                let else_id = module.callable_target_id(&else_target);
+                module.declare_i32_local(name.to_string());
+                emit_condition(condition, module)?;
+                module.body().open("if (result i32)");
+                module.body().line(&format!("i32.const {}", then_id));
+                module.body().line("else");
+                module.body().line(&format!("i32.const {}", else_id));
+                module.body().close("end");
+                module.body().line(&format!("local.set ${}", name));
+                module.set_possible_callable_targets(name, Some(vec![then_target, else_target]));
+                return Ok(());
             }
             emit_condition(condition, module)?;
             module.body().line("drop");

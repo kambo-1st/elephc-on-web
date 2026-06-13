@@ -27553,23 +27553,18 @@ fn test_wasm32_web_object_callable_resource_string_builtin_args_are_rejected() {
 }
 
 #[test]
-fn test_wasm32_web_callable_ternary_different_targets_are_rejected() {
-    let program = parse_program(
+fn test_wasm32_web_e2e_matches_php_callable_ternary_different_targets() {
+    assert_wasm_matches_php(
         "<?php
 function ternary_left(int $x): int { return $x + 1; }
 function ternary_right(int $x): int { return $x + 2; }
 $cb = true ? ternary_left(...) : ternary_right(...);
-echo $cb(1);
+echo $cb(1) . \"\\n\";
+$other = false ? ternary_left(...) : ternary_right(...);
+$alias = $other;
+echo $alias(3) . \"\\n\";
+echo call_user_func($cb, 5) . \"\\n\";
 ",
-    );
-    let err = generate(&program, WasmOutputFormat::Wat)
-        .expect_err("different callable ternary targets must not silently compile");
-
-    assert!(
-        err.message
-            .contains("wasm32-web callable ternaries require both arms to resolve to the same target"),
-        "{}",
-        err.message
     );
 }
 
