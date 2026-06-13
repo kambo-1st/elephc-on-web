@@ -30814,6 +30814,22 @@ echo run(callback: add_one(...), value: 7) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_callable_param_different_target_ternary() {
+    assert_wasm_matches_php(
+        r#"<?php
+function callable_param_add(int $value): int { return $value + 1; }
+function callable_param_double(int $value): int { return $value * 2; }
+function run_callable_param(callable $callback, int $value): int {
+    return $callback($value);
+}
+$flag = strlen("yes") === 3;
+echo run_callable_param($flag ? callable_param_add(...) : callable_param_double(...), 4) . "\n";
+echo run_callable_param(!$flag ? callable_param_add(...) : callable_param_double(...), 5) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_callable_typed_function_return_conflicts() {
     assert_wasm_matches_php(
         r#"<?php
