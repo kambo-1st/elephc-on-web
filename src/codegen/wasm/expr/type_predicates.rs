@@ -1,6 +1,6 @@
 //! Purpose:
 //! Lowers PHP scalar type-predicate builtins for wasm32-web.
-//! Keeps is_int/is_float/is_bool/is_null/is_string/is_iterable handling out of the main expression dispatcher.
+//! Keeps is_int/is_float/is_bool/is_null/is_string/is_array/is_iterable handling out of the main expression dispatcher.
 //!
 //! Called from:
 //! - `crate::codegen::wasm::expr` builtin dispatch.
@@ -29,7 +29,7 @@ pub(super) fn emit_type_predicate_call(
         }
     }
     if expression_is_arrayy(arg, module) || expression_has_array_type(arg, module) {
-        let matches = name.eq_ignore_ascii_case("is_iterable");
+        let matches = matches!(name.to_ascii_lowercase().as_str(), "is_array" | "is_iterable");
         module.body().line(&format!("i32.const {}", i32::from(matches)));
         return Ok(ValueKind::Bool);
     }
@@ -77,6 +77,7 @@ pub(super) fn emit_type_predicate_call(
         "is_bool" => kind == ValueKind::Bool,
         "is_null" => kind == ValueKind::Null,
         "is_string" => kind == ValueKind::Str,
+        "is_array" => false,
         "is_iterable" => false,
         "is_object" => kind == ValueKind::Object,
         _ => unreachable!(),
@@ -92,6 +93,7 @@ fn emit_mixed_type_predicate(var: &str, name: &str, module: &mut WasmModule) {
         "is_bool" => WASM_VALUE_TAG_BOOL,
         "is_null" => WASM_VALUE_TAG_NULL,
         "is_string" => WASM_VALUE_TAG_STRING,
+        "is_array" => WASM_VALUE_TAG_ARRAY,
         "is_iterable" => WASM_VALUE_TAG_ARRAY,
         "is_object" => WASM_VALUE_TAG_OBJECT,
         _ => unreachable!(),

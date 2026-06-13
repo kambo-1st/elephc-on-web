@@ -493,6 +493,7 @@ fn dynamic_builtin_callback_local_kind(
             | "is_bool"
             | "is_float"
             | "is_null"
+            | "is_array"
             | "is_iterable"
             | "is_callable"
             | "str_contains"

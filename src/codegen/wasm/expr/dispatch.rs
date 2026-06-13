@@ -331,6 +331,7 @@ pub(in crate::codegen::wasm) fn emit_expr(
                     | "is_bool"
                     | "is_null"
                     | "is_string"
+                    | "is_array"
                     | "is_iterable"
                     | "is_object"
             ) {

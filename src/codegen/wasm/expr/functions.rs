@@ -1940,6 +1940,7 @@ fn callable_builtin_return_kind(
             | "is_bool"
             | "is_null"
             | "is_string"
+            | "is_array"
             | "is_iterable"
             | "is_callable"
             | "method_exists"

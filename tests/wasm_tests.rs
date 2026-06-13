@@ -1851,6 +1851,21 @@ fn test_wasm32_web_wat_scalar_type_predicates() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_is_array_predicate() {
+    assert_wasm_matches_php(
+        r#"<?php
+function maybe_array(bool $flag): mixed { return $flag ? ["web"] : "web"; }
+$items = ["a" => 1, "b" => 2];
+$mixed = maybe_array(true);
+$text = maybe_array(false);
+echo (is_array($items) ? 1 : 0) . ":" . (is_iterable($items) ? 1 : 0) . "\n";
+echo (is_array($mixed) ? 1 : 0) . ":" . (is_iterable($mixed) ? 1 : 0) . "\n";
+echo (is_array($text) ? 1 : 0) . ":" . (is_iterable($text) ? 1 : 0) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_wat_gettype_output() {
     let program = parse_program(
         "<?php $s = \"web\"; echo gettype(42); echo gettype(3.5); echo gettype(false); echo gettype(null); echo gettype($s);",
@@ -24180,6 +24195,7 @@ function choose_dynamic_int_builtin(bool $flag): string { echo "int-pick\n"; ret
 function choose_dynamic_float_builtin(bool $flag): string { echo "float-pick\n"; return $flag ? "sqrt" : "floatval"; }
 function choose_dynamic_round_builtin(bool $flag): string { echo "round-pick\n"; return $flag ? "round" : "ceil"; }
 function choose_dynamic_bool_builtin(bool $flag): string { echo "bool-pick\n"; return $flag ? "is_numeric" : "ctype_digit"; }
+function choose_dynamic_array_predicate_builtin(bool $flag): string { echo "array-predicate-pick\n"; return $flag ? "is_array" : "is_iterable"; }
 function choose_dynamic_compare_builtin(bool $flag): string { echo "compare-pick\n"; return $flag ? "strcmp" : "strcasecmp"; }
 function choose_dynamic_search_builtin(bool $flag): string { echo "search-pick\n"; return $flag ? "strpos" : "strrpos"; }
 $i = call_user_func(choose_dynamic_int_builtin(true), "web");
@@ -24190,6 +24206,8 @@ $r = call_user_func(choose_dynamic_round_builtin(true), 3.6);
 $s = call_user_func_array(choose_dynamic_round_builtin(false), [2.1]);
 $b = call_user_func(choose_dynamic_bool_builtin(true), "42");
 $c = call_user_func_array(choose_dynamic_bool_builtin(false), ["42"]);
+$array_predicate = call_user_func(choose_dynamic_array_predicate_builtin(true), [1, 2]);
+$iterable_predicate = call_user_func_array(choose_dynamic_array_predicate_builtin(false), [["left" => "L"]]);
 $cmp = call_user_func(choose_dynamic_compare_builtin(true), "web", "wasm");
 $ci = call_user_func_array(choose_dynamic_compare_builtin(false), ["WEB", "web"]);
 $pos = call_user_func(choose_dynamic_search_builtin(true), "webasm", "asm");
@@ -24198,6 +24216,7 @@ echo ($i + $j) . "\n";
 echo ($f + $g) . "\n";
 echo ($r + $s) . "\n";
 echo (($b && $c) ? 1 : 0) . "\n";
+echo (($array_predicate && $iterable_predicate) ? 1 : 0) . "\n";
 echo ($cmp + $ci) . "\n";
 echo ($pos + $last) . "\n";
 "#,
