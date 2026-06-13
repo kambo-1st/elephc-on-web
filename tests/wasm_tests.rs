@@ -30909,9 +30909,17 @@ class CallableExprFactory {
         echo "static\n";
         return callable_expr_wrap(...);
     }
+    public static function makeArray(): callable {
+        echo "static-array\n";
+        return callable_expr_items(...);
+    }
     public function makeInstanceString(): callable {
         echo "instance\n";
         return callable_expr_wrap(...);
+    }
+    public function makeInstanceArray(): callable {
+        echo "instance-array\n";
+        return callable_expr_items(...);
     }
 }
 echo make_callable_expr(true)(4) . "\n";
@@ -30933,6 +30941,26 @@ echo strlen($localNullsafeText) . ":" . $localNullsafeText . "\n";
 $items = make_callable_expr_array()("row");
 echo count($items) . "\n";
 foreach ($items as $item) {
+    echo $item . "\n";
+}
+$staticItems = (CallableExprFactory::makeArray())("static-row");
+echo count($staticItems) . "\n";
+foreach ($staticItems as $item) {
+    echo $item . "\n";
+}
+$instanceItems = ((new CallableExprFactory())->makeInstanceArray())("instance-row");
+echo count($instanceItems) . "\n";
+foreach ($instanceItems as $item) {
+    echo $item . "\n";
+}
+$localItems = ($factory->makeInstanceArray())("local-row");
+echo count($localItems) . "\n";
+foreach ($localItems as $item) {
+    echo $item . "\n";
+}
+$nullsafeItems = ($factory?->makeInstanceArray())("nullsafe-row");
+echo count($nullsafeItems) . "\n";
+foreach ($nullsafeItems as $item) {
     echo $item . "\n";
 }
 "#,
