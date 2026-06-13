@@ -39549,6 +39549,26 @@ echo get_class(LocalDirection::tryFrom($code)) . ":" . LocalDirection::tryFrom($
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_backed_enum_from_and_try_from_expression_args() {
+    assert_wasm_matches_php(
+        r#"<?php
+enum ExprStatus: int {
+    case Draft = 10;
+    case Published = 20;
+}
+enum ExprDirection: string {
+    case North = "N";
+    case South = "S";
+}
+function choose_status(bool $flag): int { return $flag ? 20 : 10; }
+function choose_direction(bool $flag): string { return $flag ? "N" : "S"; }
+echo get_class(ExprStatus::from(choose_status(true))) . ":" . ExprStatus::from(choose_status(false) + 10)->value . "\n";
+echo get_class(ExprDirection::tryFrom(choose_direction(true))) . ":" . ExprDirection::tryFrom("S" . "")->value . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_enum_cases_array_filter_get_class() {
     assert_wasm_matches_php(
         r#"<?php
