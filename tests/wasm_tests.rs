@@ -31719,6 +31719,27 @@ echo array_reduce([2, 3, 4], $alias, 1) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_array_reduce_callable_method_return_descriptor() {
+    assert_wasm_matches_php(
+        r#"<?php
+class MethodArrayReduceCallback {
+    public static function sum_it(int $carry, int $value): int { return $carry + $value; }
+    public static function mul_it(int $carry, int $value): int { return $carry * $value; }
+    public function choose(bool $flag): callable {
+        return $flag ? MethodArrayReduceCallback::sum_it(...) : MethodArrayReduceCallback::mul_it(...);
+    }
+    public static function staticChoose(bool $flag): callable {
+        return $flag ? MethodArrayReduceCallback::mul_it(...) : MethodArrayReduceCallback::sum_it(...);
+    }
+}
+$factory = new MethodArrayReduceCallback();
+echo array_reduce([1, 2, 3], $factory->choose(true), 10) . "\n";
+echo array_reduce([2, 3, 4], MethodArrayReduceCallback::staticChoose(true), 1) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_array_walk_dynamic_callable_variable() {
     assert_wasm_matches_php(
         r#"<?php

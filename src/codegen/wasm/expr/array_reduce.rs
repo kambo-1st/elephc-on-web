@@ -960,15 +960,10 @@ fn dynamic_array_reduce_callable_descriptor_targets(
     expr: &Expr,
     module: &WasmModule,
 ) -> Option<Vec<String>> {
+    if let Some(targets) = callable_return_expr_targets(expr, module) {
+        return Some(targets);
+    }
     match &expr.kind {
-        ExprKind::FunctionCall { name, .. } => module
-            .function_possible_callable_return_targets(name.as_str())
-            .map(<[_]>::to_vec)
-            .or_else(|| {
-                module
-                    .function_callable_return_target(name.as_str())
-                    .map(|target| vec![target])
-            }),
         ExprKind::Variable(name) => module
             .possible_callable_targets(name)
             .map(<[_]>::to_vec)
@@ -1280,14 +1275,17 @@ fn emit_array_reduce_callable_descriptor(
     expr: &Expr,
     module: &mut WasmModule,
 ) -> Result<(), CompileError> {
-    match &expr.kind {
-        ExprKind::FunctionCall { name, args } => {
-            emit_user_function_args(expr, name, args, module)?;
-            module
-                .body()
-                .line(&format!("call ${}", wasm_function_name(name)));
-            Ok(())
+    if callable_return_expr_targets(expr, module).is_some() {
+        let kind = emit_expr(expr, module)?;
+        if kind != ValueKind::Callable {
+            return Err(CompileError::new(
+                expr.span,
+                "wasm32-web array_reduce() callable descriptor expected a callable value",
+            ));
         }
+        return Ok(());
+    }
+    match &expr.kind {
         ExprKind::Variable(name) if module.possible_callable_targets(name).is_some() => {
             module.body().line(&format!("local.get ${}", name));
             Ok(())
