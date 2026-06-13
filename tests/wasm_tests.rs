@@ -30713,8 +30713,9 @@ echo strlen($result) . ":" . $result . "\n";
 }
 
 #[test]
-fn test_wasm32_web_callable_typed_function_param_conflicts_are_rejected() {
-    let source = r#"<?php
+fn test_wasm32_web_e2e_matches_php_callable_typed_function_param_conflicts() {
+    assert_wasm_matches_php(
+        r#"<?php
 function add_one(int $value): int {
     return $value + 1;
 }
@@ -30726,18 +30727,10 @@ function run(callable $callback, int $value): int {
 }
 $first = add_one(...);
 $second = double_it(...);
-echo run($first, 3);
 echo run($second, 3);
-"#;
-
-    let program = parse_program(source);
-    let err = generate(&program, WasmOutputFormat::Wat)
-        .expect_err("conflicting callable parameter targets must not silently compile");
-    assert!(
-        err.message
-            .contains("wasm32-web callable variable calls require a direct first-class"),
-        "unexpected error: {}",
-        err.message
+echo run($first, 3);
+echo run(true ? add_one(...) : double_it(...), 4);
+"#,
     );
 }
 

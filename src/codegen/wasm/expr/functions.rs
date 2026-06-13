@@ -813,17 +813,72 @@ fn emit_value_as_arg_local(
             emit_mixed_arg_assign(local, expr, module)?;
         }
         LocalKind::Callable => {
-            let Some(_) = static_callback_function_name(expr, module) else {
-                return Err(CompileError::new(
-                    expr.span,
-                    "wasm32-web callable parameters require a statically known callable target",
-                ));
-            };
-            module.body().line("i32.const 0");
+            emit_callable_arg_descriptor(expr, module)?;
             module.body().line(&format!("local.set ${}", local));
         }
     }
     Ok(())
+}
+
+fn emit_callable_arg_descriptor(
+    expr: &Expr,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    if let ExprKind::Ternary {
+        condition,
+        then_expr,
+        else_expr,
+    } = &expr.kind
+    {
+        let Some(then_target) = static_callback_function_name(then_expr, module) else {
+            return Err(CompileError::new(
+                then_expr.span,
+                "wasm32-web callable parameters require static callable ternary arms",
+            ));
+        };
+        let Some(else_target) = static_callback_function_name(else_expr, module) else {
+            return Err(CompileError::new(
+                else_expr.span,
+                "wasm32-web callable parameters require static callable ternary arms",
+            ));
+        };
+        let then_id = module.callable_target_id(&then_target);
+        let else_id = module.callable_target_id(&else_target);
+        emit_condition(condition, module)?;
+        module.body().open("if (result i32)");
+        module.body().line(&format!("i32.const {}", then_id));
+        module.body().line("else");
+        module.body().line(&format!("i32.const {}", else_id));
+        module.body().close("end");
+        return Ok(());
+    }
+    if let Some(target) = evaluated_static_callback_function_name(expr, module)? {
+        let id = module.callable_target_id(&target);
+        module.body().line(&format!("i32.const {}", id));
+        return Ok(());
+    }
+    if let ExprKind::Variable(name) = &expr.kind {
+        if module.possible_callable_targets(name).is_some() {
+            module.body().line(&format!("local.get ${}", name));
+            return Ok(());
+        }
+    }
+    if let ExprKind::FunctionCall { name, args } = &expr.kind {
+        if module
+            .function_possible_callable_return_targets(name.as_str())
+            .is_some()
+        {
+            emit_user_function_args(expr, name, args, module)?;
+            module
+                .body()
+                .line(&format!("call ${}", wasm_function_name(name)));
+            return Ok(());
+        }
+    }
+    Err(CompileError::new(
+        expr.span,
+        "wasm32-web callable parameters require a statically known callable target",
+    ))
 }
 
 fn emit_value_as_numeric_arg(
