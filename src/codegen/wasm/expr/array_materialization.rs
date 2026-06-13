@@ -290,6 +290,13 @@ pub(crate) fn emit_array_value_to_stack(
         {
             emit_materialized_array_return_to_stack("array_return", value, module)
         }
+        ExprKind::Match { .. } => match emit_expr(value, module)? {
+            ValueKind::Array => Ok(()),
+            _ => Err(CompileError::new(
+                value.span,
+                "wasm32-web compact array return expected an array match result",
+            )),
+        },
         ExprKind::ArrayLiteralAssoc(_) => Err(array_unsupported(value)),
         _ => Err(array_unsupported(value)),
     }

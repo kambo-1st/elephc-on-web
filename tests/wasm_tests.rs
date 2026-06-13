@@ -39659,6 +39659,32 @@ echo summarize_choice(9) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_returned_array_match_count_and_foreach() {
+    assert_wasm_matches_php(
+        r#"<?php
+function choose_items(int $slot): array {
+    return match ($slot) {
+        1 => [1, 2, 3],
+        2 => [4],
+        default => [5, 6],
+    };
+}
+function summarize_choice(int $slot): string {
+    $items = choose_items($slot);
+    $sum = 0;
+    foreach ($items as $value) {
+        $sum += $value;
+    }
+    return count($items) . ":" . $sum;
+}
+echo summarize_choice(1) . "\n";
+echo summarize_choice(2) . "\n";
+echo summarize_choice(9) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_enum_cases_array_filter_get_class() {
     assert_wasm_matches_php(
         r#"<?php
