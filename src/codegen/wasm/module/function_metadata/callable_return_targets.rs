@@ -27,56 +27,62 @@ pub(in crate::codegen::wasm::module) fn collect_function_callable_return_targets
         if value_kind_from_return_type(return_type.as_ref()) != ValueKind::Callable {
             continue;
         }
-        if let Some(target) = consistent_callable_return_target(body, &HashMap::new()) {
+        if let Some(target) = callable_return_target_from_body(body, &mut HashMap::new()) {
             targets.insert(function_key(name), target);
         }
     }
     targets
 }
 
-fn consistent_callable_return_target(
+fn callable_return_target_from_body(
     body: &[Stmt],
-    local_callable_targets: &HashMap<String, String>,
+    local_callable_targets: &mut HashMap<String, String>,
 ) -> Option<String> {
-    let mut target = None;
     for stmt in body {
-        let stmt_target = callable_return_target_from_stmt(stmt, local_callable_targets)?;
-        if target
-            .as_ref()
-            .is_some_and(|existing: &String| !existing.eq_ignore_ascii_case(&stmt_target))
-        {
-            return None;
+        if let Some(target) = callable_return_target_from_stmt(stmt, local_callable_targets) {
+            return Some(target);
         }
-        target = Some(stmt_target);
     }
-    target
+    None
 }
 
 fn callable_return_target_from_stmt(
     stmt: &Stmt,
-    local_callable_targets: &HashMap<String, String>,
+    local_callable_targets: &mut HashMap<String, String>,
 ) -> Option<String> {
     match &stmt.kind {
         StmtKind::Return(Some(expr)) => callable_return_target_from_expr(expr, local_callable_targets),
+        StmtKind::Assign { name, value } | StmtKind::TypedAssign { name, value, .. } => {
+            if let Some(target) = callable_return_target_from_expr(value, local_callable_targets) {
+                local_callable_targets.insert(name.clone(), target);
+            } else {
+                local_callable_targets.remove(name);
+            }
+            None
+        }
         StmtKind::If {
             then_body,
             elseif_clauses,
             else_body,
             ..
         } => {
-            let mut target = consistent_callable_return_target(then_body, local_callable_targets)?;
+            let mut then_targets = local_callable_targets.clone();
+            let mut target = callable_return_target_from_body(then_body, &mut then_targets)?;
             for (_, body) in elseif_clauses {
-                let branch_target = consistent_callable_return_target(body, local_callable_targets)?;
+                let mut branch_targets = local_callable_targets.clone();
+                let branch_target = callable_return_target_from_body(body, &mut branch_targets)?;
                 if !target.eq_ignore_ascii_case(&branch_target) {
                     return None;
                 }
                 target = branch_target;
             }
-            let else_target = consistent_callable_return_target(else_body.as_deref()?, local_callable_targets)?;
+            let mut else_targets = local_callable_targets.clone();
+            let else_target =
+                callable_return_target_from_body(else_body.as_deref()?, &mut else_targets)?;
             target.eq_ignore_ascii_case(&else_target).then_some(target)
         }
         StmtKind::Synthetic(stmts) | StmtKind::NamespaceBlock { body: stmts, .. } => {
-            consistent_callable_return_target(stmts, local_callable_targets)
+            callable_return_target_from_body(stmts, local_callable_targets)
         }
         _ => None,
     }
