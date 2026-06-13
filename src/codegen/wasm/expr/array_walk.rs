@@ -152,6 +152,9 @@ pub(super) fn emit_array_walk_call(
         if emit_array_walk_dynamic_static_return_callback_call(args, module)? {
             return Ok(ValueKind::Bool);
         }
+        if emit_array_walk_dynamic_callable_descriptor_call(args, module)? {
+            return Ok(ValueKind::Bool);
+        }
         return Err(CompileError::new(
             args[1].span,
             "wasm32-web array_walk() currently requires a static string, direct first-class function callback, or simple callable variable alias",
@@ -665,6 +668,81 @@ fn emit_array_walk_dynamic_static_return_callback_call(
     Ok(true)
 }
 
+fn emit_array_walk_dynamic_callable_descriptor_call(
+    args: &[Expr],
+    module: &mut WasmModule,
+) -> Result<bool, CompileError> {
+    let [source_expr, callback_expr] = args else {
+        return Ok(false);
+    };
+    let Some(callbacks) = dynamic_array_walk_callable_descriptor_targets(callback_expr, module) else {
+        return Ok(false);
+    };
+    let source_storage;
+    let source = if let ExprKind::Variable(source) = &source_expr.kind {
+        source
+    } else if expression_has_array_type(source_expr, module) {
+        source_storage = module
+            .next_label("array_walk_callable_source")
+            .trim_start_matches('$')
+            .to_string();
+        module.declare_array_local(source_storage.clone());
+        emit_array_assign(&source_storage, source_expr, module)?;
+        &source_storage
+    } else {
+        return Ok(false);
+    };
+    if module.local_kind(source) != Some(LocalKind::Array) {
+        return Ok(false);
+    }
+    for callback in &callbacks {
+        if !module.has_function(callback) {
+            return Err(CompileError::new(
+                callback_expr.span,
+                "wasm32-web dynamic array_walk() callable descriptor can only target declared user functions",
+            ));
+        }
+        let shape = array_walk_callback_shape(callback, callback_expr.span, module)?;
+        if !array_walk_local_supports_shape(source, shape, module) {
+            return Err(CompileError::new(
+                callback_expr.span,
+                "wasm32-web dynamic array_walk() callable descriptor currently requires callbacks matching the source array values",
+            ));
+        }
+    }
+
+    let callback_id = module.next_label("array_walk_callable_id");
+    let matched = module.next_label("array_walk_callable_matched");
+    for local in [&callback_id, &matched] {
+        module.declare_i32_local(local.trim_start_matches('$').to_string());
+    }
+    emit_array_walk_callable_descriptor(callback_expr, module)?;
+    module.body().line(&format!("local.set {}", callback_id));
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", matched));
+
+    for callback in callbacks {
+        let target_id = module.callable_target_id(&callback);
+        module.body().line(&format!("local.get {}", callback_id));
+        module.body().line(&format!("i32.const {}", target_id));
+        module.body().line("i32.eq");
+        module.body().open("if");
+        let shape = array_walk_callback_shape(&callback, callback_expr.span, module)?;
+        emit_array_walk_supported_local(source, source_expr.span, &callback, shape, module)?;
+        module.body().line("i32.const 1");
+        module.body().line(&format!("local.set {}", matched));
+        module.body().close("end");
+    }
+
+    module.body().line(&format!("local.get {}", matched));
+    module.body().line("i32.eqz");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    module.body().line("i32.const 1");
+    Ok(true)
+}
+
 fn dynamic_array_walk_callback_names(expr: &Expr, module: &WasmModule) -> Option<Vec<String>> {
     match &expr.kind {
         ExprKind::FunctionCall { name, .. } => module
@@ -672,6 +750,58 @@ fn dynamic_array_walk_callback_names(expr: &Expr, module: &WasmModule) -> Option
             .map(<[_]>::to_vec),
         ExprKind::Variable(name) => module.possible_static_string_values(name).map(<[_]>::to_vec),
         _ => None,
+    }
+}
+
+fn dynamic_array_walk_callable_descriptor_targets(
+    expr: &Expr,
+    module: &WasmModule,
+) -> Option<Vec<String>> {
+    match &expr.kind {
+        ExprKind::FunctionCall { name, .. } => module
+            .function_possible_callable_return_targets(name.as_str())
+            .map(<[_]>::to_vec)
+            .or_else(|| {
+                module
+                    .function_callable_return_target(name.as_str())
+                    .map(|target| vec![target])
+            }),
+        ExprKind::Variable(name) => module
+            .possible_callable_targets(name)
+            .map(<[_]>::to_vec)
+            .or_else(|| module.callable_target(name).map(|target| vec![target])),
+        _ => None,
+    }
+}
+
+fn emit_array_walk_callable_descriptor(
+    expr: &Expr,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    match &expr.kind {
+        ExprKind::FunctionCall { name, args } => {
+            emit_user_function_args(expr, name, args, module)?;
+            module
+                .body()
+                .line(&format!("call ${}", wasm_function_name(name)));
+            Ok(())
+        }
+        ExprKind::Variable(name) if module.possible_callable_targets(name).is_some() => {
+            module.body().line(&format!("local.get ${}", name));
+            Ok(())
+        }
+        ExprKind::Variable(name) if module.callable_target(name).is_some() => {
+            let target = module
+                .callable_target(name)
+                .expect("callable target was checked above");
+            let id = module.callable_target_id(&target);
+            module.body().line(&format!("i32.const {}", id));
+            Ok(())
+        }
+        _ => Err(CompileError::new(
+            expr.span,
+            "wasm32-web array_walk() callable descriptor requires tracked callable metadata",
+        )),
     }
 }
 

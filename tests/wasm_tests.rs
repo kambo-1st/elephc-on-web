@@ -31422,6 +31422,25 @@ echo (array_walk($more, $copy) ? 1 : 0) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_array_walk_callable_return_descriptor() {
+    assert_wasm_matches_php(
+        r#"<?php
+function show_square_desc(int $value): int { echo ($value * $value) . ","; return 0; }
+function show_double_desc(int $value): int { echo ($value * 2) . ","; return 0; }
+function choose_walk(bool $flag): callable {
+    return $flag ? show_square_desc(...) : show_double_desc(...);
+}
+$walked = [2, 3];
+echo (array_walk($walked, choose_walk(true)) ? 1 : 0) . "\n";
+$cb = choose_walk(false);
+$alias = $cb;
+$more = [4, 5];
+echo (array_walk($more, $alias) ? 1 : 0) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_usort_dynamic_callable_variable() {
     assert_wasm_matches_php(
         r#"<?php
