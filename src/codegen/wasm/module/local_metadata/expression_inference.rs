@@ -143,7 +143,8 @@ fn infer_assignment_branch_local_kind(
         (LocalKind::I32, LocalKind::I32) => LocalKind::I32,
         (LocalKind::Str, LocalKind::Str) => LocalKind::Str,
         (LocalKind::Callable, LocalKind::Callable) => LocalKind::Callable,
-        _ => LocalKind::I64,
+        (left, right) if left == right => left,
+        _ => LocalKind::Mixed,
     }
 }
 
@@ -204,7 +205,8 @@ pub(super) fn infer_branch_local_kind(
         (LocalKind::F64, _) | (_, LocalKind::F64) => LocalKind::F64,
         (LocalKind::I32, LocalKind::I32) => LocalKind::I32,
         (LocalKind::Str, LocalKind::Str) => LocalKind::Str,
-        _ => LocalKind::I64,
+        (left, right) if left == right => left,
+        _ => LocalKind::Mixed,
     }
 }
 
@@ -262,5 +264,16 @@ pub(super) fn infer_many_local_kind(
     }) {
         return LocalKind::Array;
     }
-    LocalKind::I64
+    if values.iter().all(|value| {
+        infer_local_kind(
+            value,
+            locals,
+            function_return_kinds,
+            constants,
+            class_constants,
+        ) == LocalKind::I64
+    }) {
+        return LocalKind::I64;
+    }
+    LocalKind::Mixed
 }

@@ -262,6 +262,23 @@ pub(in crate::codegen::wasm) fn emit_mixed_arg_assign(
     expr: &Expr,
     module: &mut WasmModule,
 ) -> Result<(), CompileError> {
+    match &expr.kind {
+        ExprKind::Ternary {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
+            return emit_mixed_ternary_arg_assign(local, condition, then_expr, else_expr, module);
+        }
+        ExprKind::Match {
+            subject,
+            arms,
+            default,
+        } => {
+            return emit_mixed_match_arg_assign(local, expr, subject, arms, default.as_deref(), module);
+        }
+        _ => {}
+    }
     if let ExprKind::FunctionCall { name, args } = &expr.kind {
         if module.has_function(name) && module.function_return_kind(name) == Some(ValueKind::Mixed) {
             emit_user_function_args(expr, name, args, module)?;
@@ -322,6 +339,85 @@ pub(in crate::codegen::wasm) fn emit_mixed_arg_assign(
     let kind = value_cell_kind_for_expr(expr, module);
     module.set_mixed_value_cell_kind(local, kind);
     Ok(())
+}
+
+fn emit_mixed_ternary_arg_assign(
+    local: &str,
+    condition: &Expr,
+    then_expr: &Expr,
+    else_expr: &Expr,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    emit_alloc_mixed_cell(local, module);
+    emit_condition(condition, module)?;
+    module.body().open("if");
+    emit_store_value_cell(&format!("${}", local), then_expr, module)?;
+    module.body().line("else");
+    emit_store_value_cell(&format!("${}", local), else_expr, module)?;
+    module.body().close("end");
+    module.set_mixed_value_cell_kind(local, common_control_value_cell_kind([then_expr, else_expr], module));
+    Ok(())
+}
+
+fn emit_mixed_match_arg_assign(
+    local: &str,
+    expr: &Expr,
+    subject: &Expr,
+    arms: &[(Vec<Expr>, Expr)],
+    default: Option<&Expr>,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    if arms.is_empty() && default.is_none() {
+        return Err(CompileError::new(
+            expr.span,
+            "wasm32-web match expression requires at least one arm or default",
+        ));
+    }
+    let subject_local = module.next_label("mixed_match_subject").trim_start_matches('$').to_string();
+    module.declare_i64_local(subject_local.clone());
+    require_int(subject, module)?;
+    module.body().line(&format!("local.set ${}", subject_local));
+    emit_alloc_mixed_cell(local, module);
+    emit_mixed_match_assign_chain(&subject_local, local, arms, default, module)?;
+    let values = arms.iter().map(|(_, value)| value).chain(default).collect::<Vec<_>>();
+    module.set_mixed_value_cell_kind(local, common_control_value_cell_kind(values, module));
+    Ok(())
+}
+
+fn emit_mixed_match_assign_chain(
+    subject_local: &str,
+    local: &str,
+    arms: &[(Vec<Expr>, Expr)],
+    default: Option<&Expr>,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    if let Some((conditions, value)) = arms.first() {
+        emit_match_condition(subject_local, conditions, module)?;
+        module.body().open("if");
+        emit_store_value_cell(&format!("${}", local), value, module)?;
+        module.body().line("else");
+        emit_mixed_match_assign_chain(subject_local, local, &arms[1..], default, module)?;
+        module.body().close("end");
+    } else if let Some(default) = default {
+        emit_store_value_cell(&format!("${}", local), default, module)?;
+    } else {
+        return Err(CompileError::new(
+            crate::span::Span::dummy(),
+            "wasm32-web match without default can fail at runtime and is not supported yet",
+        ));
+    }
+    Ok(())
+}
+
+fn common_control_value_cell_kind<'a>(
+    values: impl IntoIterator<Item = &'a Expr>,
+    module: &WasmModule,
+) -> Option<ValueCellKind> {
+    let mut kinds = values
+        .into_iter()
+        .map(|value| value_cell_kind_for_expr(value, module));
+    let first = kinds.next()??;
+    kinds.all(|kind| kind == Some(first)).then_some(first)
 }
 
 pub(in crate::codegen::wasm) fn emit_mixed_value_to_stack(

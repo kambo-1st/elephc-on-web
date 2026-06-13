@@ -39734,6 +39734,63 @@ echo summarize_choice(9) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_mixed_match_and_ternary_results() {
+    assert_wasm_matches_php(
+        r#"<?php
+function pick_match(int $slot): mixed {
+    return match ($slot) {
+        1 => "web",
+        2 => 42,
+        3 => true,
+        default => null,
+    };
+}
+function pick_ternary(bool $flag): mixed {
+    return $flag ? "yes" : 9;
+}
+function show_value(mixed $value) {
+    echo gettype($value);
+    if (is_string($value)) {
+        echo ":";
+        echo strlen($value);
+        echo ":";
+        echo $value;
+        echo "\n";
+        return;
+    }
+    if (is_bool($value)) {
+        echo ":";
+        echo $value ? 1 : 0;
+        echo "\n";
+        return;
+    }
+    if (is_null($value)) {
+        echo ":null\n";
+        return;
+    }
+    echo ":";
+    echo $value + 0;
+    echo "\n";
+}
+$assigned = match (2) {
+    1 => "left",
+    2 => 77,
+    default => null,
+};
+$branch = true ? pick_match(1) : pick_match(2);
+show_value(pick_match(1));
+show_value(pick_match(2));
+show_value(pick_match(3));
+show_value(pick_match(4));
+show_value(pick_ternary(true));
+show_value(pick_ternary(false));
+show_value($assigned);
+show_value($branch);
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_enum_cases_array_filter_get_class() {
     assert_wasm_matches_php(
         r#"<?php

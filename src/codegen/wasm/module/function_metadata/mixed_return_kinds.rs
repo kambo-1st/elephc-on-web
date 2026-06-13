@@ -241,6 +241,45 @@ fn mixed_return_expr_value_kind(
     array_nested_values: &HashMap<String, Vec<Option<NestedArrayMetadata>>>,
     array_key_values: &HashMap<String, Vec<AssocKeyValue>>,
 ) -> Option<ValueCellKind> {
+    match &expr.kind {
+        ExprKind::Ternary {
+            then_expr,
+            else_expr,
+            ..
+        } => {
+            return common_mixed_return_value_kind(
+                [then_expr.as_ref(), else_expr.as_ref()],
+                local_value_kinds,
+                array_value_kinds,
+                array_nested_values,
+                array_key_values,
+            );
+        }
+        ExprKind::ShortTernary { value, default } => {
+            return common_mixed_return_value_kind(
+                [value.as_ref(), default.as_ref()],
+                local_value_kinds,
+                array_value_kinds,
+                array_nested_values,
+                array_key_values,
+            );
+        }
+        ExprKind::Match { arms, default, .. } => {
+            let values = arms
+                .iter()
+                .map(|(_, value)| value)
+                .chain(default.as_deref())
+                .collect::<Vec<_>>();
+            return common_mixed_return_value_kind(
+                values,
+                local_value_kinds,
+                array_value_kinds,
+                array_nested_values,
+                array_key_values,
+            );
+        }
+        _ => {}
+    }
     if let Some(kind) = static_value_cell_kind_for_expr(expr) {
         return Some(kind);
     }
@@ -253,4 +292,24 @@ fn mixed_return_expr_value_kind(
         array_nested_values,
         array_key_values,
     )
+}
+
+fn common_mixed_return_value_kind<'a>(
+    values: impl IntoIterator<Item = &'a Expr>,
+    local_value_kinds: &HashMap<String, ValueCellKind>,
+    array_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
+    array_nested_values: &HashMap<String, Vec<Option<NestedArrayMetadata>>>,
+    array_key_values: &HashMap<String, Vec<AssocKeyValue>>,
+) -> Option<ValueCellKind> {
+    let mut kinds = values.into_iter().map(|value| {
+        mixed_return_expr_value_kind(
+            value,
+            local_value_kinds,
+            array_value_kinds,
+            array_nested_values,
+            array_key_values,
+        )
+    });
+    let first = kinds.next()??;
+    kinds.all(|kind| kind == Some(first)).then_some(first)
 }

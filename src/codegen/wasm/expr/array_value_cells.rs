@@ -253,6 +253,21 @@ pub(in crate::codegen::wasm) fn emit_store_value_cell(
             );
             Ok(())
         }
+        ExprKind::FunctionCall { name, .. }
+            if module.has_function(name)
+                && module.function_return_kind(name) == Some(ValueKind::Mixed) =>
+        {
+            let temp = module
+                .next_label("value_cell_mixed_return")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_i32_local(temp.clone());
+            emit_mixed_value_to_stack(value, module)?;
+            module.body().line(&format!("local.set ${}", temp));
+            emit_copy_value_cell_from_addr_to_addr(cell, &format!("${}", temp), module);
+            emit_release_value_cell(&format!("${}", temp), module);
+            Ok(())
+        }
         ExprKind::BoolLiteral(value) => {
             module.body().line(&format!("local.get {}", cell));
             module.body().line(&format!("i32.const {}", i32::from(*value)));
