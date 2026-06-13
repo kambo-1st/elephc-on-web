@@ -572,6 +572,11 @@ pub(super) fn emit_callable_assign(
             let Some(targets) = module
                 .function_possible_callable_return_targets(function_name.as_str())
                 .map(<[_]>::to_vec)
+                .or_else(|| {
+                    module
+                        .function_callable_return_target(function_name.as_str())
+                        .map(|target| vec![target])
+                })
             else {
                 return Err(CompileError::new(
                     value.span,

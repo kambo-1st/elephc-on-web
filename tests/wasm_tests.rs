@@ -30833,6 +30833,28 @@ echo run($callback, 5) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_callable_typed_function_param_from_monomorphic_return_descriptor() {
+    assert_wasm_matches_php(
+        r#"<?php
+function mono_add_one(int $value): int {
+    return $value + 1;
+}
+function make_mono_callback(): callable {
+    return mono_add_one(...);
+}
+function run_mono(callable $callback, int $value): int {
+    return $callback($value);
+}
+$callback = make_mono_callback();
+$alias = $callback;
+echo $callback(5) . "\n";
+echo run_mono($alias, 7) . "\n";
+echo call_user_func(make_mono_callback(), 9) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_callable_typed_function_param_descriptor_helpers() {
     assert_wasm_matches_php(
         r#"<?php
