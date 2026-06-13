@@ -218,6 +218,12 @@ fn callable_return_expr_call_local_kind(
             };
             method_call_return_key(class_name.as_str(), method)
         }
+        ExprKind::NullsafeMethodCall { object, method, .. } => {
+            let ExprKind::NewObject { class_name, .. } = &object.kind else {
+                return None;
+            };
+            method_call_return_key(class_name.as_str(), method)
+        }
         _ => return None,
     };
     let targets = function_possible_callable_return_targets

@@ -30916,6 +30916,8 @@ $staticText = (CallableExprFactory::makeString())("ok");
 echo strlen($staticText) . ":" . $staticText . "\n";
 $instanceText = ((new CallableExprFactory())->makeInstanceString())("go");
 echo strlen($instanceText) . ":" . $instanceText . "\n";
+$nullsafeText = ((new CallableExprFactory())?->makeInstanceString())("ns");
+echo strlen($nullsafeText) . ":" . $nullsafeText . "\n";
 "#,
     );
 }
