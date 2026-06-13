@@ -39748,6 +39748,10 @@ function pick_match(int $slot): mixed {
 function pick_ternary(bool $flag): mixed {
     return $flag ? "yes" : 9;
 }
+function passthrough(mixed $value): mixed {
+    echo "seen\n";
+    return $value;
+}
 function show_value(mixed $value) {
     echo gettype($value);
     if (is_string($value)) {
@@ -39778,6 +39782,8 @@ $assigned = match (2) {
     default => null,
 };
 $branch = true ? pick_match(1) : pick_match(2);
+$short_true = passthrough("short") ?: 5;
+$short_false = passthrough(0) ?: "fallback";
 show_value(pick_match(1));
 show_value(pick_match(2));
 show_value(pick_match(3));
@@ -39786,6 +39792,8 @@ show_value(pick_ternary(true));
 show_value(pick_ternary(false));
 show_value($assigned);
 show_value($branch);
+show_value($short_true);
+show_value($short_false);
 "#,
     );
 }

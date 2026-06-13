@@ -270,6 +270,9 @@ pub(in crate::codegen::wasm) fn emit_mixed_arg_assign(
         } => {
             return emit_mixed_ternary_arg_assign(local, condition, then_expr, else_expr, module);
         }
+        ExprKind::ShortTernary { value, default } => {
+            return emit_mixed_short_ternary_arg_assign(local, value, default, module);
+        }
         ExprKind::Match {
             subject,
             arms,
@@ -338,6 +341,32 @@ pub(in crate::codegen::wasm) fn emit_mixed_arg_assign(
     emit_store_value_cell(&format!("${}", local), expr, module)?;
     let kind = value_cell_kind_for_expr(expr, module);
     module.set_mixed_value_cell_kind(local, kind);
+    Ok(())
+}
+
+fn emit_mixed_short_ternary_arg_assign(
+    local: &str,
+    value: &Expr,
+    default: &Expr,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let temp = module
+        .next_label("mixed_short_ternary_value")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_i32_local(temp.clone());
+    emit_alloc_mixed_cell(local, module);
+    emit_alloc_mixed_cell(&temp, module);
+    emit_store_value_cell(&format!("${}", temp), value, module)?;
+    module.body().line(&format!("local.get ${}", temp));
+    module.body().line("call $__rt_mixed_truthy");
+    module.body().open("if");
+    emit_copy_value_cell_from_addr_to_addr(&format!("${}", local), &format!("${}", temp), module);
+    module.body().line("else");
+    emit_store_value_cell(&format!("${}", local), default, module)?;
+    module.body().close("end");
+    emit_release_value_cell(&format!("${}", temp), module);
+    module.set_mixed_value_cell_kind(local, common_control_value_cell_kind([value, default], module));
     Ok(())
 }
 
