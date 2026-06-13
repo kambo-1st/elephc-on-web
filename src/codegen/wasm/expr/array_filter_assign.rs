@@ -862,16 +862,7 @@ fn emit_array_filter_dynamic_static_return_callback_assign(
     let [source, callback_expr] = args else {
         return Ok(false);
     };
-    let ExprKind::FunctionCall {
-        name: callback_function,
-        ..
-    } = &callback_expr.kind else {
-        return Ok(false);
-    };
-    let Some(callbacks) = module
-        .function_possible_static_string_returns(callback_function.as_str())
-        .map(|callbacks| callbacks.to_vec())
-    else {
+    let Some(callbacks) = dynamic_array_filter_callback_names(callback_expr, module) else {
         return Ok(false);
     };
     let source = match &source.kind {
@@ -942,6 +933,16 @@ fn emit_array_filter_dynamic_static_return_callback_assign(
     module.body().line("unreachable");
     module.body().close("end");
     Ok(true)
+}
+
+fn dynamic_array_filter_callback_names(expr: &Expr, module: &WasmModule) -> Option<Vec<String>> {
+    match &expr.kind {
+        ExprKind::FunctionCall { name, .. } => module
+            .function_possible_static_string_returns(name.as_str())
+            .map(<[_]>::to_vec),
+        ExprKind::Variable(name) => module.possible_static_string_values(name).map(<[_]>::to_vec),
+        _ => None,
+    }
 }
 
 fn emit_array_filter_dynamic_source_assign(
