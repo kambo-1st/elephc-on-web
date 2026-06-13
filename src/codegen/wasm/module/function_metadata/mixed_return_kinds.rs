@@ -264,6 +264,24 @@ fn mixed_return_expr_value_kind(
                 array_key_values,
             );
         }
+        ExprKind::NullCoalesce { value, default } => {
+            if matches!(value.kind, ExprKind::Null) {
+                return mixed_return_expr_value_kind(
+                    default,
+                    local_value_kinds,
+                    array_value_kinds,
+                    array_nested_values,
+                    array_key_values,
+                );
+            }
+            return common_mixed_return_value_kind(
+                [value.as_ref(), default.as_ref()],
+                local_value_kinds,
+                array_value_kinds,
+                array_nested_values,
+                array_key_values,
+            );
+        }
         ExprKind::Match { arms, default, .. } => {
             let values = arms
                 .iter()

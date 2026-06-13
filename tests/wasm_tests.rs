@@ -39752,6 +39752,10 @@ function passthrough(mixed $value): mixed {
     echo "seen\n";
     return $value;
 }
+function maybe_null(bool $flag): mixed {
+    echo $flag ? "null\n" : "value\n";
+    return $flag ? null : "left";
+}
 function show_value(mixed $value) {
     echo gettype($value);
     if (is_string($value)) {
@@ -39784,6 +39788,8 @@ $assigned = match (2) {
 $branch = true ? pick_match(1) : pick_match(2);
 $short_true = passthrough("short") ?: 5;
 $short_false = passthrough(0) ?: "fallback";
+$coalesce_left = maybe_null(false) ?? "default";
+$coalesce_default = maybe_null(true) ?? 12;
 show_value(pick_match(1));
 show_value(pick_match(2));
 show_value(pick_match(3));
@@ -39794,6 +39800,8 @@ show_value($assigned);
 show_value($branch);
 show_value($short_true);
 show_value($short_false);
+show_value($coalesce_left);
+show_value($coalesce_default);
 "#,
     );
 }

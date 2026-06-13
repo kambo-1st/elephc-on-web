@@ -273,6 +273,9 @@ pub(in crate::codegen::wasm) fn emit_mixed_arg_assign(
         ExprKind::ShortTernary { value, default } => {
             return emit_mixed_short_ternary_arg_assign(local, value, default, module);
         }
+        ExprKind::NullCoalesce { value, default } => {
+            return emit_mixed_null_coalesce_arg_assign(local, value, default, module);
+        }
         ExprKind::Match {
             subject,
             arms,
@@ -341,6 +344,33 @@ pub(in crate::codegen::wasm) fn emit_mixed_arg_assign(
     emit_store_value_cell(&format!("${}", local), expr, module)?;
     let kind = value_cell_kind_for_expr(expr, module);
     module.set_mixed_value_cell_kind(local, kind);
+    Ok(())
+}
+
+fn emit_mixed_null_coalesce_arg_assign(
+    local: &str,
+    value: &Expr,
+    default: &Expr,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let temp = module
+        .next_label("mixed_null_coalesce_value")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_i32_local(temp.clone());
+    emit_alloc_mixed_cell(local, module);
+    emit_alloc_mixed_cell(&temp, module);
+    emit_store_value_cell(&format!("${}", temp), value, module)?;
+    module.body().line(&format!("local.get ${}", temp));
+    module.body().line(&format!("i32.const {}", WASM_VALUE_TAG_NULL));
+    module.body().line("call $__rt_mixed_tag_equals");
+    module.body().open("if");
+    emit_store_value_cell(&format!("${}", local), default, module)?;
+    module.body().line("else");
+    emit_copy_value_cell_from_addr_to_addr(&format!("${}", local), &format!("${}", temp), module);
+    module.body().close("end");
+    emit_release_value_cell(&format!("${}", temp), module);
+    module.set_mixed_value_cell_kind(local, null_coalesce_value_cell_kind(value, default, module));
     Ok(())
 }
 
@@ -447,6 +477,17 @@ fn common_control_value_cell_kind<'a>(
         .map(|value| value_cell_kind_for_expr(value, module));
     let first = kinds.next()??;
     kinds.all(|kind| kind == Some(first)).then_some(first)
+}
+
+fn null_coalesce_value_cell_kind(
+    value: &Expr,
+    default: &Expr,
+    module: &WasmModule,
+) -> Option<ValueCellKind> {
+    if matches!(value.kind, ExprKind::Null) {
+        return value_cell_kind_for_expr(default, module);
+    }
+    common_control_value_cell_kind([value, default], module)
 }
 
 pub(in crate::codegen::wasm) fn emit_mixed_value_to_stack(
