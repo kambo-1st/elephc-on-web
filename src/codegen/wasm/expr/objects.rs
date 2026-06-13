@@ -2237,21 +2237,56 @@ pub(in crate::codegen::wasm) fn emit_is_a_call(
         .unwrap_or(false);
     if allow_string {
         if let Some(value_class) = evaluated_static_class_string_value(&args[0], module)? {
-            let target = evaluated_static_class_string_value(&args[1], module)?.ok_or_else(|| {
-                CompileError::new(
+            if let Some(target) = evaluated_static_class_string_value(&args[1], module)? {
+                let matches_target =
+                    static_class_string_object_match(&value_class, &target, false, call, module)?;
+                module.body().line(&format!(
+                    "i32.const {}",
+                    i32::from(matches_target)
+                ));
+            } else if expression_is_stringy(&args[1], module) {
+                let target_var = runtime_string_arg_or_materialize(&args[1], "is_a_string_target", module)?
+                    .ok_or_else(|| {
+                        CompileError::new(
+                            args[1].span,
+                            "wasm32-web is_a() currently requires a string target",
+                        )
+                    })?;
+                emit_runtime_string_matches_any(
+                    "is_a_string_target",
+                    runtime_class_match_targets(&value_class, false, call, module)?,
+                    &target_var,
+                    module,
+                );
+            } else {
+                return Err(CompileError::new(
                     args[1].span,
                     "wasm32-web is_a() currently requires a static class-string target",
-                )
-            })?;
-            let matches_target =
-                static_class_string_object_match(&value_class, &target, false, call, module)?;
-            module.body().line(&format!(
-                "i32.const {}",
-                i32::from(matches_target)
-            ));
+                ));
+            }
             return Ok(ValueKind::Bool);
         }
-        if expression_is_stringy(&args[0], module) {
+        if static_class_string_value(&args[1], module).is_some()
+            && static_class_string_value(&args[0], module).is_none()
+            && expression_is_stringy(&args[0], module)
+        {
+            let value_var = runtime_string_arg_or_materialize(&args[0], "is_a_string_value", module)?
+                .ok_or_else(|| {
+                    CompileError::new(
+                        args[0].span,
+                        "wasm32-web is_a() string class mode currently requires a string value",
+                    )
+                })?;
+            let target = evaluated_static_class_string_value(&args[1], module)?
+                .expect("checked by static_class_string_value");
+            emit_runtime_string_matches_any(
+                "is_a_string_value",
+                runtime_class_values_matching_target(&target, false, call, module)?,
+                &value_var,
+                module,
+            );
+            return Ok(ValueKind::Bool);
+        } else if expression_is_stringy(&args[0], module) {
             return Err(CompileError::new(
                 call.span,
                 "wasm32-web is_a() string class mode currently requires a static class-string value",
@@ -2315,21 +2350,58 @@ pub(in crate::codegen::wasm) fn emit_is_subclass_of_call(
         .unwrap_or(true);
     if allow_string {
         if let Some(value_class) = evaluated_static_class_string_value(&args[0], module)? {
-            let target = evaluated_static_class_string_value(&args[1], module)?.ok_or_else(|| {
-                CompileError::new(
+            if let Some(target) = evaluated_static_class_string_value(&args[1], module)? {
+                let matches_target =
+                    static_class_string_object_match(&value_class, &target, true, call, module)?;
+                module.body().line(&format!(
+                    "i32.const {}",
+                    i32::from(matches_target)
+                ));
+            } else if expression_is_stringy(&args[1], module) {
+                let target_var =
+                    runtime_string_arg_or_materialize(&args[1], "is_subclass_of_string_target", module)?
+                        .ok_or_else(|| {
+                            CompileError::new(
+                                args[1].span,
+                                "wasm32-web is_subclass_of() currently requires a string target",
+                            )
+                        })?;
+                emit_runtime_string_matches_any(
+                    "is_subclass_of_string_target",
+                    runtime_class_match_targets(&value_class, true, call, module)?,
+                    &target_var,
+                    module,
+                );
+            } else {
+                return Err(CompileError::new(
                     args[1].span,
                     "wasm32-web is_subclass_of() currently requires a static class-string target",
-                )
-            })?;
-            let matches_target =
-                static_class_string_object_match(&value_class, &target, true, call, module)?;
-            module.body().line(&format!(
-                "i32.const {}",
-                i32::from(matches_target)
-            ));
+                ));
+            }
             return Ok(ValueKind::Bool);
         }
-        if expression_is_stringy(&args[0], module) {
+        if static_class_string_value(&args[1], module).is_some()
+            && static_class_string_value(&args[0], module).is_none()
+            && expression_is_stringy(&args[0], module)
+        {
+            let value_var =
+                runtime_string_arg_or_materialize(&args[0], "is_subclass_of_string_value", module)?
+                    .ok_or_else(|| {
+                        CompileError::new(
+                            args[0].span,
+                            "wasm32-web is_subclass_of() string class mode currently requires a string value",
+                        )
+                    })?;
+            let target = evaluated_static_class_string_value(&args[1], module)?
+                .expect("checked by static_class_string_value");
+            emit_runtime_string_matches_any(
+                "is_subclass_of_string_value",
+                runtime_class_values_matching_target(&target, true, call, module)?,
+                &value_var,
+                module,
+            );
+            return Ok(ValueKind::Bool);
+        } else if expression_is_stringy(&args[0], module) {
             return Err(CompileError::new(
                 call.span,
                 "wasm32-web is_subclass_of() string class mode currently requires a static class-string value",
@@ -4193,6 +4265,21 @@ fn runtime_class_match_targets(
     for target in candidates {
         if static_object_class_match(value_class, &target, exclude_self, expr, module)? {
             matches.push(target);
+        }
+    }
+    Ok(matches)
+}
+
+fn runtime_class_values_matching_target(
+    target: &str,
+    exclude_self: bool,
+    expr: &Expr,
+    module: &WasmModule,
+) -> Result<Vec<String>, CompileError> {
+    let mut matches = Vec::new();
+    for value_class in module.declared_type_names("class_exists") {
+        if static_class_string_object_match(&value_class, target, exclude_self, expr, module)? {
+            matches.push(value_class);
         }
     }
     Ok(matches)
