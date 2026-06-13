@@ -37,6 +37,7 @@ pub(in crate::codegen::wasm) fn emit_string_assign(
         return Err(err);
     }
     module.set_string_static_value(name, None);
+    module.set_possible_static_string_values(name, possible_static_string_values(value, module));
     if emit_object_tostring_value_to_stack(value, module)? {
         module.body().line(&format!("local.set ${}_len", name));
         module.body().line(&format!("local.set ${}_ptr", name));
@@ -76,6 +77,10 @@ pub(in crate::codegen::wasm) fn emit_string_assign(
             module.body().line(&format!("local.get ${}_len", source));
             module.body().line(&format!("local.set ${}_len", name));
             module.set_string_static_value(name, module.string_static_value(source));
+            module.set_possible_static_string_values(
+                name,
+                module.possible_static_string_values(source).map(<[_]>::to_vec),
+            );
             Ok(())
         }
         ExprKind::PropertyAccess { object, property }
@@ -173,6 +178,9 @@ pub(in crate::codegen::wasm) fn emit_string_assign(
                     .function_static_string_return_for_call(function_name, args)
                     .or_else(|| module.function_static_string_return(function_name)),
             );
+            if module.string_static_value(name).is_none() {
+                module.set_possible_static_string_values(name, possible_static_string_values(value, module));
+            }
             Ok(())
         }
         ExprKind::StaticMethodCall {
@@ -341,6 +349,16 @@ pub(in crate::codegen::wasm) fn emit_string_assign(
             value.span,
             "wasm32-web string assignments currently require a string literal or string variable",
         )),
+    }
+}
+
+fn possible_static_string_values(value: &Expr, module: &WasmModule) -> Option<Vec<String>> {
+    match &value.kind {
+        ExprKind::FunctionCall { name, .. } => module
+            .function_possible_static_string_returns(name.as_str())
+            .map(<[_]>::to_vec),
+        ExprKind::Variable(source) => module.possible_static_string_values(source).map(<[_]>::to_vec),
+        _ => None,
     }
 }
 

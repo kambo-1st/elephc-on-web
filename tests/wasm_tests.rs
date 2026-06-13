@@ -30523,17 +30523,6 @@ fn test_wasm32_web_callback_array_builtin_dynamic_callable_variables_are_rejecte
     let cases = [
         (
             r#"<?php
-function callback_name(bool $flag): string { return $flag ? "map_it" : "other"; }
-function map_it(int $x): int { return $x + 1; }
-function runtime_callback_flag(): bool { return true; }
-$flag = runtime_callback_flag();
-$cb = callback_name($flag);
-$mapped = array_map($cb, [1, 2]);
-"#,
-            "array_map() currently requires a static string, direct first-class function callback, or simple callable variable alias",
-        ),
-        (
-            r#"<?php
 function callback_name(bool $flag): string { return $flag ? "keep_it" : "other"; }
 function keep_it(int $x): bool { return $x > 1; }
 function runtime_callback_flag(): bool { return true; }
@@ -30616,6 +30605,25 @@ uksort($values, $cb);
             err.message
         );
     }
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_array_map_dynamic_callable_variable() {
+    assert_wasm_matches_php(
+        r#"<?php
+function callback_name(bool $flag): string { echo "pick\n"; return $flag ? "map_it" : "double_it"; }
+function map_it(int $x): int { return $x + 1; }
+function double_it(int $x): int { return $x * 2; }
+function runtime_callback_flag(): bool { return strlen("yes") === 3; }
+$flag = runtime_callback_flag();
+$cb = callback_name($flag);
+$mapped = array_map($cb, [1, 2]);
+echo count($mapped) . ":" . $mapped[0] . ":" . $mapped[1] . "\n";
+$copy = $cb;
+$mapped_copy = array_map($copy, [3, 4]);
+echo count($mapped_copy) . ":" . $mapped_copy[0] . ":" . $mapped_copy[1] . "\n";
+"#,
+    );
 }
 
 #[test]

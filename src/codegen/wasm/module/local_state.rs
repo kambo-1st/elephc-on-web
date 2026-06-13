@@ -210,8 +210,29 @@ impl WasmModule {
     pub(in crate::codegen::wasm) fn set_string_static_value(&mut self, name: &str, value: Option<String>) {
         if let Some(value) = value {
             self.current.string_static_values.insert(name.to_string(), value);
+            self.current.possible_static_string_values.remove(name);
         } else {
             self.current.string_static_values.remove(name);
+        }
+    }
+
+    pub(in crate::codegen::wasm) fn possible_static_string_values(&self, name: &str) -> Option<&[String]> {
+        self.current
+            .possible_static_string_values
+            .get(name)
+            .map(Vec::as_slice)
+    }
+
+    pub(in crate::codegen::wasm) fn set_possible_static_string_values(
+        &mut self,
+        name: &str,
+        values: Option<Vec<String>>,
+    ) {
+        if let Some(values) = values {
+            self.current.possible_static_string_values.insert(name.to_string(), values);
+            self.current.string_static_values.remove(name);
+        } else {
+            self.current.possible_static_string_values.remove(name);
         }
     }
 
