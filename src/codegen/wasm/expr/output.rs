@@ -305,6 +305,17 @@ pub(in crate::codegen::wasm) fn emit_output_expr(
                 _ => unreachable!("string callable target must return a string"),
             }
         }
+        ExprKind::ExprCall { callee, args }
+            if callable_expr_return_kind(module, callee, args) == Some(ValueKind::Str) =>
+        {
+            match emit_callable_expr_call(expr, callee, args, module)? {
+                ValueKind::Str => {
+                    module.body().line("call $host_write");
+                    Ok(())
+                }
+                _ => unreachable!("string callable expression target must return a string"),
+            }
+        }
         ExprKind::Assignment { .. } if expression_is_stringy(expr, module) => {
             emit_string_value_to_stack(expr, module)?;
             module.body().line("call $host_write");

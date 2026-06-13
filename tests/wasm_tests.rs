@@ -30880,6 +30880,32 @@ echo (is_callable(make_callable_is_poly(false)) ? 1 : 0) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_callable_return_expression_calls() {
+    assert_wasm_matches_php(
+        r#"<?php
+function callable_expr_add(int $value): int {
+    return $value + 1;
+}
+function callable_expr_wrap(string $value): string {
+    return "[" . $value . "]";
+}
+function make_callable_expr(bool $flag): callable {
+    echo $flag ? "add\n" : "wrap\n";
+    return $flag ? callable_expr_add(...) : callable_expr_add(...);
+}
+function make_callable_expr_string(): callable {
+    echo "string\n";
+    return callable_expr_wrap(...);
+}
+echo make_callable_expr(true)(4) . "\n";
+$value = make_callable_expr(false)(8);
+echo ($value + 2) . "\n";
+echo make_callable_expr_string()("web") . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_callable_typed_function_param_descriptor_helpers() {
     assert_wasm_matches_php(
         r#"<?php
@@ -33928,6 +33954,21 @@ $cb = wasm_pipe_triple(...);
 echo (4 |> $cb) . "\n";
 "#,
         "12\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_pipe_callable_return_descriptor() {
+    assert_wasm_stdout(
+        r#"<?php
+function wasm_pipe_descriptor_double(int $n): int { return $n * 2; }
+function wasm_pipe_descriptor_wrap(string $s): string { return "[" . $s . "]"; }
+function wasm_pipe_descriptor_int(): callable { return wasm_pipe_descriptor_double(...); }
+function wasm_pipe_descriptor_string(): callable { return wasm_pipe_descriptor_wrap(...); }
+echo (6 |> wasm_pipe_descriptor_int()) . "\n";
+echo ("web" |> wasm_pipe_descriptor_string()) . "\n";
+"#,
+        "12\n[web]\n",
     );
 }
 

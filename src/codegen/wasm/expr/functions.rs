@@ -2596,6 +2596,19 @@ pub(super) fn emit_callable_expr_call(
     if direct_instance_callable_target_static(callee, "__invoke", module).is_some() {
         return emit_direct_instance_callable_target(expr, callee, "__invoke", args, module);
     }
+    if callable_return_expr_targets(callee, module).is_some() {
+        let mut dispatch_args = Vec::with_capacity(args.len() + 1);
+        dispatch_args.push(callee.clone());
+        dispatch_args.extend(args.iter().cloned());
+        let kind = dynamic_callable_return_function_return_kind(&dispatch_args, module)?
+            .ok_or_else(|| {
+                CompileError::new(
+                    expr.span,
+                    "wasm32-web callable expression calls require consistent callable-return metadata",
+                )
+            })?;
+        return emit_dynamic_callable_return_function_dispatch(expr, &dispatch_args, kind, module);
+    }
     Err(CompileError::new(
         expr.span,
         "wasm32-web expression calls require a supported invokable object",
@@ -2613,6 +2626,17 @@ pub(super) fn callable_expr_return_kind(
 ) -> Option<ValueKind> {
     direct_instance_callable_target_static(callee, "__invoke", module)
         .and_then(|(target, _)| callable_return_kind(&target, args, module))
+        .or_else(|| {
+            if callable_return_expr_targets(callee, module).is_none() {
+                return None;
+            }
+            let mut dispatch_args = Vec::with_capacity(args.len() + 1);
+            dispatch_args.push(callee.clone());
+            dispatch_args.extend(args.iter().cloned());
+            dynamic_callable_return_function_return_kind(&dispatch_args, module)
+                .ok()
+                .flatten()
+        })
 }
 
 pub(super) fn callable_variable_return_kind(
