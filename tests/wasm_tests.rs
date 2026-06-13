@@ -30758,6 +30758,31 @@ echo run($callback, 5) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_callable_typed_function_param_descriptor_helpers() {
+    assert_wasm_matches_php(
+        r#"<?php
+function add_pair(int $left, int $right): int {
+    return $left + $right;
+}
+function mul_pair(int $left, int $right): int {
+    return $left * $right;
+}
+function make_callback(bool $flag): callable {
+    return $flag ? add_pair(...) : mul_pair(...);
+}
+function run_direct(callable $callback, int $left, int $right): int {
+    return call_user_func($callback, $left, $right);
+}
+function run_array(callable $callback, array $args): int {
+    return call_user_func_array($callback, $args);
+}
+echo run_direct(make_callback(true), 2, 6) . "\n";
+echo run_array(make_callback(false), ["right" => 6, "left" => 2]) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_callable_typed_function_static_method_params() {
     assert_wasm_matches_php(
         r#"<?php
