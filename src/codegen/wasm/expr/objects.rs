@@ -2286,6 +2286,30 @@ pub(in crate::codegen::wasm) fn emit_is_a_call(
                 module,
             );
             return Ok(ValueKind::Bool);
+        } else if expression_is_stringy(&args[0], module) && expression_is_stringy(&args[1], module) {
+            let value_var = runtime_string_arg_or_materialize(&args[0], "is_a_string_value", module)?
+                .ok_or_else(|| {
+                    CompileError::new(
+                        args[0].span,
+                        "wasm32-web is_a() string class mode currently requires a string value",
+                    )
+                })?;
+            let target_var = runtime_string_arg_or_materialize(&args[1], "is_a_string_target", module)?
+                .ok_or_else(|| {
+                    CompileError::new(
+                        args[1].span,
+                        "wasm32-web is_a() string class mode currently requires a string target",
+                    )
+                })?;
+            emit_runtime_class_string_pair_match(
+                "is_a_string_pair",
+                false,
+                call,
+                &value_var,
+                &target_var,
+                module,
+            )?;
+            return Ok(ValueKind::Bool);
         } else if expression_is_stringy(&args[0], module) {
             return Err(CompileError::new(
                 call.span,
@@ -2400,6 +2424,32 @@ pub(in crate::codegen::wasm) fn emit_is_subclass_of_call(
                 &value_var,
                 module,
             );
+            return Ok(ValueKind::Bool);
+        } else if expression_is_stringy(&args[0], module) && expression_is_stringy(&args[1], module) {
+            let value_var =
+                runtime_string_arg_or_materialize(&args[0], "is_subclass_of_string_value", module)?
+                    .ok_or_else(|| {
+                        CompileError::new(
+                            args[0].span,
+                            "wasm32-web is_subclass_of() string class mode currently requires a string value",
+                        )
+                    })?;
+            let target_var =
+                runtime_string_arg_or_materialize(&args[1], "is_subclass_of_string_target", module)?
+                    .ok_or_else(|| {
+                        CompileError::new(
+                            args[1].span,
+                            "wasm32-web is_subclass_of() string class mode currently requires a string target",
+                        )
+                    })?;
+            emit_runtime_class_string_pair_match(
+                "is_subclass_of_string_pair",
+                true,
+                call,
+                &value_var,
+                &target_var,
+                module,
+            )?;
             return Ok(ValueKind::Bool);
         } else if expression_is_stringy(&args[0], module) {
             return Err(CompileError::new(
@@ -4283,6 +4333,44 @@ fn runtime_class_values_matching_target(
         }
     }
     Ok(matches)
+}
+
+fn emit_runtime_class_string_pair_match(
+    prefix: &str,
+    exclude_self: bool,
+    expr: &Expr,
+    value_var: &str,
+    target_var: &str,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let result = module.next_label(&format!("{}_result", prefix));
+    module.declare_i32_local(result.trim_start_matches('$').to_string());
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", result));
+    let done = module.next_label(&format!("{}_done", prefix));
+    module.body().open(&format!("block {}", done));
+    for value_class in module.declared_type_names("class_exists") {
+        emit_runtime_string_matches_any(
+            prefix,
+            vec![value_class.clone()],
+            value_var,
+            module,
+        );
+        module.body().open("if");
+        emit_runtime_string_matches_any(
+            prefix,
+            runtime_class_match_targets(&value_class, exclude_self, expr, module)?,
+            target_var,
+            module,
+        );
+        module.body().line(&format!("local.set {}", result));
+        module.body().line(&format!("local.get {}", result));
+        module.body().line(&format!("br_if {}", done));
+        module.body().close("end");
+    }
+    module.body().close("end");
+    module.body().line(&format!("local.get {}", result));
+    Ok(())
 }
 
 fn static_class_string_value(expr: &Expr, module: &WasmModule) -> Option<String> {

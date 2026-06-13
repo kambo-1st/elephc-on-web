@@ -2804,6 +2804,13 @@ fn test_wasm32_web_e2e_matches_php_object_is_a_string_class_mode_runtime_exprs()
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_is_a_string_class_mode_runtime_pair() {
+    assert_wasm_matches_php(
+        "<?php\ninterface RuntimeIsAPairNamed {}\nclass RuntimeIsAPairBase {}\nclass RuntimeIsAPairChild extends RuntimeIsAPairBase implements RuntimeIsAPairNamed {}\nclass RuntimeIsAPairOther {}\nfunction runtime_is_a_pair_suffix(string $value): string { echo \"suffix\\n\"; return $value; }\n$prefix = \"RuntimeIsAPair\";\necho (is_a($prefix . runtime_is_a_pair_suffix(\"Child\"), $prefix . runtime_is_a_pair_suffix(\"Base\"), true) ? 1 : 0) . \":\";\necho (is_a($prefix . runtime_is_a_pair_suffix(\"Child\"), $prefix . runtime_is_a_pair_suffix(\"Named\"), true) ? 1 : 0) . \":\";\necho (is_a($prefix . runtime_is_a_pair_suffix(\"Other\"), $prefix . runtime_is_a_pair_suffix(\"Base\"), true) ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_is_a_assigned_string_class_mode_helpers() {
     assert_wasm_matches_php(
         "<?php\ninterface AssignedNamed {}\nclass AssignedBase {}\nclass AssignedChild extends AssignedBase implements AssignedNamed {}\nfunction assigned_is_a_value(): string { echo \"value\\n\"; return AssignedChild::class; }\nfunction assigned_is_a_target(): string { echo \"target\\n\"; return AssignedBase::class; }\n$value = assigned_is_a_value();\n$target = assigned_is_a_target();\necho (is_a($value, $target, true) ? 1 : 0); echo \":\";\necho (is_a($value, AssignedNamed::class, true) ? 1 : 0); echo \":\";\necho (is_a($target, $target, true) ? 1 : 0); echo \"\\n\";\n",
@@ -2849,6 +2856,13 @@ fn test_wasm32_web_e2e_matches_php_object_is_subclass_of_string_class_mode() {
 fn test_wasm32_web_e2e_matches_php_object_is_subclass_of_string_class_mode_runtime_exprs() {
     assert_wasm_matches_php(
         "<?php\ninterface RuntimeSubStringNamed {}\nclass RuntimeSubStringBase {}\nclass RuntimeSubStringChild extends RuntimeSubStringBase implements RuntimeSubStringNamed {}\nclass RuntimeSubStringOther {}\nfunction runtime_sub_string_suffix(string $value): string { echo \"suffix\\n\"; return $value; }\n$prefix = \"RuntimeSubString\";\necho (is_subclass_of($prefix . runtime_sub_string_suffix(\"Child\"), RuntimeSubStringBase::class) ? 1 : 0) . \":\";\necho (is_subclass_of($prefix . runtime_sub_string_suffix(\"Child\"), RuntimeSubStringNamed::class) ? 1 : 0) . \":\";\necho (is_subclass_of($prefix . runtime_sub_string_suffix(\"Base\"), RuntimeSubStringBase::class) ? 1 : 0) . \":\";\necho (is_subclass_of(RuntimeSubStringChild::class, $prefix . runtime_sub_string_suffix(\"Base\")) ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_object_is_subclass_of_string_class_mode_runtime_pair() {
+    assert_wasm_matches_php(
+        "<?php\ninterface RuntimeSubPairNamed {}\nclass RuntimeSubPairBase {}\nclass RuntimeSubPairChild extends RuntimeSubPairBase implements RuntimeSubPairNamed {}\nclass RuntimeSubPairOther {}\nfunction runtime_sub_pair_suffix(string $value): string { echo \"suffix\\n\"; return $value; }\n$prefix = \"RuntimeSubPair\";\necho (is_subclass_of($prefix . runtime_sub_pair_suffix(\"Child\"), $prefix . runtime_sub_pair_suffix(\"Base\")) ? 1 : 0) . \":\";\necho (is_subclass_of($prefix . runtime_sub_pair_suffix(\"Child\"), $prefix . runtime_sub_pair_suffix(\"Named\")) ? 1 : 0) . \":\";\necho (is_subclass_of($prefix . runtime_sub_pair_suffix(\"Base\"), $prefix . runtime_sub_pair_suffix(\"Base\")) ? 1 : 0) . \":\";\necho (is_subclass_of($prefix . runtime_sub_pair_suffix(\"Other\"), $prefix . runtime_sub_pair_suffix(\"Base\")) ? 1 : 0) . \"\\n\";\n",
     );
 }
 
