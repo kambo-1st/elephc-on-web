@@ -45,6 +45,9 @@ Status keys:
 | `never` return type | yes | Wasm partial | User functions declared `: never` are tracked with no wasm result value, can be declared without affecting main flow, and trap on implicit fallthrough under wasm expected-trap coverage. Explicit `return` in `never` functions is still rejected by the shared checker; throwing/catching paths depend on the wasm exception runtime. |
 | Resource/stream types | yes | Wasm no | Browser host or JS-backed resource model needed. |
 
+Callable inventory notes:
+- Finite callable-return descriptors are now accepted by `is_callable()` after evaluating the descriptor-producing expression for PHP-visible side effects.
+
 ## Operators
 
 | Feature | Elephc support | wasm32-web status | Next wasm action |

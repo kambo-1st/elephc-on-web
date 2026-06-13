@@ -773,6 +773,17 @@ pub(super) fn emit_is_callable_call(
             }
             module.has_function(&value) || wasm_known_builtin_exists(&value)
         }
+        _ if callable_return_expr_targets(arg, module).is_some() => {
+            let kind = emit_expr(arg, module)?;
+            if kind != ValueKind::Callable {
+                return Err(CompileError::new(
+                    arg.span,
+                    "wasm32-web is_callable() expected a callable descriptor",
+                ));
+            }
+            module.body().line("drop");
+            true
+        }
         ExprKind::StringLiteral(value) => module.has_function(value) || wasm_known_builtin_exists(value),
         ExprKind::BoolLiteral(_) | ExprKind::IntLiteral(_) | ExprKind::FloatLiteral(_) | ExprKind::Null => false,
         _ => {

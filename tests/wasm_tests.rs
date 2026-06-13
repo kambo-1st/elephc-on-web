@@ -30855,6 +30855,31 @@ echo call_user_func(make_mono_callback(), 9) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_is_callable_callable_return_descriptors() {
+    assert_wasm_matches_php(
+        r#"<?php
+function callable_is_add(int $value): int {
+    return $value + 1;
+}
+function callable_is_double(int $value): int {
+    return $value * 2;
+}
+function make_callable_is_mono(): callable {
+    echo "mono\n";
+    return callable_is_add(...);
+}
+function make_callable_is_poly(bool $flag): callable {
+    echo $flag ? "poly-add\n" : "poly-double\n";
+    return $flag ? callable_is_add(...) : callable_is_double(...);
+}
+echo (is_callable(make_callable_is_mono()) ? 1 : 0) . "\n";
+echo (is_callable(make_callable_is_poly(true)) ? 1 : 0) . "\n";
+echo (is_callable(make_callable_is_poly(false)) ? 1 : 0) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_callable_typed_function_param_descriptor_helpers() {
     assert_wasm_matches_php(
         r#"<?php
