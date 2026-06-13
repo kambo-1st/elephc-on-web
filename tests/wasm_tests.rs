@@ -27611,6 +27611,30 @@ echo call_user_func_array($alias, [8]) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_static_string_callable_array_variable_direct_calls() {
+    assert_wasm_matches_php(
+        r#"<?php
+class StaticStringCallableArrayVariable {
+    public static function add(int $value): int {
+        return $value + 9;
+    }
+    public static function wrap(string $value): string {
+        return "{" . $value . "}";
+    }
+}
+$class = "StaticString" . "CallableArrayVariable";
+$method = "ad" . "d";
+$cb = [$class, $method];
+$string_method = "wrap";
+$string_cb = [0 => $class, 1 => $string_method];
+echo $cb(1) . "\n";
+echo call_user_func($cb, 2) . "\n";
+echo call_user_func_array($string_cb, ["value" => "web"]) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_callable_ternary_different_instance_receivers_are_rejected() {
     let program = parse_program(
         "<?php

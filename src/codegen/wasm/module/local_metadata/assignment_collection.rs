@@ -110,7 +110,14 @@ pub(super) fn collect_assignment_locals(
     }
     array_runtime_nested_values.remove(name);
     if let Some(target) =
-        callable_target_for_locals(value, callable_targets, function_return_kinds, object_classes)
+        callable_target_for_locals(
+            value,
+            callable_targets,
+            string_static_values,
+            function_return_kinds,
+            object_classes,
+            constants,
+        )
     {
         callable_targets.insert(name.clone(), target);
     } else {

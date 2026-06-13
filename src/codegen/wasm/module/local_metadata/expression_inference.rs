@@ -24,8 +24,15 @@ pub(super) fn infer_assignment_fallback_local_kind(
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
 ) -> LocalKind {
-    if callable_target_for_locals(expr, callable_targets, function_return_kinds, object_classes)
-        .is_some()
+    if callable_target_for_locals(
+        expr,
+        callable_targets,
+        string_static_values,
+        function_return_kinds,
+        object_classes,
+        constants,
+    )
+    .is_some()
     {
         return LocalKind::Callable;
     }
