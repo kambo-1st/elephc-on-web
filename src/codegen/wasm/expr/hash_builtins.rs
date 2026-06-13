@@ -16,6 +16,9 @@ pub(super) fn emit_hash_string_builtin_value_to_stack(
     args: &[Expr],
     module: &mut WasmModule,
 ) -> Result<bool, CompileError> {
+    if let Some(emitted) = emit_md5_sha1_dynamic_raw_value_to_stack(call, name, args, module)? {
+        return Ok(emitted);
+    }
     let Some((algorithm, data_arg, raw_output)) = hash_value_algorithm_and_data(call, name, args, module)? else {
         if name.eq_ignore_ascii_case("hash") {
             return emit_hash_dynamic_algorithm_value_to_stack(call, args, module);
@@ -45,6 +48,37 @@ pub(super) fn emit_hash_string_builtin_value_to_stack(
         emit_runtime_hash_hex_value_to_stack(&var, algorithm, module);
     }
     Ok(true)
+}
+
+fn emit_md5_sha1_dynamic_raw_value_to_stack(
+    call: &Expr,
+    name: &str,
+    args: &[Expr],
+    module: &mut WasmModule,
+) -> Result<Option<bool>, CompileError> {
+    let algorithm = match name.to_ascii_lowercase().as_str() {
+        "md5" => 1,
+        "sha1" => 2,
+        _ => return Ok(None),
+    };
+    if args.is_empty() || args.len() > 2 {
+        return Err(CompileError::new(
+            call.span,
+            &format!("wasm32-web {}() expects one or two arguments", name),
+        ));
+    }
+    let Some(raw_arg) = args.get(1) else {
+        return Ok(None);
+    };
+    if literal_bool_arg(raw_arg).is_ok() {
+        return Ok(None);
+    }
+    let Some(var) = string_arg_or_materialize(&args[0], "hash_value_arg", module)? else {
+        return Ok(Some(false));
+    };
+    let raw_output = runtime_bool_arg(raw_arg, module)?;
+    emit_runtime_hash_value_to_stack(&var, algorithm, raw_output, module);
+    Ok(Some(true))
 }
 
 fn emit_hash_dynamic_algorithm_value_to_stack(
@@ -211,6 +245,48 @@ fn emit_runtime_hash_raw_value_to_stack(var: &str, algorithm: i32, module: &mut 
     module.body().line(&format!("local.set {}", out_len));
     module.body().line(&format!("local.get {}", out_ptr));
     module.body().line(&format!("local.get {}", out_len));
+}
+
+fn emit_runtime_hash_value_to_stack(
+    var: &str,
+    algorithm: i32,
+    raw_output: RuntimeBoolArg<'_>,
+    module: &mut WasmModule,
+) {
+    match raw_output {
+        RuntimeBoolArg::Static(true) => emit_runtime_hash_raw_value_to_stack(var, algorithm, module),
+        RuntimeBoolArg::Static(false) => emit_runtime_hash_hex_value_to_stack(var, algorithm, module),
+        RuntimeBoolArg::Variable(local) => {
+            let out_ptr = module.next_label("hash_dynamic_raw_out_ptr");
+            let out_len = module.next_label("hash_dynamic_raw_out_len");
+            module.declare_i32_local(out_ptr.trim_start_matches('$').to_string());
+            module.declare_i32_local(out_len.trim_start_matches('$').to_string());
+            module.body().line("global.get $heap");
+            module.body().line(&format!("local.set {}", out_ptr));
+            module.body().line("global.get $heap");
+            module.body().line("i32.const 64");
+            module.body().line("i32.add");
+            module.body().line("global.set $heap");
+            module.body().line(&format!("local.get ${}", local));
+            module.body().open("if (result i32)");
+            emit_runtime_hash_args(var, algorithm, &out_ptr, module);
+            module.body().line("call $host_hash_raw");
+            module.body().line("else");
+            emit_runtime_hash_args(var, algorithm, &out_ptr, module);
+            module.body().line("call $host_hash_hex");
+            module.body().close("end");
+            module.body().line(&format!("local.set {}", out_len));
+            module.body().line(&format!("local.get {}", out_ptr));
+            module.body().line(&format!("local.get {}", out_len));
+        }
+    }
+}
+
+fn emit_runtime_hash_args(var: &str, algorithm: i32, out_ptr: &str, module: &mut WasmModule) {
+    module.body().line(&format!("i32.const {}", algorithm));
+    module.body().line(&format!("local.get ${}_ptr", var));
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line(&format!("local.get {}", out_ptr));
 }
 
 fn emit_runtime_hash_name_value_to_stack(
