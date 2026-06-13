@@ -397,7 +397,7 @@ impl WasmModule {
             nullable_function_returns,
             function_static_string_returns: collect_function_static_string_returns(program, &constants),
             function_possible_static_string_returns: collect_function_possible_static_string_returns(program, &constants),
-            function_callable_return_targets: collect_function_callable_return_targets(program),
+            function_callable_return_targets: collect_function_callable_return_targets(program, &constants),
             function_mixed_return_kinds: collect_function_mixed_return_kinds(program),
             function_array_return_lengths,
             function_array_return_layouts,

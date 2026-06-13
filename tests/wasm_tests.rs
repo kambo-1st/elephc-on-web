@@ -31001,6 +31001,33 @@ echo call_user_func(make_callback(false), "metadata") . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_const_string_callable_typed_function_return() {
+    assert_wasm_matches_php(
+        r#"<?php
+const CB = "strlen";
+function make_callback(): callable {
+    return CB;
+}
+echo call_user_func(make_callback(), "constant") . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_const_string_callable_typed_function_return_alias() {
+    assert_wasm_matches_php(
+        r#"<?php
+const CB = "strlen";
+function make_callback(): callable {
+    $callback = CB;
+    return $callback;
+}
+echo call_user_func_array(make_callback(), ["constant"]) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_array_reduce_string_callback_null_values_are_rejected() {
     let source = r#"<?php
 function join_word(string $carry, string $value): string {

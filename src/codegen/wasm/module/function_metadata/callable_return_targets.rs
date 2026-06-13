@@ -13,6 +13,7 @@ use super::*;
 
 pub(in crate::codegen::wasm::module) fn collect_function_callable_return_targets(
     program: &Program,
+    constants: &HashMap<String, ConstantValue>,
 ) -> HashMap<String, String> {
     let mut targets = HashMap::new();
     for stmt in program {
@@ -27,7 +28,7 @@ pub(in crate::codegen::wasm::module) fn collect_function_callable_return_targets
         if value_kind_from_return_type(return_type.as_ref()) != ValueKind::Callable {
             continue;
         }
-        if let Some(target) = callable_return_target_from_body(body, &mut HashMap::new()) {
+        if let Some(target) = callable_return_target_from_body(body, constants, &mut HashMap::new()) {
             targets.insert(function_key(name), target);
         }
     }
@@ -36,10 +37,11 @@ pub(in crate::codegen::wasm::module) fn collect_function_callable_return_targets
 
 fn callable_return_target_from_body(
     body: &[Stmt],
+    constants: &HashMap<String, ConstantValue>,
     local_callable_targets: &mut HashMap<String, String>,
 ) -> Option<String> {
     for stmt in body {
-        if let Some(target) = callable_return_target_from_stmt(stmt, local_callable_targets) {
+        if let Some(target) = callable_return_target_from_stmt(stmt, constants, local_callable_targets) {
             return Some(target);
         }
     }
@@ -48,12 +50,17 @@ fn callable_return_target_from_body(
 
 fn callable_return_target_from_stmt(
     stmt: &Stmt,
+    constants: &HashMap<String, ConstantValue>,
     local_callable_targets: &mut HashMap<String, String>,
 ) -> Option<String> {
     match &stmt.kind {
-        StmtKind::Return(Some(expr)) => callable_return_target_from_expr(expr, local_callable_targets),
+        StmtKind::Return(Some(expr)) => {
+            callable_return_target_from_expr(expr, constants, local_callable_targets)
+        }
         StmtKind::Assign { name, value } | StmtKind::TypedAssign { name, value, .. } => {
-            if let Some(target) = callable_return_target_from_expr(value, local_callable_targets) {
+            if let Some(target) =
+                callable_return_target_from_expr(value, constants, local_callable_targets)
+            {
                 local_callable_targets.insert(name.clone(), target);
             } else {
                 local_callable_targets.remove(name);
@@ -67,10 +74,11 @@ fn callable_return_target_from_stmt(
             ..
         } => {
             let mut then_targets = local_callable_targets.clone();
-            let mut target = callable_return_target_from_body(then_body, &mut then_targets)?;
+            let mut target = callable_return_target_from_body(then_body, constants, &mut then_targets)?;
             for (_, body) in elseif_clauses {
                 let mut branch_targets = local_callable_targets.clone();
-                let branch_target = callable_return_target_from_body(body, &mut branch_targets)?;
+                let branch_target =
+                    callable_return_target_from_body(body, constants, &mut branch_targets)?;
                 if !target.eq_ignore_ascii_case(&branch_target) {
                     return None;
                 }
@@ -78,11 +86,11 @@ fn callable_return_target_from_stmt(
             }
             let mut else_targets = local_callable_targets.clone();
             let else_target =
-                callable_return_target_from_body(else_body.as_deref()?, &mut else_targets)?;
+                callable_return_target_from_body(else_body.as_deref()?, constants, &mut else_targets)?;
             target.eq_ignore_ascii_case(&else_target).then_some(target)
         }
         StmtKind::Synthetic(stmts) | StmtKind::NamespaceBlock { body: stmts, .. } => {
-            callable_return_target_from_body(stmts, local_callable_targets)
+            callable_return_target_from_body(stmts, constants, local_callable_targets)
         }
         _ => None,
     }
@@ -90,10 +98,15 @@ fn callable_return_target_from_stmt(
 
 fn callable_return_target_from_expr(
     expr: &Expr,
+    constants: &HashMap<String, ConstantValue>,
     local_callable_targets: &HashMap<String, String>,
 ) -> Option<String> {
     match &expr.kind {
         ExprKind::StringLiteral(name) => Some(name.clone()),
+        ExprKind::ConstRef(name) => match constants.get(name.as_str())? {
+            ConstantValue::Str(value) => Some(value.clone()),
+            _ => None,
+        },
         ExprKind::FirstClassCallable(CallableTarget::Function(name)) => Some(name.to_string()),
         ExprKind::FirstClassCallable(CallableTarget::StaticMethod {
             receiver: StaticReceiver::Named(class_name),
@@ -109,8 +122,10 @@ fn callable_return_target_from_expr(
             else_expr,
             ..
         } => {
-            let then_target = callable_return_target_from_expr(then_expr, local_callable_targets)?;
-            let else_target = callable_return_target_from_expr(else_expr, local_callable_targets)?;
+            let then_target =
+                callable_return_target_from_expr(then_expr, constants, local_callable_targets)?;
+            let else_target =
+                callable_return_target_from_expr(else_expr, constants, local_callable_targets)?;
             then_target
                 .eq_ignore_ascii_case(&else_target)
                 .then_some(then_target)
