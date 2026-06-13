@@ -31778,6 +31778,29 @@ echo (array_walk($more, $alias) ? 1 : 0) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_array_walk_callable_method_return_descriptor() {
+    assert_wasm_matches_php(
+        r#"<?php
+class MethodArrayWalkCallback {
+    public static function show_square(int $value): int { echo ($value * $value) . ","; return 0; }
+    public static function show_double(int $value): int { echo ($value * 2) . ","; return 0; }
+    public function choose(bool $flag): callable {
+        return $flag ? MethodArrayWalkCallback::show_square(...) : MethodArrayWalkCallback::show_double(...);
+    }
+    public static function staticChoose(bool $flag): callable {
+        return $flag ? MethodArrayWalkCallback::show_double(...) : MethodArrayWalkCallback::show_square(...);
+    }
+}
+$factory = new MethodArrayWalkCallback();
+$walked = [2, 3];
+echo (array_walk($walked, $factory->choose(true)) ? 1 : 0) . "\n";
+$more = [4, 5];
+echo (array_walk($more, MethodArrayWalkCallback::staticChoose(true)) ? 1 : 0) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_usort_dynamic_callable_variable() {
     assert_wasm_matches_php(
         r#"<?php
