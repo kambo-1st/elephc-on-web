@@ -30989,6 +30989,18 @@ echo call_user_func(make_callback(), "metadata") . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_string_callable_typed_function_return_ternary() {
+    assert_wasm_matches_php(
+        r#"<?php
+function make_callback(bool $flag): callable {
+    return $flag ? "strlen" : "strlen";
+}
+echo call_user_func(make_callback(false), "metadata") . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_array_reduce_string_callback_null_values_are_rejected() {
     let source = r#"<?php
 function join_word(string $carry, string $value): string {
