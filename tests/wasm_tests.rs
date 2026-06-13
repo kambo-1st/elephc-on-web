@@ -31931,6 +31931,40 @@ echo "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_sort_callable_method_return_descriptors() {
+    assert_wasm_matches_php(
+        r#"<?php
+class MethodArraySortCallback {
+    public static function value_asc(int $left, int $right): int { return $left - $right; }
+    public static function value_desc(int $left, int $right): int { return $right - $left; }
+    public static function key_asc(string $left, string $right): int { return strcmp($left, $right); }
+    public static function key_desc(string $left, string $right): int { return strcmp($right, $left); }
+    public function chooseValue(bool $flag): callable {
+        return $flag ? MethodArraySortCallback::value_asc(...) : MethodArraySortCallback::value_desc(...);
+    }
+    public static function staticValue(bool $flag): callable {
+        return $flag ? MethodArraySortCallback::value_desc(...) : MethodArraySortCallback::value_asc(...);
+    }
+    public function chooseKey(bool $flag): callable {
+        return $flag ? MethodArraySortCallback::key_asc(...) : MethodArraySortCallback::key_desc(...);
+    }
+}
+$factory = new MethodArraySortCallback();
+$values = [3, 1, 2];
+echo (usort($values, $factory->chooseValue(true)) ? 1 : 0) . ":" . $values[0] . "," . $values[1] . "," . $values[2] . "\n";
+$assoc = ["b" => 3, "a" => 1, "c" => 2];
+echo (uasort($assoc, MethodArraySortCallback::staticValue(true)) ? 1 : 0) . ":";
+foreach ($assoc as $key => $value) { echo $key . "=" . $value . ","; }
+echo "\n";
+$keys = ["b" => 3, "a" => 1, "c" => 2];
+echo (uksort($keys, $factory->chooseKey(true)) ? 1 : 0) . ":";
+foreach ($keys as $key => $value) { echo $key . "=" . $value . ","; }
+echo "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_array_map_direct_dynamic_callback_name_helpers() {
     assert_wasm_matches_php(
         r#"<?php
