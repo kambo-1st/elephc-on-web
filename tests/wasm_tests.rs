@@ -24169,6 +24169,26 @@ echo call_user_func_array(choose_dynamic_builtin_call(false), ["WEB"]) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_call_user_func_dynamic_scalar_builtin_callback_names() {
+    assert_wasm_matches_php(
+        r#"<?php
+function choose_dynamic_int_builtin(bool $flag): string { echo "int-pick\n"; return $flag ? "strlen" : "ord"; }
+function choose_dynamic_float_builtin(bool $flag): string { echo "float-pick\n"; return $flag ? "sqrt" : "floatval"; }
+function choose_dynamic_bool_builtin(bool $flag): string { echo "bool-pick\n"; return $flag ? "is_numeric" : "ctype_digit"; }
+$i = call_user_func(choose_dynamic_int_builtin(true), "web");
+$j = call_user_func_array(choose_dynamic_int_builtin(false), ["A"]);
+$f = call_user_func(choose_dynamic_float_builtin(true), 9.0);
+$g = call_user_func_array(choose_dynamic_float_builtin(false), ["2.5"]);
+$b = call_user_func(choose_dynamic_bool_builtin(true), "42");
+$c = call_user_func_array(choose_dynamic_bool_builtin(false), ["42"]);
+echo ($i + $j) . "\n";
+echo ($f + $g) . "\n";
+echo (($b && $c) ? 1 : 0) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_array_callbacks_string_callable_variables() {
     assert_wasm_matches_php(
         r#"<?php

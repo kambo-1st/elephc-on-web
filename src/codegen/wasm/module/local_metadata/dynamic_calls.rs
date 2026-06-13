@@ -337,7 +337,7 @@ fn dynamic_call_user_function_local_kind(
             .get(&function_key(callback.as_str()))
             .copied()
             .map(local_kind_for_value)
-            .or_else(|| dynamic_string_builtin_callback_local_kind(callback))?;
+            .or_else(|| dynamic_builtin_callback_local_kind(callback))?;
         if local_kind.is_some_and(|existing| existing != kind) {
             return None;
         }
@@ -346,9 +346,10 @@ fn dynamic_call_user_function_local_kind(
     local_kind
 }
 
-fn dynamic_string_builtin_callback_local_kind(callback: &str) -> Option<LocalKind> {
-    matches!(
-        callback.to_ascii_lowercase().as_str(),
+fn dynamic_builtin_callback_local_kind(callback: &str) -> Option<LocalKind> {
+    let callback = callback.to_ascii_lowercase();
+    if matches!(
+        callback.as_str(),
         "strtolower"
             | "strtoupper"
             | "lcfirst"
@@ -383,8 +384,79 @@ fn dynamic_string_builtin_callback_local_kind(callback: &str) -> Option<LocalKin
             | "html_entity_decode"
             | "md5"
             | "sha1"
-    )
-    .then_some(LocalKind::Str)
+    ) {
+        return Some(LocalKind::Str);
+    }
+    if matches!(
+        callback.as_str(),
+        "strlen" | "ord" | "intdiv" | "intval" | "count" | "array_sum" | "array_product"
+            | "json_last_error"
+    ) {
+        return Some(LocalKind::I64);
+    }
+    if matches!(
+        callback.as_str(),
+        "floatval"
+            | "fdiv"
+            | "floor"
+            | "ceil"
+            | "sqrt"
+            | "pi"
+            | "pow"
+            | "sin"
+            | "cos"
+            | "tan"
+            | "asin"
+            | "acos"
+            | "atan"
+            | "sinh"
+            | "cosh"
+            | "tanh"
+            | "log"
+            | "log10"
+            | "exp"
+            | "deg2rad"
+            | "rad2deg"
+            | "fmod"
+            | "atan2"
+            | "hypot"
+    ) {
+        return Some(LocalKind::F64);
+    }
+    if matches!(
+        callback.as_str(),
+        "boolval"
+            | "empty"
+            | "is_numeric"
+            | "is_nan"
+            | "is_finite"
+            | "is_infinite"
+            | "is_int"
+            | "is_string"
+            | "is_bool"
+            | "is_float"
+            | "is_null"
+            | "is_iterable"
+            | "is_callable"
+            | "str_contains"
+            | "str_starts_with"
+            | "str_ends_with"
+            | "ctype_alpha"
+            | "ctype_digit"
+            | "ctype_alnum"
+            | "ctype_space"
+            | "class_exists"
+            | "interface_exists"
+            | "trait_exists"
+            | "enum_exists"
+            | "method_exists"
+            | "property_exists"
+            | "function_exists"
+            | "json_validate"
+    ) {
+        return Some(LocalKind::I32);
+    }
+    None
 }
 
 fn static_method_callable_symbol(class_name: &str, method_name: &str) -> String {
