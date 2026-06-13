@@ -30804,6 +30804,48 @@ echo call_user_func(make_callback(true), 3);
 }
 
 #[test]
+fn test_wasm32_web_callable_typed_function_return_closures_are_rejected() {
+    let source = r#"<?php
+function make_callback(): callable {
+    return fn(int $value): int => $value + 1;
+}
+echo call_user_func(make_callback(), 3);
+"#;
+
+    let program = parse_program(source);
+    let err = generate(&program, WasmOutputFormat::Wat)
+        .expect_err("closure callable returns must not silently compile");
+    assert!(
+        err.message
+            .contains("wasm32-web callable returns require a statically known callable target"),
+        "unexpected error: {}",
+        err.message
+    );
+}
+
+#[test]
+fn test_wasm32_web_callable_typed_function_return_runtime_strings_are_rejected() {
+    let source = r#"<?php
+function make_callback(bool $flag): callable {
+    $left = "add";
+    $right = "_one";
+    return $flag ? $left . $right : "strlen";
+}
+echo call_user_func(make_callback(true), 3);
+"#;
+
+    let program = parse_program(source);
+    let err = generate(&program, WasmOutputFormat::Wat)
+        .expect_err("runtime string callable returns must not silently compile");
+    assert!(
+        err.message
+            .contains("wasm32-web callable returns require a statically known callable target"),
+        "unexpected error: {}",
+        err.message
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_callable_typed_function_returns() {
     assert_wasm_matches_php(
         r#"<?php
