@@ -31,6 +31,7 @@ pub(super) fn infer_assignment_fallback_local_kind(
         function_return_kinds,
         object_classes,
         constants,
+        class_constants,
     )
     .is_some()
     {

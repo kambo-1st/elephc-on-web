@@ -101,6 +101,7 @@ pub(super) fn callable_target_for_locals(
     function_return_kinds: &HashMap<String, ValueKind>,
     object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
     constants: &HashMap<String, ConstantValue>,
+    class_constants: &HashMap<String, ConstantValue>,
 ) -> Option<String> {
     match &expr.kind {
         ExprKind::ArrayLiteral(items) => {
@@ -114,6 +115,7 @@ pub(super) fn callable_target_for_locals(
                 function_return_kinds,
                 object_classes,
                 constants,
+                class_constants,
             )
         }
         ExprKind::ArrayLiteralAssoc(items) => {
@@ -126,6 +128,7 @@ pub(super) fn callable_target_for_locals(
                 function_return_kinds,
                 object_classes,
                 constants,
+                class_constants,
             )
         }
         ExprKind::FirstClassCallable(CallableTarget::Function(name)) => Some(name.to_string()),
@@ -149,6 +152,7 @@ pub(super) fn callable_target_for_locals(
                 function_return_kinds,
                 object_classes,
                 constants,
+                class_constants,
             )?;
             let else_target = callable_target_for_locals(
                 else_expr,
@@ -157,6 +161,7 @@ pub(super) fn callable_target_for_locals(
                 function_return_kinds,
                 object_classes,
                 constants,
+                class_constants,
             )?;
             then_target
                 .eq_ignore_ascii_case(&else_target)
@@ -173,9 +178,12 @@ fn static_callable_array_target_for_locals(
     function_return_kinds: &HashMap<String, ValueKind>,
     object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
     constants: &HashMap<String, ConstantValue>,
+    class_constants: &HashMap<String, ConstantValue>,
 ) -> Option<String> {
-    let class_name = static_callable_array_string_for_locals(receiver, string_static_values, constants)?;
-    let method_name = static_callable_array_string_for_locals(method, string_static_values, constants)?;
+    let class_name =
+        static_callable_array_string_for_locals(receiver, string_static_values, constants, class_constants)?;
+    let method_name =
+        static_callable_array_string_for_locals(method, string_static_values, constants, class_constants)?;
     let target = static_method_in_hierarchy(&class_name, &method_name, object_classes)?
         .symbol;
     function_return_kinds
@@ -211,9 +219,17 @@ fn static_callable_array_string_for_locals(
     expr: &Expr,
     string_static_values: &HashMap<String, String>,
     constants: &HashMap<String, ConstantValue>,
+    class_constants: &HashMap<String, ConstantValue>,
 ) -> Option<String> {
     match &expr.kind {
         ExprKind::Variable(name) => string_static_values.get(name).cloned(),
+        ExprKind::ScopedConstantAccess {
+            receiver: StaticReceiver::Named(class_name),
+            name,
+        } => match class_constants.get(&class_const_key(class_name, name))? {
+            ConstantValue::Str(value) => Some(value.clone()),
+            _ => None,
+        },
         _ => static_string_for_metadata(expr, constants),
     }
 }

@@ -117,6 +117,7 @@ pub(super) fn collect_assignment_locals(
             function_return_kinds,
             object_classes,
             constants,
+            class_constants,
         )
     {
         callable_targets.insert(name.clone(), target);
