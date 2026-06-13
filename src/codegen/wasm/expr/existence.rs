@@ -86,6 +86,20 @@ pub(super) fn emit_existence_call(
             }
             Some(static_ascii_string_arg(call, arg, module)?)
         }
+        _ if lower_name == "function_exists" => {
+            if let Some(var) =
+                runtime_string_arg_or_materialize(arg, "function_exists_name", module)?
+            {
+                emit_runtime_string_matches_any(
+                    "function_exists",
+                    callable_function_names(module),
+                    &var,
+                    module,
+                );
+                return Ok(ValueKind::Bool);
+            }
+            Some(static_ascii_string_arg(call, arg, module)?)
+        }
         _ => Some(static_ascii_string_arg(call, arg, module)?),
     };
     if let Some(autoload) = args.get(1) {
