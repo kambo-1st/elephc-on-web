@@ -2371,6 +2371,11 @@ pub(in crate::codegen::wasm) fn emit_get_parent_class_value_to_stack(
                         "wasm32-web get_parent_class() currently requires a known object or static class-string argument",
                     )
                 })?
+            } else if let Some(var) =
+                runtime_string_arg_or_materialize(target, "get_parent_class_target", module)?
+            {
+                emit_get_parent_class_from_runtime_string(&var, module);
+                return Ok(());
             } else {
                 return Err(CompileError::new(
                     target.span,
@@ -2401,6 +2406,149 @@ pub(in crate::codegen::wasm) fn emit_get_parent_class_value_to_stack(
     module.body().line(&format!("i32.const {}", ptr));
     module.body().line(&format!("i32.const {}", len));
     Ok(())
+}
+
+fn emit_get_parent_class_from_runtime_string(
+    var: &str,
+    module: &mut WasmModule,
+) {
+    let candidates = module
+        .declared_type_names("class_exists")
+        .into_iter()
+        .filter_map(|class_name| {
+            let class_info = module.object_class(&class_name)?;
+            let parent_name = class_info
+                .parent
+                .as_deref()
+                .and_then(|parent| module.object_class(parent))
+                .map(|parent| parent.name.clone())
+                .unwrap_or_default();
+            Some((class_name, parent_name))
+        })
+        .collect::<Vec<_>>();
+    let out_ptr = module.next_label("get_parent_class_ptr");
+    let out_len = module.next_label("get_parent_class_len");
+    let done = module.next_label("get_parent_class_done");
+    module.declare_i32_local(out_ptr.trim_start_matches('$').to_string());
+    module.declare_i32_local(out_len.trim_start_matches('$').to_string());
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", out_ptr));
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", out_len));
+    module.body().open(&format!("block {}", done));
+    for (class_name, parent_name) in candidates {
+        emit_runtime_parent_class_candidate(&class_name, &parent_name, var, &out_ptr, &out_len, &done, module);
+    }
+    module.body().close("end");
+    module.body().line(&format!("local.get {}", out_ptr));
+    module.body().line(&format!("local.get {}", out_len));
+}
+
+fn emit_runtime_parent_class_candidate(
+    class_name: &str,
+    parent_name: &str,
+    var: &str,
+    out_ptr: &str,
+    out_len: &str,
+    done: &str,
+    module: &mut WasmModule,
+) {
+    if !class_name.is_ascii() {
+        return;
+    }
+    let class_name = class_name.to_ascii_lowercase();
+    let index = module.next_label("get_parent_class_index");
+    let byte = module.next_label("get_parent_class_byte");
+    let expected = module.next_label("get_parent_class_expected");
+    let matched = module.next_label("get_parent_class_match");
+    let compare_done = module.next_label("get_parent_class_compare_done");
+    let loop_label = module.next_label("get_parent_class_compare_loop");
+    module.declare_i32_local(index.trim_start_matches('$').to_string());
+    module.declare_i32_local(byte.trim_start_matches('$').to_string());
+    module.declare_i32_local(expected.trim_start_matches('$').to_string());
+    module.declare_i32_local(matched.trim_start_matches('$').to_string());
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line(&format!("i32.const {}", class_name.len()));
+    module.body().line("i32.eq");
+    module.body().open("if");
+    module.body().line("i32.const 1");
+    module.body().line(&format!("local.set {}", matched));
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", index));
+    module.body().open(&format!("block {}", compare_done));
+    module.body().open(&format!("loop {}", loop_label));
+    module.body().line(&format!("local.get {}", index));
+    module.body().line(&format!("i32.const {}", class_name.len()));
+    module.body().line("i32.lt_u");
+    module.body().open("if");
+    module.body().line(&format!("local.get ${}_ptr", var));
+    module.body().line(&format!("local.get {}", index));
+    module.body().line("i32.add");
+    module.body().line("i32.load8_u");
+    module.body().line(&format!("local.set {}", byte));
+    emit_ascii_lower_byte_for_parent_class(&byte, module);
+    emit_runtime_parent_class_expected_byte(&class_name, &index, &expected, module);
+    module.body().line(&format!("local.get {}", byte));
+    module.body().line(&format!("local.get {}", expected));
+    module.body().line("i32.ne");
+    module.body().open("if");
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", matched));
+    module.body().line(&format!("br {}", compare_done));
+    module.body().close("end");
+    module.body().line(&format!("local.get {}", index));
+    module.body().line("i32.const 1");
+    module.body().line("i32.add");
+    module.body().line(&format!("local.set {}", index));
+    module.body().line(&format!("br {}", loop_label));
+    module.body().close("end");
+    module.body().close("end");
+    module.body().close("end");
+    module.body().line(&format!("local.get {}", matched));
+    module.body().open("if");
+    let (parent_ptr, parent_len) = module.intern_string(parent_name);
+    module.body().line(&format!("i32.const {}", parent_ptr));
+    module.body().line(&format!("local.set {}", out_ptr));
+    module.body().line(&format!("i32.const {}", parent_len));
+    module.body().line(&format!("local.set {}", out_len));
+    module.body().line(&format!("br {}", done));
+    module.body().close("end");
+    module.body().close("end");
+}
+
+fn emit_ascii_lower_byte_for_parent_class(byte: &str, module: &mut WasmModule) {
+    module.body().line(&format!("local.get {}", byte));
+    module.body().line("i32.const 65");
+    module.body().line("i32.ge_u");
+    module.body().line(&format!("local.get {}", byte));
+    module.body().line("i32.const 90");
+    module.body().line("i32.le_u");
+    module.body().line("i32.and");
+    module.body().open("if");
+    module.body().line(&format!("local.get {}", byte));
+    module.body().line("i32.const 32");
+    module.body().line("i32.add");
+    module.body().line(&format!("local.set {}", byte));
+    module.body().close("end");
+}
+
+fn emit_runtime_parent_class_expected_byte(
+    class_name: &str,
+    index: &str,
+    expected: &str,
+    module: &mut WasmModule,
+) {
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", expected));
+    for (candidate_index, candidate_byte) in class_name.bytes().enumerate() {
+        module.body().line(&format!("local.get {}", index));
+        module.body().line(&format!("i32.const {}", candidate_index));
+        module.body().line("i32.eq");
+        module.body().open("if");
+        module.body().line(&format!("i32.const {}", candidate_byte));
+        module.body().line(&format!("local.set {}", expected));
+        module.body().close("end");
+    }
 }
 
 fn emit_get_class_from_dynamic_object(object: &Expr, module: &mut WasmModule) -> Result<(), CompileError> {
