@@ -296,6 +296,9 @@ pub(super) fn emit_usort_call(
         {
             return Ok(ValueKind::Bool);
         }
+        if emit_usort_dynamic_callable_descriptor_call(source, &args[1], args[0].span, module)? {
+            return Ok(ValueKind::Bool);
+        }
         return Err(CompileError::new(
             args[1].span,
             "wasm32-web usort() currently requires a static string, direct first-class function callback, or simple callable variable alias",
@@ -630,6 +633,73 @@ fn emit_usort_dynamic_static_return_callback_call(
     Ok(true)
 }
 
+fn emit_usort_dynamic_callable_descriptor_call(
+    source: &str,
+    callback_expr: &Expr,
+    source_span: crate::span::Span,
+    module: &mut WasmModule,
+) -> Result<bool, CompileError> {
+    let Some(callbacks) = dynamic_sort_callable_descriptor_targets(callback_expr, module) else {
+        return Ok(false);
+    };
+    if module.local_kind(source) != Some(LocalKind::Array) {
+        return Ok(false);
+    }
+    let mut callback_shape = None;
+    for callback in &callbacks {
+        if !module.has_function(callback) {
+            return Err(CompileError::new(
+                callback_expr.span,
+                "wasm32-web dynamic usort() callable descriptor can only target declared user functions",
+            ));
+        }
+        let shape = usort_callback_shape(callback, callback_expr.span, module)?;
+        if callback_shape.is_some_and(|existing| existing != shape) {
+            return Err(CompileError::new(
+                callback_expr.span,
+                "wasm32-web dynamic usort() callable descriptor currently requires callbacks with matching comparator signatures",
+            ));
+        }
+        callback_shape = Some(shape);
+    }
+    let Some(callback_shape) = callback_shape else {
+        return Ok(false);
+    };
+    if !usort_local_supports_shape(source, callback_shape, module) {
+        return Ok(false);
+    }
+
+    let callback_id = module.next_label("usort_callable_id");
+    let matched = module.next_label("usort_callable_matched");
+    for local in [&callback_id, &matched] {
+        module.declare_i32_local(local.trim_start_matches('$').to_string());
+    }
+    emit_sort_callable_descriptor(callback_expr, module)?;
+    module.body().line(&format!("local.set {}", callback_id));
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", matched));
+
+    for callback in callbacks {
+        let target_id = module.callable_target_id(&callback);
+        module.body().line(&format!("local.get {}", callback_id));
+        module.body().line(&format!("i32.const {}", target_id));
+        module.body().line("i32.eq");
+        module.body().open("if");
+        emit_usort_supported_local(source, source_span, &callback, callback_shape, module)?;
+        module.body().line("i32.const 1");
+        module.body().line(&format!("local.set {}", matched));
+        module.body().close("end");
+    }
+
+    module.body().line(&format!("local.get {}", matched));
+    module.body().line("i32.eqz");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    module.body().line("i32.const 1");
+    Ok(true)
+}
+
 fn dynamic_sort_callback_names(expr: &Expr, module: &WasmModule) -> Option<Vec<String>> {
     match &expr.kind {
         ExprKind::FunctionCall { name, .. } => module
@@ -637,6 +707,58 @@ fn dynamic_sort_callback_names(expr: &Expr, module: &WasmModule) -> Option<Vec<S
             .map(<[_]>::to_vec),
         ExprKind::Variable(name) => module.possible_static_string_values(name).map(<[_]>::to_vec),
         _ => None,
+    }
+}
+
+fn dynamic_sort_callable_descriptor_targets(
+    expr: &Expr,
+    module: &WasmModule,
+) -> Option<Vec<String>> {
+    match &expr.kind {
+        ExprKind::FunctionCall { name, .. } => module
+            .function_possible_callable_return_targets(name.as_str())
+            .map(<[_]>::to_vec)
+            .or_else(|| {
+                module
+                    .function_callable_return_target(name.as_str())
+                    .map(|target| vec![target])
+            }),
+        ExprKind::Variable(name) => module
+            .possible_callable_targets(name)
+            .map(<[_]>::to_vec)
+            .or_else(|| module.callable_target(name).map(|target| vec![target])),
+        _ => None,
+    }
+}
+
+fn emit_sort_callable_descriptor(
+    expr: &Expr,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    match &expr.kind {
+        ExprKind::FunctionCall { name, args } => {
+            emit_user_function_args(expr, name, args, module)?;
+            module
+                .body()
+                .line(&format!("call ${}", wasm_function_name(name)));
+            Ok(())
+        }
+        ExprKind::Variable(name) if module.possible_callable_targets(name).is_some() => {
+            module.body().line(&format!("local.get ${}", name));
+            Ok(())
+        }
+        ExprKind::Variable(name) if module.callable_target(name).is_some() => {
+            let target = module
+                .callable_target(name)
+                .expect("callable target was checked above");
+            let id = module.callable_target_id(&target);
+            module.body().line(&format!("i32.const {}", id));
+            Ok(())
+        }
+        _ => Err(CompileError::new(
+            expr.span,
+            "wasm32-web sort callable descriptor requires tracked callable metadata",
+        )),
     }
 }
 

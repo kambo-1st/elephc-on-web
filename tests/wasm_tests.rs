@@ -31460,6 +31460,25 @@ echo (usort($more, $copy) ? 1 : 0) . ":" . $more[0] . "," . $more[1] . "," . $mo
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_usort_callable_return_descriptor() {
+    assert_wasm_matches_php(
+        r#"<?php
+function sort_asc_desc(int $left, int $right): int { return $left - $right; }
+function sort_desc_desc(int $left, int $right): int { return $right - $left; }
+function choose_sort(bool $flag): callable {
+    return $flag ? sort_asc_desc(...) : sort_desc_desc(...);
+}
+$values = [3, 1, 2];
+echo (usort($values, choose_sort(true)) ? 1 : 0) . ":" . $values[0] . "," . $values[1] . "," . $values[2] . "\n";
+$cb = choose_sort(false);
+$alias = $cb;
+$more = [4, 2, 5];
+echo (usort($more, $alias) ? 1 : 0) . ":" . $more[0] . "," . $more[1] . "," . $more[2] . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_uasort_dynamic_callable_variable() {
     assert_wasm_matches_php(
         r#"<?php
