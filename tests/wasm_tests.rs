@@ -24176,6 +24176,8 @@ function choose_dynamic_int_builtin(bool $flag): string { echo "int-pick\n"; ret
 function choose_dynamic_float_builtin(bool $flag): string { echo "float-pick\n"; return $flag ? "sqrt" : "floatval"; }
 function choose_dynamic_round_builtin(bool $flag): string { echo "round-pick\n"; return $flag ? "round" : "ceil"; }
 function choose_dynamic_bool_builtin(bool $flag): string { echo "bool-pick\n"; return $flag ? "is_numeric" : "ctype_digit"; }
+function choose_dynamic_compare_builtin(bool $flag): string { echo "compare-pick\n"; return $flag ? "strcmp" : "strcasecmp"; }
+function choose_dynamic_search_builtin(bool $flag): string { echo "search-pick\n"; return $flag ? "strpos" : "strrpos"; }
 $i = call_user_func(choose_dynamic_int_builtin(true), "web");
 $j = call_user_func_array(choose_dynamic_int_builtin(false), ["A"]);
 $f = call_user_func(choose_dynamic_float_builtin(true), 9.0);
@@ -24184,10 +24186,16 @@ $r = call_user_func(choose_dynamic_round_builtin(true), 3.6);
 $s = call_user_func_array(choose_dynamic_round_builtin(false), [2.1]);
 $b = call_user_func(choose_dynamic_bool_builtin(true), "42");
 $c = call_user_func_array(choose_dynamic_bool_builtin(false), ["42"]);
+$cmp = call_user_func(choose_dynamic_compare_builtin(true), "web", "wasm");
+$ci = call_user_func_array(choose_dynamic_compare_builtin(false), ["WEB", "web"]);
+$pos = call_user_func(choose_dynamic_search_builtin(true), "webasm", "asm");
+$last = call_user_func_array(choose_dynamic_search_builtin(false), ["webasmweb", "web"]);
 echo ($i + $j) . "\n";
 echo ($f + $g) . "\n";
 echo ($r + $s) . "\n";
 echo (($b && $c) ? 1 : 0) . "\n";
+echo ($cmp + $ci) . "\n";
+echo ($pos + $last) . "\n";
 "#,
     );
 }

@@ -1873,6 +1873,7 @@ fn callable_builtin_return_kind(
     if matches!(
         target.to_ascii_lowercase().as_str(),
         "strlen" | "ord" | "intdiv" | "intval" | "count" | "array_sum" | "array_product"
+            | "strcmp" | "strcasecmp"
     ) {
         return Some(ValueKind::Int);
     }

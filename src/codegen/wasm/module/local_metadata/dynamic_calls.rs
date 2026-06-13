@@ -444,7 +444,7 @@ fn dynamic_builtin_callback_local_kind(
     if matches!(
         callback.as_str(),
         "strlen" | "ord" | "intdiv" | "intval" | "count" | "array_sum" | "array_product"
-            | "json_last_error"
+            | "json_last_error" | "strcmp" | "strcasecmp" | "strpos" | "strrpos"
     ) {
         return Some(LocalKind::I64);
     }
