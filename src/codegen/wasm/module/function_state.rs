@@ -18,6 +18,12 @@ impl WasmModule {
         self.function_params.contains_key(&function_key(name))
     }
 
+    pub(in crate::codegen::wasm) fn declared_function_names(&self) -> Vec<String> {
+        let mut names = self.function_params.keys().cloned().collect::<Vec<_>>();
+        names.sort();
+        names
+    }
+
     pub(in crate::codegen::wasm) fn function_param_defaults(&self, name: &str) -> Option<Vec<Option<Expr>>> {
         self.function_defaults.get(&function_key(name)).cloned()
     }

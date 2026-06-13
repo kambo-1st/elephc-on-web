@@ -577,6 +577,108 @@ pub(super) fn wasm_known_builtin_exists(name: &str) -> bool {
     )
 }
 
+fn wasm_known_builtin_names() -> Vec<&'static str> {
+    vec![
+        "strlen",
+        "ord",
+        "strtolower",
+        "strtoupper",
+        "lcfirst",
+        "ucfirst",
+        "ucwords",
+        "strrev",
+        "trim",
+        "ltrim",
+        "rtrim",
+        "str_repeat",
+        "substr",
+        "chr",
+        "sprintf",
+        "printf",
+        "json_encode",
+        "json_validate",
+        "number_format",
+        "basename",
+        "dirname",
+        "pathinfo",
+        "addslashes",
+        "stripslashes",
+        "bin2hex",
+        "hex2bin",
+        "nl2br",
+        "urlencode",
+        "urldecode",
+        "rawurlencode",
+        "rawurldecode",
+        "base64_encode",
+        "base64_decode",
+        "htmlspecialchars",
+        "htmlentities",
+        "html_entity_decode",
+        "md5",
+        "sha1",
+        "hash",
+        "implode",
+        "str_replace",
+        "str_ireplace",
+        "strstr",
+        "wordwrap",
+        "strpos",
+        "strrpos",
+        "strcmp",
+        "strcasecmp",
+        "str_contains",
+        "str_starts_with",
+        "str_ends_with",
+        "ctype_alpha",
+        "ctype_digit",
+        "ctype_alnum",
+        "ctype_space",
+        "abs",
+        "intdiv",
+        "fdiv",
+        "min",
+        "max",
+        "intval",
+        "floatval",
+        "boolval",
+        "empty",
+        "is_numeric",
+        "is_nan",
+        "is_finite",
+        "is_infinite",
+        "is_int",
+        "is_float",
+        "is_bool",
+        "is_null",
+        "is_string",
+        "is_iterable",
+        "pi",
+        "floor",
+        "ceil",
+        "sqrt",
+        "pow",
+        "sin",
+        "cos",
+        "tan",
+        "asin",
+        "acos",
+        "atan",
+        "sinh",
+        "cosh",
+        "tanh",
+        "log",
+        "log10",
+        "exp",
+        "deg2rad",
+        "rad2deg",
+        "fmod",
+        "atan2",
+        "hypot",
+        "round",
+    ]
+}
+
 pub(super) fn emit_is_callable_call(
     call: &Expr,
     args: &[Expr],
@@ -657,6 +759,15 @@ pub(super) fn emit_is_callable_call(
         ExprKind::StringLiteral(value) => module.has_function(value) || wasm_known_builtin_exists(value),
         ExprKind::BoolLiteral(_) | ExprKind::IntLiteral(_) | ExprKind::FloatLiteral(_) | ExprKind::Null => false,
         _ => {
+            if let Some(var) = runtime_string_arg_or_materialize(arg, "is_callable_name", module)? {
+                emit_runtime_string_matches_any(
+                    "is_callable",
+                    callable_function_names(module),
+                    &var,
+                    module,
+                );
+                return Ok(ValueKind::Bool);
+            }
             return Err(CompileError::new(
                 arg.span,
                 "wasm32-web is_callable() currently supports literal scalar arguments",
@@ -665,6 +776,14 @@ pub(super) fn emit_is_callable_call(
     };
     module.body().line(&format!("i32.const {}", i32::from(result)));
     Ok(ValueKind::Bool)
+}
+
+fn callable_function_names(module: &WasmModule) -> Vec<String> {
+    let mut names = module.declared_function_names();
+    names.extend(wasm_known_builtin_names().into_iter().map(str::to_string));
+    names.sort();
+    names.dedup();
+    names
 }
 
 fn fixed_callable_array_literal_exists(items: &[Expr], module: &WasmModule) -> Option<bool> {
