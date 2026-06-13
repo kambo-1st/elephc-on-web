@@ -30735,6 +30735,29 @@ echo run(true ? add_one(...) : double_it(...), 4);
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_callable_typed_function_param_from_return_descriptor() {
+    assert_wasm_matches_php(
+        r#"<?php
+function add_one(int $value): int {
+    return $value + 1;
+}
+function double_it(int $value): int {
+    return $value * 2;
+}
+function make_callback(bool $flag): callable {
+    return $flag ? add_one(...) : double_it(...);
+}
+function run(callable $callback, int $value): int {
+    return $callback($value);
+}
+echo run(make_callback(true), 5) . "\n";
+$callback = make_callback(false);
+echo run($callback, 5) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_callable_typed_function_static_method_params() {
     assert_wasm_matches_php(
         r#"<?php
