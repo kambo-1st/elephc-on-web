@@ -390,6 +390,7 @@ pub(in crate::codegen::wasm::module) fn infer_local_kind(
                     | "is_bool"
                     | "is_null"
                     | "is_string"
+                    | "is_array"
                     | "is_iterable"
                     | "is_callable"
                     | "is_a"

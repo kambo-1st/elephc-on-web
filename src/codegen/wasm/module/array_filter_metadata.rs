@@ -337,7 +337,7 @@ pub(super) fn callback_exact_nested_metadata_for_assignment(
         callable_targets,
         string_static_values,
     )?;
-    if !callback.eq_ignore_ascii_case("is_iterable") {
+    if !callback.eq_ignore_ascii_case("is_array") && !callback.eq_ignore_ascii_case("is_iterable") {
         return None;
     }
     match &args[0].kind {

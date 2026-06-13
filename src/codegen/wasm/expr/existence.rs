@@ -564,6 +564,7 @@ pub(super) fn wasm_known_builtin_exists(name: &str) -> bool {
             | "is_bool"
             | "is_null"
             | "is_string"
+            | "is_array"
             | "is_iterable"
             | "pi"
             | "floor"
@@ -666,6 +667,7 @@ fn wasm_known_builtin_names() -> Vec<&'static str> {
         "is_bool",
         "is_null",
         "is_string",
+        "is_array",
         "is_iterable",
         "pi",
         "floor",

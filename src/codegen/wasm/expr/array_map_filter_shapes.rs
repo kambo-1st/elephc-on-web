@@ -40,7 +40,7 @@ pub(super) fn array_filter_callback_shape(
     if callback.eq_ignore_ascii_case("is_numeric") {
         return Ok(ArrayFilterCallbackShape::Numeric);
     }
-    if callback.eq_ignore_ascii_case("is_iterable") {
+    if callback.eq_ignore_ascii_case("is_array") || callback.eq_ignore_ascii_case("is_iterable") {
         return Ok(ArrayFilterCallbackShape::Array);
     }
     if callback.eq_ignore_ascii_case("strlen") {
@@ -75,6 +75,7 @@ pub(super) fn array_filter_builtin_callback_is_supported(callback: &str) -> bool
             | "is_float"
             | "is_null"
             | "is_numeric"
+            | "is_array"
             | "is_iterable"
             | "is_object"
             | "get_class"
@@ -86,14 +87,16 @@ pub(super) fn array_filter_builtin_callback_is_supported(callback: &str) -> bool
 pub(super) fn array_filter_type_predicate_callback(callback: &str) -> bool {
     matches!(
         callback.to_ascii_lowercase().as_str(),
-        "is_int" | "is_string" | "is_bool" | "is_float" | "is_null" | "is_iterable" | "is_object"
+        "is_int" | "is_string" | "is_bool" | "is_float" | "is_null" | "is_array" | "is_iterable"
+            | "is_object"
     )
 }
 
 pub(super) fn array_filter_object_false_callback(callback: &str) -> bool {
     matches!(
         callback.to_ascii_lowercase().as_str(),
-        "is_int" | "is_string" | "is_bool" | "is_float" | "is_null" | "is_numeric" | "is_iterable"
+        "is_int" | "is_string" | "is_bool" | "is_float" | "is_null" | "is_numeric" | "is_array"
+            | "is_iterable"
     )
 }
 
@@ -123,7 +126,7 @@ pub(super) fn array_map_callback_shape(
     if callback.eq_ignore_ascii_case("is_numeric") {
         return Ok(ArrayMapCallbackShape::NumericToBool);
     }
-    if callback.eq_ignore_ascii_case("is_iterable") {
+    if callback.eq_ignore_ascii_case("is_array") || callback.eq_ignore_ascii_case("is_iterable") {
         return Ok(ArrayMapCallbackShape::ArrayToBool);
     }
     if callback.eq_ignore_ascii_case("is_object") || callback.eq_ignore_ascii_case("boolval") {
@@ -474,6 +477,7 @@ pub(super) fn array_map_builtin_callback_is_supported(callback: &str) -> bool {
         callback.to_ascii_lowercase().as_str(),
         "strlen" | "is_int" | "is_string" | "is_bool" | "is_float" | "is_null"
             | "is_numeric"
+            | "is_array"
             | "is_iterable"
             | "is_object"
             | "get_class"

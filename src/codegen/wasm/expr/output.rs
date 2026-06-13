@@ -417,7 +417,8 @@ fn emit_output_loaded_kind(
 fn is_type_predicate_name(name: &str) -> bool {
     matches!(
         name.to_ascii_lowercase().as_str(),
-        "is_int" | "is_float" | "is_bool" | "is_null" | "is_string" | "is_iterable" | "is_object"
+        "is_int" | "is_float" | "is_bool" | "is_null" | "is_string" | "is_array" | "is_iterable"
+            | "is_object"
     )
 }
 

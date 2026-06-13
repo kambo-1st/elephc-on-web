@@ -188,6 +188,7 @@ const SUPPORTED_BUILTIN_FUNCTIONS: &[&str] = &[
     "is_executable",
     "is_file",
     "is_a",
+    "is_array",
     "is_finite",
     "is_float",
     "is_subclass_of",

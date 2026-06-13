@@ -67,7 +67,7 @@ pub(super) fn check_builtin(
             Ok(Some(PhpType::Void))
         }
         "is_bool" | "boolval" | "is_callable" | "is_null" | "is_float" | "is_int"
-        | "is_iterable" | "is_string" | "is_numeric" | "is_nan" | "is_finite"
+        | "is_array" | "is_iterable" | "is_string" | "is_numeric" | "is_nan" | "is_finite"
         | "is_infinite" | "is_resource" => {
             if args.len() != 1 {
                 return Err(CompileError::new(

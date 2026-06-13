@@ -98,7 +98,7 @@ pub(crate) fn builtin_call_sig(name: &str) -> Option<FunctionSig> {
         }
 
         "intval" | "floatval" | "boolval" | "gettype" | "is_bool" | "is_null"
-        | "is_float" | "is_int" | "is_iterable" | "is_string" | "is_numeric"
+        | "is_float" | "is_int" | "is_array" | "is_iterable" | "is_string" | "is_numeric"
         | "empty" | "var_dump" | "print_r" => {
             Some(fixed(&["value"]))
         }
@@ -660,8 +660,8 @@ fn general_first_class_callable_builtin_sig(name: &str) -> Option<FunctionSig> {
             &[PhpType::Mixed],
             PhpType::Float,
         )),
-        "boolval" | "is_bool" | "is_null" | "is_float" | "is_int" | "is_iterable"
-        | "is_string" | "is_numeric" | "is_nan" | "is_finite" | "is_infinite"
+        "boolval" | "is_bool" | "is_null" | "is_float" | "is_int" | "is_array"
+        | "is_iterable" | "is_string" | "is_numeric" | "is_nan" | "is_finite" | "is_infinite"
         | "ctype_alpha" | "ctype_digit" | "ctype_alnum" | "ctype_space" => {
             Some(typed_first_class_builtin_sig(name, &[PhpType::Mixed], PhpType::Bool))
         }

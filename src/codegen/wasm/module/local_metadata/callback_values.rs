@@ -18,7 +18,7 @@ pub(in crate::codegen::wasm::module) fn array_map_callback_return_kind(
     if matches!(
         callback.to_ascii_lowercase().as_str(),
         "is_int" | "is_string" | "is_bool" | "is_null" | "is_float" | "is_numeric"
-            | "is_iterable" | "is_object" | "boolval"
+            | "is_array" | "is_iterable" | "is_object" | "boolval"
     ) {
         return Some(ValueKind::Bool);
     }

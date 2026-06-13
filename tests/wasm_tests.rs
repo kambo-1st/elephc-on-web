@@ -1858,6 +1858,7 @@ function maybe_array(bool $flag): mixed { return $flag ? ["web"] : "web"; }
 $items = ["a" => 1, "b" => 2];
 $mixed = maybe_array(true);
 $text = maybe_array(false);
+echo is_array($items) . ":" . is_array($text) . "\n";
 echo (is_array($items) ? 1 : 0) . ":" . (is_iterable($items) ? 1 : 0) . "\n";
 echo (is_array($mixed) ? 1 : 0) . ":" . (is_iterable($mixed) ? 1 : 0) . "\n";
 echo (is_array($text) ? 1 : 0) . ":" . (is_iterable($text) ? 1 : 0) . "\n";
@@ -27288,8 +27289,12 @@ function make_filter_nested_assoc(): array {
 $filtered = array_filter([[], [1], ["x" => 2]], is_iterable(...));
 echo count($filtered) . ":" . gettype($filtered[0]) . ":" . gettype($filtered[2]);
 echo "\n";
+$array_filtered = array_filter([[], [1], ["x" => 2]], is_array(...));
+echo count($array_filtered) . ":" . gettype($array_filtered[0]) . ":" . gettype($array_filtered[2]);
+echo "\n";
 $source = [[], [1]];
 $alias = is_iterable(...);
+$array_alias = is_array(...);
 $assigned = array_filter($source, $alias);
 echo count($assigned) . ":" . gettype($assigned[0]) . ":" . gettype($assigned[1]);
 echo "\n";
@@ -27318,8 +27323,14 @@ echo "\n";
 $mapped = array_map(is_iterable(...), [[], [1], ["x" => 2]]);
 echo count($mapped) . ":" . gettype($mapped[0]) . "=" . ($mapped[0] ? 1 : 0) . ":" . gettype($mapped[2]) . "=" . ($mapped[2] ? 1 : 0);
 echo "\n";
+$array_mapped = array_map(is_array(...), [[], [1], ["x" => 2]]);
+echo count($array_mapped) . ":" . gettype($array_mapped[0]) . "=" . ($array_mapped[0] ? 1 : 0) . ":" . gettype($array_mapped[2]) . "=" . ($array_mapped[2] ? 1 : 0);
+echo "\n";
 $assigned_mapped = array_map($alias, $source);
 echo count($assigned_mapped) . ":" . gettype($assigned_mapped[0]) . "=" . ($assigned_mapped[0] ? 1 : 0) . ":" . gettype($assigned_mapped[1]) . "=" . ($assigned_mapped[1] ? 1 : 0);
+echo "\n";
+$assigned_array_mapped = array_map($array_alias, $source);
+echo count($assigned_array_mapped) . ":" . gettype($assigned_array_mapped[0]) . "=" . ($assigned_array_mapped[0] ? 1 : 0) . ":" . gettype($assigned_array_mapped[1]) . "=" . ($assigned_array_mapped[1] ? 1 : 0);
 echo "\n";
 $runtime_mapped = array_map(is_iterable(...), array_fill(0, 2, [9]));
 echo count($runtime_mapped) . ":" . gettype($runtime_mapped[0]) . "=" . ($runtime_mapped[0] ? 1 : 0) . ":" . gettype($runtime_mapped[1]) . "=" . ($runtime_mapped[1] ? 1 : 0);
@@ -27342,6 +27353,10 @@ foreach (array_map(is_iterable(...), [[], [1], ["x" => 2]]) as $value) {
     echo gettype($value) . "=" . ($value ? 1 : 0) . ",";
 }
 echo "\n";
+foreach (array_map(is_array(...), [[], [1], ["x" => 2]]) as $value) {
+    echo gettype($value) . "=" . ($value ? 1 : 0) . ",";
+}
+echo "\n";
 foreach (array_map(is_iterable(...), ["a" => [], "b" => [1]]) as $key => $value) {
     echo $key . "=" . gettype($value) . "=" . ($value ? 1 : 0) . ",";
 }
@@ -27352,6 +27367,10 @@ foreach (array_map($alias, [[], [1]]) as $value) {
 }
 echo "\n";
 foreach (array_filter([[], [1]], is_iterable(...)) as $value) {
+    echo gettype($value) . ",";
+}
+echo "\n";
+foreach (array_filter([[], [1]], is_array(...)) as $value) {
     echo gettype($value) . ",";
 }
 echo "\n";
