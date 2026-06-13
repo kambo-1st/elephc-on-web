@@ -30519,61 +30519,6 @@ fn test_wasm32_web_natural_sort_mutators_are_rejected() {
 }
 
 #[test]
-fn test_wasm32_web_callback_array_builtin_dynamic_callable_variables_are_rejected() {
-    let cases = [
-        (
-            r#"<?php
-function callback_name(bool $flag): string { return $flag ? "sort_it" : "other"; }
-function sort_it(int $a, int $b): int { return $a - $b; }
-function runtime_callback_flag(): bool { return true; }
-$flag = runtime_callback_flag();
-$cb = callback_name($flag);
-$values = [2, 1];
-usort($values, $cb);
-"#,
-            "usort() currently requires a static string, direct first-class function callback, or simple callable variable alias",
-        ),
-        (
-            r#"<?php
-function callback_name(bool $flag): string { return $flag ? "sort_it" : "other"; }
-function sort_it(int $a, int $b): int { return $a - $b; }
-function runtime_callback_flag(): bool { return true; }
-$flag = runtime_callback_flag();
-$cb = callback_name($flag);
-$values = ["b" => 2, "a" => 1];
-uasort($values, $cb);
-"#,
-            "uasort() currently requires a static string, direct first-class function callback, or simple callable variable alias",
-        ),
-        (
-            r#"<?php
-function callback_name(bool $flag): string { return $flag ? "sort_it" : "other"; }
-function sort_it(string $a, string $b): int { return strcmp($a, $b); }
-function runtime_callback_flag(): bool { return true; }
-$flag = runtime_callback_flag();
-$cb = callback_name($flag);
-$values = ["b" => 2, "a" => 1];
-uksort($values, $cb);
-"#,
-            "uksort() currently requires a static string, direct first-class function callback, or simple callable variable alias",
-        ),
-    ];
-
-    for (source, expected) in cases {
-        let program = parse_program(source);
-        let err = generate(&program, WasmOutputFormat::Wat)
-            .expect_err("dynamic callback variable array builtin must not silently compile");
-
-        assert!(
-            err.message.contains(expected),
-            "expected error containing `{}`, got `{}`",
-            expected,
-            err.message
-        );
-    }
-}
-
-#[test]
 fn test_wasm32_web_e2e_matches_php_array_map_dynamic_callable_variable() {
     assert_wasm_matches_php(
         r#"<?php
@@ -30649,6 +30594,71 @@ echo (array_walk($walked, $cb) ? 1 : 0) . "\n";
 $copy = $cb;
 $more = [4, 5];
 echo (array_walk($more, $copy) ? 1 : 0) . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_usort_dynamic_callable_variable() {
+    assert_wasm_matches_php(
+        r#"<?php
+function callback_name(bool $flag): string { echo "sort-pick\n"; return $flag ? "sort_asc" : "sort_desc"; }
+function sort_asc(int $left, int $right): int { return $left - $right; }
+function sort_desc(int $left, int $right): int { return $right - $left; }
+function runtime_callback_flag(): bool { return strlen("yes") === 3; }
+$flag = runtime_callback_flag();
+$cb = callback_name($flag);
+$values = [3, 1, 2];
+echo (usort($values, $cb) ? 1 : 0) . ":" . $values[0] . "," . $values[1] . "," . $values[2] . "\n";
+$copy = $cb;
+$more = [4, 2, 5];
+echo (usort($more, $copy) ? 1 : 0) . ":" . $more[0] . "," . $more[1] . "," . $more[2] . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_uasort_dynamic_callable_variable() {
+    assert_wasm_matches_php(
+        r#"<?php
+function callback_name(bool $flag): string { echo "assoc-sort-pick\n"; return $flag ? "sort_asc" : "sort_desc"; }
+function sort_asc(int $left, int $right): int { return $left - $right; }
+function sort_desc(int $left, int $right): int { return $right - $left; }
+function runtime_callback_flag(): bool { return strlen("yes") === 3; }
+$flag = runtime_callback_flag();
+$cb = callback_name($flag);
+$values = ["b" => 3, "a" => 1, "c" => 2];
+echo (uasort($values, $cb) ? 1 : 0) . ":";
+foreach ($values as $key => $value) { echo $key . "=" . $value . ","; }
+echo "\n";
+$copy = $cb;
+$more = ["x" => 4, "y" => 2, "z" => 5];
+echo (uasort($more, $copy) ? 1 : 0) . ":";
+foreach ($more as $key => $value) { echo $key . "=" . $value . ","; }
+echo "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_uksort_dynamic_callable_variable() {
+    assert_wasm_matches_php(
+        r#"<?php
+function callback_name(bool $flag): string { echo "key-sort-pick\n"; return $flag ? "sort_key_asc" : "sort_key_desc"; }
+function sort_key_asc(string $left, string $right): int { return strcmp($left, $right); }
+function sort_key_desc(string $left, string $right): int { return strcmp($right, $left); }
+function runtime_callback_flag(): bool { return strlen("yes") === 3; }
+$flag = runtime_callback_flag();
+$cb = callback_name($flag);
+$values = ["b" => 3, "a" => 1, "c" => 2];
+echo (uksort($values, $cb) ? 1 : 0) . ":";
+foreach ($values as $key => $value) { echo $key . "=" . $value . ","; }
+echo "\n";
+$copy = $cb;
+$more = ["x" => 4, "w" => 2, "z" => 5];
+echo (uksort($more, $copy) ? 1 : 0) . ":";
+foreach ($more as $key => $value) { echo $key . "=" . $value . ","; }
+echo "\n";
 "#,
     );
 }
