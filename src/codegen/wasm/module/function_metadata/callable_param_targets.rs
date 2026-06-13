@@ -52,9 +52,10 @@ pub(in crate::codegen::wasm::module) fn collect_function_possible_callable_param
     class_constants: &HashMap<String, ConstantValue>,
     object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
 ) -> HashMap<String, Vec<Option<Vec<String>>>> {
-    let callable_return_targets = collect_function_callable_return_targets(program, constants);
+    let callable_return_targets =
+        collect_function_callable_return_targets(program, constants, class_constants, object_classes);
     let possible_callable_return_targets =
-        collect_function_possible_callable_return_targets(program, constants);
+        collect_function_possible_callable_return_targets(program, constants, class_constants, object_classes);
     let mut states = HashMap::new();
     let mut local_callable_targets = HashMap::new();
     for stmt in program {

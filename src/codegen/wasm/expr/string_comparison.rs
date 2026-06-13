@@ -58,6 +58,17 @@ pub(in crate::codegen::wasm) fn static_string_coercion_value(expr: &Expr, module
 
 pub(in crate::codegen::wasm) fn static_callback_function_name(expr: &Expr, module: &WasmModule) -> Option<String> {
     match &expr.kind {
+        ExprKind::ArrayLiteral(items) => {
+            let [receiver, method] = items.as_slice() else {
+                return None;
+            };
+            static_callable_array_function_name(receiver, method, module)
+        }
+        ExprKind::ArrayLiteralAssoc(items) => {
+            let receiver = static_callable_assoc_value(items, 0)?;
+            let method = static_callable_assoc_value(items, 1)?;
+            static_callable_array_function_name(receiver, method, module)
+        }
         ExprKind::FirstClassCallable(CallableTarget::Function(name)) => Some(name.to_string()),
         ExprKind::FirstClassCallable(CallableTarget::StaticMethod { receiver, method }) => {
             let class_name = module.class_name_for_receiver(receiver)?;
@@ -93,6 +104,25 @@ pub(in crate::codegen::wasm) fn static_callback_function_name(expr: &Expr, modul
         }
         _ => static_string_value(expr, module),
     }
+}
+
+fn static_callable_array_function_name(
+    receiver: &Expr,
+    method: &Expr,
+    module: &WasmModule,
+) -> Option<String> {
+    let class_name = static_string_value(receiver, module)?;
+    let method_name = static_string_value(method, module)?;
+    let method_info = module.object_static_method_in_hierarchy(&class_name, &method_name)?;
+    module
+        .object_member_is_accessible(&method_info.owner_class, &method_info.visibility)
+        .then_some(method_info.symbol)
+}
+
+fn static_callable_assoc_value(items: &[(Expr, Expr)], needle: i64) -> Option<&Expr> {
+    items.iter().rev().find_map(|(key, value)| {
+        matches!(key.kind, ExprKind::IntLiteral(key) if key == needle).then_some(value)
+    })
 }
 
 pub(in crate::codegen::wasm) fn evaluated_static_callback_function_name(

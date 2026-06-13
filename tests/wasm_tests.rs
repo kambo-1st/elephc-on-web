@@ -31279,6 +31279,38 @@ echo call_user_func_array(make_callback(), [30]) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_static_callable_array_typed_function_returns() {
+    assert_wasm_matches_php(
+        r#"<?php
+class StaticArrayReturnCallable {
+    const CLASS_NAME = "StaticArrayReturnCallable";
+    const ADD = "add";
+    const WRAP = "wrap";
+
+    public static function add(int $value): int {
+        return $value + 6;
+    }
+
+    public static function wrap(string $value): string {
+        return "[" . $value . "]";
+    }
+}
+function make_static_array_callback(bool $flag): callable {
+    return $flag
+        ? [StaticArrayReturnCallable::class, StaticArrayReturnCallable::ADD]
+        : [StaticArrayReturnCallable::CLASS_NAME, StaticArrayReturnCallable::ADD];
+}
+function make_static_array_wrap(): callable {
+    return [0 => StaticArrayReturnCallable::CLASS_NAME, 1 => StaticArrayReturnCallable::WRAP];
+}
+$callback = make_static_array_callback(true);
+echo $callback(4) . ":" . call_user_func(make_static_array_callback(false), 5) . "\n";
+echo call_user_func_array(make_static_array_wrap(), ["value" => "web"]) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_builtin_callable_typed_function_return_call_user_func() {
     assert_wasm_matches_php(
         r#"<?php
