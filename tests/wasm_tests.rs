@@ -33336,6 +33336,13 @@ fn test_wasm32_web_e2e_matches_php_hash_runtime_algorithm_string_values() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_hash_runtime_algorithm_dynamic_raw_string_values() {
+    assert_wasm_matches_php(
+        "<?php\nfunction algo(string $name): string { return $name; }\nfunction raw_mode(string $s): bool { return strlen($s) === 5; }\n$s = \"Hello\";\n$raw = hash(algo(\"md5\"), $s, raw_mode($s));\n$hex = hash(algo(\"md5\"), $s, strlen($s) < 2);\necho strlen($raw) . \":\" . bin2hex($raw) . \"\\n\";\necho strlen($hex) . \":\" . $hex[0] . $hex[31] . \"\\n\";\n$raw[0] = \"X\";\necho strlen($raw) . \":\" . bin2hex($raw)[0] . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_hash_sha2_host_algorithm_string_values() {
     assert_wasm_matches_php(
         "<?php\nfunction algo(string $name): string { return $name; }\n$s = \"Hello\";\necho hash(\"sha224\", $s) . \"\\n\";\necho hash(algo(\"SHA384\"), $s . \"!\") . \"\\n\";\n$raw = hash(algo(\"sha512\"), $s, true);\necho strlen($raw) . \":\" . bin2hex($raw)[0] . bin2hex($raw)[127] . \"\\n\";\n$raw[0] = \"X\";\necho strlen($raw) . \":\" . bin2hex($raw)[0] . \"\\n\";\n",

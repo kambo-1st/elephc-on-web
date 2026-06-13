@@ -58,7 +58,6 @@ fn emit_hash_dynamic_algorithm_value_to_stack(
             "wasm32-web hash() expects two or three arguments",
         ));
     }
-    let raw_output = args.get(2).map(literal_bool_arg).transpose()?.unwrap_or(false);
     if let Some(algorithm) = static_or_tracked_string_value(&args[0], module) {
         let lower = algorithm.to_ascii_lowercase();
         if !host_hash_algorithm_supported(&lower) {
@@ -77,6 +76,11 @@ fn emit_hash_dynamic_algorithm_value_to_stack(
     let Some(data_var) = string_arg_or_materialize(&args[1], "hash_value_arg", module)? else {
         return Ok(false);
     };
+    let raw_output = args
+        .get(2)
+        .map(|arg| runtime_bool_arg(arg, module))
+        .transpose()?
+        .unwrap_or(RuntimeBoolArg::Static(false));
     emit_runtime_hash_name_value_to_stack(&algorithm_var, &data_var, raw_output, module);
     Ok(true)
 }
@@ -106,7 +110,14 @@ fn hash_value_algorithm_and_data<'a>(
                     "wasm32-web hash() expects two or three arguments",
                 ));
             }
-            let raw_output = args.get(2).map(literal_bool_arg).transpose()?.unwrap_or(false);
+            let raw_output = if let Some(raw_output) = args.get(2) {
+                match literal_bool_arg(raw_output) {
+                    Ok(raw_output) => raw_output,
+                    Err(_) => return Ok(None),
+                }
+            } else {
+                false
+            };
             let Some(algorithm) = static_or_tracked_string_value(&args[0], module) else {
                 return Ok(None);
             };
@@ -205,7 +216,7 @@ fn emit_runtime_hash_raw_value_to_stack(var: &str, algorithm: i32, module: &mut 
 fn emit_runtime_hash_name_value_to_stack(
     algorithm_var: &str,
     data_var: &str,
-    raw_output: bool,
+    raw_output: RuntimeBoolArg<'_>,
     module: &mut WasmModule,
 ) {
     let out_ptr = module.next_label("hash_name_out_ptr");
@@ -215,11 +226,43 @@ fn emit_runtime_hash_name_value_to_stack(
     module.body().line("global.get $heap");
     module.body().line(&format!("local.set {}", out_ptr));
     module.body().line("global.get $heap");
-    module
-        .body()
-        .line(if raw_output { "i32.const 64" } else { "i32.const 128" });
+    module.body().line(match raw_output {
+        RuntimeBoolArg::Static(true) => "i32.const 64",
+        RuntimeBoolArg::Static(false) | RuntimeBoolArg::Variable(_) => "i32.const 128",
+    });
     module.body().line("i32.add");
     module.body().line("global.set $heap");
+    match raw_output {
+        RuntimeBoolArg::Static(true) => {
+            emit_runtime_hash_name_args(algorithm_var, data_var, &out_ptr, module);
+            module.body().line("call $host_hash_raw_name");
+        }
+        RuntimeBoolArg::Static(false) => {
+            emit_runtime_hash_name_args(algorithm_var, data_var, &out_ptr, module);
+            module.body().line("call $host_hash_hex_name");
+        }
+        RuntimeBoolArg::Variable(local) => {
+            module.body().line(&format!("local.get ${}", local));
+            module.body().open("if (result i32)");
+            emit_runtime_hash_name_args(algorithm_var, data_var, &out_ptr, module);
+            module.body().line("call $host_hash_raw_name");
+            module.body().line("else");
+            emit_runtime_hash_name_args(algorithm_var, data_var, &out_ptr, module);
+            module.body().line("call $host_hash_hex_name");
+            module.body().close("end");
+        }
+    }
+    module.body().line(&format!("local.set {}", out_len));
+    module.body().line(&format!("local.get {}", out_ptr));
+    module.body().line(&format!("local.get {}", out_len));
+}
+
+fn emit_runtime_hash_name_args(
+    algorithm_var: &str,
+    data_var: &str,
+    out_ptr: &str,
+    module: &mut WasmModule,
+) {
     module
         .body()
         .line(&format!("local.get ${}_ptr", algorithm_var));
@@ -229,14 +272,6 @@ fn emit_runtime_hash_name_value_to_stack(
     module.body().line(&format!("local.get ${}_ptr", data_var));
     module.body().line(&format!("local.get ${}_len", data_var));
     module.body().line(&format!("local.get {}", out_ptr));
-    module.body().line(if raw_output {
-        "call $host_hash_raw_name"
-    } else {
-        "call $host_hash_hex_name"
-    });
-    module.body().line(&format!("local.set {}", out_len));
-    module.body().line(&format!("local.get {}", out_ptr));
-    module.body().line(&format!("local.get {}", out_len));
 }
 
 pub(super) fn eval_literal_md5(call: &Expr, args: &[Expr]) -> Result<String, CompileError> {
