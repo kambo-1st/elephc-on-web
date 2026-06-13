@@ -35,6 +35,39 @@ pub(in crate::codegen::wasm::module) fn collect_function_callable_return_targets
     targets
 }
 
+pub(in crate::codegen::wasm::module) fn collect_function_possible_callable_return_targets(
+    program: &Program,
+    constants: &HashMap<String, ConstantValue>,
+) -> HashMap<String, Vec<String>> {
+    let mut targets = HashMap::new();
+    for stmt in program {
+        let StmtKind::FunctionDecl {
+            name,
+            return_type,
+            body,
+            ..
+        } = &stmt.kind else {
+            continue;
+        };
+        if value_kind_from_return_type(return_type.as_ref()) != ValueKind::Callable {
+            continue;
+        }
+        let mut values = Vec::new();
+        if collect_possible_callable_return_targets(
+            body,
+            constants,
+            &mut HashMap::new(),
+            &mut values,
+        )
+        .is_some()
+            && values.len() > 1
+        {
+            targets.insert(function_key(name), values);
+        }
+    }
+    targets
+}
+
 fn callable_return_target_from_body(
     body: &[Stmt],
     constants: &HashMap<String, ConstantValue>,
@@ -93,6 +126,137 @@ fn callable_return_target_from_stmt(
             callable_return_target_from_body(stmts, constants, local_callable_targets)
         }
         _ => None,
+    }
+}
+
+fn collect_possible_callable_return_targets(
+    body: &[Stmt],
+    constants: &HashMap<String, ConstantValue>,
+    local_callable_targets: &mut HashMap<String, Vec<String>>,
+    values: &mut Vec<String>,
+) -> Option<()> {
+    for stmt in body {
+        collect_possible_callable_return_targets_from_stmt(
+            stmt,
+            constants,
+            local_callable_targets,
+            values,
+        )?;
+    }
+    Some(())
+}
+
+fn collect_possible_callable_return_targets_from_stmt(
+    stmt: &Stmt,
+    constants: &HashMap<String, ConstantValue>,
+    local_callable_targets: &mut HashMap<String, Vec<String>>,
+    values: &mut Vec<String>,
+) -> Option<()> {
+    match &stmt.kind {
+        StmtKind::Return(Some(expr)) => collect_possible_callable_return_targets_from_expr(
+            expr,
+            constants,
+            local_callable_targets,
+            values,
+        ),
+        StmtKind::Assign { name, value } | StmtKind::TypedAssign { name, value, .. } => {
+            let mut assigned = Vec::new();
+            if collect_possible_callable_return_targets_from_expr(
+                value,
+                constants,
+                local_callable_targets,
+                &mut assigned,
+            )
+            .is_some()
+            {
+                local_callable_targets.insert(name.clone(), assigned);
+            } else {
+                local_callable_targets.remove(name);
+            }
+            Some(())
+        }
+        StmtKind::If {
+            then_body,
+            elseif_clauses,
+            else_body,
+            ..
+        } => {
+            let mut then_targets = local_callable_targets.clone();
+            collect_possible_callable_return_targets(
+                then_body,
+                constants,
+                &mut then_targets,
+                values,
+            )?;
+            for (_, body) in elseif_clauses {
+                let mut branch_targets = local_callable_targets.clone();
+                collect_possible_callable_return_targets(
+                    body,
+                    constants,
+                    &mut branch_targets,
+                    values,
+                )?;
+            }
+            let mut else_targets = local_callable_targets.clone();
+            collect_possible_callable_return_targets(
+                else_body.as_deref()?,
+                constants,
+                &mut else_targets,
+                values,
+            )
+        }
+        StmtKind::Synthetic(stmts) | StmtKind::NamespaceBlock { body: stmts, .. } => {
+            collect_possible_callable_return_targets(stmts, constants, local_callable_targets, values)
+        }
+        _ => Some(()),
+    }
+}
+
+fn collect_possible_callable_return_targets_from_expr(
+    expr: &Expr,
+    constants: &HashMap<String, ConstantValue>,
+    local_callable_targets: &HashMap<String, Vec<String>>,
+    values: &mut Vec<String>,
+) -> Option<()> {
+    match &expr.kind {
+        ExprKind::Variable(name) => {
+            for value in local_callable_targets.get(name)? {
+                push_unique_callable_return_target(values, value.clone());
+            }
+            Some(())
+        }
+        ExprKind::Ternary {
+            then_expr,
+            else_expr,
+            ..
+        } => {
+            collect_possible_callable_return_targets_from_expr(
+                then_expr,
+                constants,
+                local_callable_targets,
+                values,
+            )?;
+            collect_possible_callable_return_targets_from_expr(
+                else_expr,
+                constants,
+                local_callable_targets,
+                values,
+            )
+        }
+        _ => {
+            let value = callable_return_target_from_expr(expr, constants, &HashMap::new())?;
+            push_unique_callable_return_target(values, value);
+            Some(())
+        }
+    }
+}
+
+fn push_unique_callable_return_target(values: &mut Vec<String>, value: String) {
+    if !values
+        .iter()
+        .any(|existing| existing.eq_ignore_ascii_case(&value))
+    {
+        values.push(value);
     }
 }
 

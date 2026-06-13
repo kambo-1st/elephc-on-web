@@ -71,6 +71,22 @@ impl WasmModule {
             .cloned()
     }
 
+    pub(in crate::codegen::wasm) fn function_possible_callable_return_targets(&self, name: &str) -> Option<&[String]> {
+        self.function_possible_callable_return_targets
+            .get(&function_key(name))
+            .map(Vec::as_slice)
+    }
+
+    pub(in crate::codegen::wasm) fn callable_target_id(&mut self, target: &str) -> i32 {
+        if let Some(id) = self.callable_target_ids.get(&function_key(target)) {
+            return *id;
+        }
+        let id = self.next_callable_target_id;
+        self.next_callable_target_id += 1;
+        self.callable_target_ids.insert(function_key(target), id);
+        id
+    }
+
     pub(in crate::codegen::wasm) fn function_possible_static_string_returns(&self, name: &str) -> Option<&[String]> {
         self.function_possible_static_string_returns
             .get(&function_key(name))

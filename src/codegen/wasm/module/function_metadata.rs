@@ -48,7 +48,9 @@ pub(super) use self::array_param_lengths::collect_function_array_param_lengths;
 pub(super) use self::array_param_nested::collect_function_array_param_runtime_nested_values;
 pub(super) use self::array_param_values::collect_function_array_param_value_kinds;
 pub(super) use self::callable_param_targets::collect_function_callable_param_targets;
-pub(super) use self::callable_return_targets::collect_function_callable_return_targets;
+pub(super) use self::callable_return_targets::{
+    collect_function_callable_return_targets, collect_function_possible_callable_return_targets,
+};
 pub(super) use self::array_return_layouts::{
     callable_target_for_return_layout, collect_function_array_return_layouts,
     static_array_fill_return_len, static_callback_name_for_return_layout,

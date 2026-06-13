@@ -10,7 +10,7 @@
 //! - Emits explicit CompileError diagnostics for unsupported wasm return shapes.
 
 use crate::errors::CompileError;
-use crate::parser::ast::{Expr, Stmt};
+use crate::parser::ast::{Expr, ExprKind, Stmt};
 
 use super::emit_stmt;
 use super::super::expr::{
@@ -87,13 +87,7 @@ pub(super) fn emit_return(
                 }
             }
             ValueKind::Callable => {
-                let Some(_) = evaluated_static_callback_function_name(value, module)? else {
-                    return Err(CompileError::new(
-                        value.span,
-                        "wasm32-web callable returns require a statically known callable target",
-                    ));
-                };
-                module.body().line("i32.const 0");
+                emit_callable_return_descriptor(value, module)?;
             }
             ValueKind::Mixed => emit_mixed_value_to_stack(value, module)?,
             ValueKind::Never => {
@@ -141,6 +135,49 @@ pub(super) fn emit_return(
     }
     module.body().line("return");
     Ok(())
+}
+
+fn emit_callable_return_descriptor(
+    value: &Expr,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    if let Some(target) = evaluated_static_callback_function_name(value, module)? {
+        let id = module.callable_target_id(&target);
+        module.body().line(&format!("i32.const {}", id));
+        return Ok(());
+    }
+    if let ExprKind::Ternary {
+        condition,
+        then_expr,
+        else_expr,
+    } = &value.kind
+    {
+        let Some(then_target) = evaluated_static_callback_function_name(then_expr, module)? else {
+            return Err(CompileError::new(
+                value.span,
+                "wasm32-web callable returns require a statically known callable target",
+            ));
+        };
+        let Some(else_target) = evaluated_static_callback_function_name(else_expr, module)? else {
+            return Err(CompileError::new(
+                value.span,
+                "wasm32-web callable returns require a statically known callable target",
+            ));
+        };
+        let then_id = module.callable_target_id(&then_target);
+        let else_id = module.callable_target_id(&else_target);
+        emit_condition(condition, module)?;
+        module.body().open("if (result i32)");
+        module.body().line(&format!("i32.const {}", then_id));
+        module.body().line("else");
+        module.body().line(&format!("i32.const {}", else_id));
+        module.body().close("end");
+        return Ok(());
+    }
+    Err(CompileError::new(
+        value.span,
+        "wasm32-web callable returns require a statically known callable target",
+    ))
 }
 
 fn emit_numeric_return_value(
