@@ -49,6 +49,7 @@ pub(super) fn call_user_func_array_local_kind(
     array_key_values: &HashMap<String, Vec<AssocKeyValue>>,
     callable_targets: &HashMap<String, String>,
     string_static_values: &HashMap<String, String>,
+    function_possible_static_string_returns: &HashMap<String, Vec<String>>,
     function_return_kinds: &HashMap<String, ValueKind>,
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
@@ -87,6 +88,14 @@ pub(super) fn call_user_func_array_local_kind(
         return Some(kind);
     }
     if let Some(kind) = static_callable_ternary_local_kind(callback, function_return_kinds) {
+        return Some(kind);
+    }
+    if let Some(kind) = dynamic_call_user_function_local_kind(
+        callback,
+        function_possible_static_string_returns,
+        string_static_values,
+        function_return_kinds,
+    ) {
         return Some(kind);
     }
     let target =

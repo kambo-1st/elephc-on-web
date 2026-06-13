@@ -71,6 +71,7 @@ pub(in crate::codegen::wasm::module) fn infer_local_kind(
                 &HashMap::new(),
                 &HashMap::new(),
                 &HashMap::new(),
+                &HashMap::new(),
                 function_return_kinds,
                 constants,
                 class_constants,

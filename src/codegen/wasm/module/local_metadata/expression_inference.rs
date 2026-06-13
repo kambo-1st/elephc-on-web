@@ -87,6 +87,7 @@ pub(super) fn infer_assignment_fallback_local_kind(
                 array_key_values,
                 callable_targets,
                 string_static_values,
+                function_possible_static_string_returns,
                 function_return_kinds,
                 constants,
                 class_constants,

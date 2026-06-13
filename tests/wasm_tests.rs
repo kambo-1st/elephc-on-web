@@ -24140,6 +24140,21 @@ echo call_user_func(choose_dynamic_string_call(false), "wat") . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_call_user_func_array_dynamic_callback_names() {
+    assert_wasm_matches_php(
+        r#"<?php
+function runtime_array_call_flag(): bool { return strlen("yes") === 3; }
+function choose_dynamic_array_call(bool $flag): string { echo "array-pick\n"; return $flag ? "dynamic_join_lr" : "dynamic_join_rl"; }
+function dynamic_join_lr(string $left, string $right): string { return $left . ":" . $right; }
+function dynamic_join_rl(string $right, string $left): string { return $right . ":" . $left; }
+$value = call_user_func_array(choose_dynamic_array_call(runtime_array_call_flag()), ["right" => "R", "left" => "L"]);
+echo strlen($value) . ":" . $value . "\n";
+echo call_user_func_array(choose_dynamic_array_call(false), ["right" => "R", "left" => "L"]) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_array_callbacks_string_callable_variables() {
     assert_wasm_matches_php(
         r#"<?php

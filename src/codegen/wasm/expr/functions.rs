@@ -235,13 +235,16 @@ pub(super) fn emit_call_user_func_array_call(
             }
         }
     }
-    let Some((target, call_args)) = evaluated_call_user_func_array_target_owned(args, module)? else {
-        return Err(CompileError::new(
-            expr.span,
-            "wasm32-web call_user_func_array() requires a statically-known user-function callback and known packed argument array",
-        ));
-    };
-    emit_static_callable_target(expr, &target, &call_args, module)
+    if let Some((target, call_args)) = evaluated_call_user_func_array_target_owned(args, module)? {
+        return emit_static_callable_target(expr, &target, &call_args, module);
+    }
+    if let Some(kind) = dynamic_call_user_func_array_return_kind(args, module)? {
+        return emit_dynamic_call_user_func_array_dispatch(expr, args, kind, module);
+    }
+    Err(CompileError::new(
+        expr.span,
+        "wasm32-web call_user_func_array() requires a statically-known user-function callback and known packed argument array",
+    ))
 }
 
 pub(super) fn emit_user_function_args(
@@ -1222,6 +1225,121 @@ fn load_dynamic_call_result(
     }
 }
 
+fn dynamic_call_user_func_array_return_kind(
+    args: &[Expr],
+    module: &WasmModule,
+) -> Result<Option<ValueKind>, CompileError> {
+    let [callback, packed_args] = args else {
+        return Ok(None);
+    };
+    let Some(callbacks) = dynamic_call_user_func_callback_names(callback, module) else {
+        return Ok(None);
+    };
+    let mut return_kind = None;
+    for target in callbacks {
+        if !module.has_function(&target) {
+            return Err(CompileError::new(
+                callback.span,
+                "wasm32-web dynamic call_user_func_array() callback helper can only return declared user functions",
+            ));
+        }
+        let Some((_, call_args)) =
+            call_user_func_array_target_from_parts(&target, packed_args, module)
+        else {
+            return Ok(None);
+        };
+        let Some(kind) = callable_return_kind(&target, call_args.as_slice(), module) else {
+            return Ok(None);
+        };
+        if return_kind.is_some_and(|existing| existing != kind) {
+            return Err(CompileError::new(
+                callback.span,
+                "wasm32-web dynamic call_user_func_array() callback helper currently requires callbacks with matching return kinds",
+            ));
+        }
+        return_kind = Some(kind);
+    }
+    Ok(return_kind)
+}
+
+fn emit_dynamic_call_user_func_array_dispatch(
+    expr: &Expr,
+    args: &[Expr],
+    kind: ValueKind,
+    module: &mut WasmModule,
+) -> Result<ValueKind, CompileError> {
+    let [callback_expr, packed_args] = args else {
+        return Err(CompileError::new(
+            expr.span,
+            "wasm32-web dynamic call_user_func_array() requires a callback and packed argument array",
+        ));
+    };
+    let callbacks = dynamic_call_user_func_callback_names(callback_expr, module)
+        .expect("dynamic call_user_func_array callback names were validated");
+    let callback_ptr = module.next_label("call_user_func_array_callback_ptr");
+    let callback_len = module.next_label("call_user_func_array_callback_len");
+    let matched = module.next_label("call_user_func_array_callback_matched");
+    for local in [&callback_ptr, &callback_len, &matched] {
+        module.declare_i32_local(local.trim_start_matches('$').to_string());
+    }
+    let result = module.next_label("call_user_func_array_result");
+    let result_aux = module.next_label("call_user_func_array_result_aux");
+    declare_dynamic_call_result_locals(kind, &result, &result_aux, module);
+    emit_string_value_to_stack(callback_expr, module)?;
+    module.body().line(&format!("local.set {}", callback_len));
+    module.body().line(&format!("local.set {}", callback_ptr));
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", matched));
+
+    for callback in callbacks {
+        let Some((_, call_args)) =
+            call_user_func_array_target_from_parts(&callback, packed_args, module)
+        else {
+            continue;
+        };
+        let candidate_ptr = module.next_label("call_user_func_array_candidate_ptr");
+        let candidate_len = module.next_label("call_user_func_array_candidate_len");
+        let candidate_match = module.next_label("call_user_func_array_candidate_match");
+        for local in [&candidate_ptr, &candidate_len, &candidate_match] {
+            module.declare_i32_local(local.trim_start_matches('$').to_string());
+        }
+        let (ptr, len) = module.intern_string(&callback);
+        module.body().line(&format!("i32.const {}", ptr));
+        module.body().line(&format!("local.set {}", candidate_ptr));
+        module.body().line(&format!("i32.const {}", len));
+        module.body().line(&format!("local.set {}", candidate_len));
+        emit_string_parts_equal(
+            &callback_ptr,
+            &callback_len,
+            &candidate_ptr,
+            &candidate_len,
+            &candidate_match,
+            module,
+        );
+        module.body().line(&format!("local.get {}", candidate_match));
+        module.body().open("if");
+        let emitted = emit_static_callable_target(expr, &callback, &call_args, module)?;
+        if emitted != kind {
+            return Err(CompileError::new(
+                expr.span,
+                "wasm32-web dynamic call_user_func_array() metadata is inconsistent",
+            ));
+        }
+        store_dynamic_call_result(kind, &result, &result_aux, module);
+        module.body().line("i32.const 1");
+        module.body().line(&format!("local.set {}", matched));
+        module.body().close("end");
+    }
+
+    module.body().line(&format!("local.get {}", matched));
+    module.body().line("i32.eqz");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    load_dynamic_call_result(kind, &result, &result_aux, module);
+    Ok(kind)
+}
+
 pub(super) fn call_user_func_array_target_owned(
     args: &[Expr],
     module: &WasmModule,
@@ -1307,7 +1425,7 @@ pub(super) fn call_user_func_array_return_kind(
     }
     call_user_func_array_target_owned(args, module).and_then(|(target, call_args)| {
         callable_return_kind(&target, call_args.as_slice(), module)
-    })
+    }).or_else(|| dynamic_call_user_func_array_return_kind(args, module).ok().flatten())
 }
 
 fn instance_callable_ternary_return_kind(
