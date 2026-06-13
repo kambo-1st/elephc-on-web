@@ -30938,6 +30938,8 @@ class CallableParamStaticBase {
     }
 }
 class CallableParamStaticChild extends CallableParamStaticBase {
+    const METHOD = "twice";
+
     public static function add(int $value): int {
         return $value + 3;
     }
@@ -30947,6 +30949,8 @@ function run_callable_param_static(callable $callback, int $value): int {
 }
 echo run_callable_param_static(["CallableParamStaticChild", "add"], 4) . "\n";
 echo run_callable_param_static([0 => "CallableParamStaticChild", 1 => "twice"], 5) . "\n";
+echo run_callable_param_static([CallableParamStaticChild::class, "add"], 6) . "\n";
+echo run_callable_param_static([CallableParamStaticChild::class, CallableParamStaticChild::METHOD], 7) . "\n";
 "#,
     );
 }

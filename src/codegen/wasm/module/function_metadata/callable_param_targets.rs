@@ -17,6 +17,7 @@ pub(in crate::codegen::wasm::module) fn collect_function_callable_param_targets(
     function_param_kinds: &HashMap<String, Vec<LocalKind>>,
     function_defaults: &HashMap<String, Vec<Option<Expr>>>,
     constants: &HashMap<String, ConstantValue>,
+    class_constants: &HashMap<String, ConstantValue>,
     object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
 ) -> HashMap<String, Vec<Option<String>>> {
     collect_function_possible_callable_param_targets(
@@ -25,6 +26,7 @@ pub(in crate::codegen::wasm::module) fn collect_function_callable_param_targets(
         function_param_kinds,
         function_defaults,
         constants,
+        class_constants,
         object_classes,
     )
     .into_iter()
@@ -47,6 +49,7 @@ pub(in crate::codegen::wasm::module) fn collect_function_possible_callable_param
     function_param_kinds: &HashMap<String, Vec<LocalKind>>,
     function_defaults: &HashMap<String, Vec<Option<Expr>>>,
     constants: &HashMap<String, ConstantValue>,
+    class_constants: &HashMap<String, ConstantValue>,
     object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
 ) -> HashMap<String, Vec<Option<Vec<String>>>> {
     let callable_return_targets = collect_function_callable_return_targets(program, constants);
@@ -65,6 +68,7 @@ pub(in crate::codegen::wasm::module) fn collect_function_possible_callable_param
             function_param_kinds,
             function_defaults,
             constants,
+            class_constants,
             object_classes,
         );
     }
@@ -81,6 +85,7 @@ fn collect_possible_callable_param_targets_in_stmt(
     function_param_kinds: &HashMap<String, Vec<LocalKind>>,
     function_defaults: &HashMap<String, Vec<Option<Expr>>>,
     constants: &HashMap<String, ConstantValue>,
+    class_constants: &HashMap<String, ConstantValue>,
     object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
 ) {
     if let StmtKind::Assign { name, value } | StmtKind::TypedAssign { name, value, .. } = &stmt.kind {
@@ -90,6 +95,7 @@ fn collect_possible_callable_param_targets_in_stmt(
             callable_return_targets,
             possible_callable_return_targets,
             constants,
+            class_constants,
             object_classes,
         ) {
             local_callable_targets.insert(name.clone(), targets);
@@ -122,6 +128,7 @@ fn collect_possible_callable_param_targets_in_stmt(
                         callable_return_targets,
                         possible_callable_return_targets,
                         constants,
+                        class_constants,
                         object_classes,
                     )
                 });
@@ -160,6 +167,7 @@ fn callable_targets_for_param_metadata(
     callable_return_targets: &HashMap<String, String>,
     possible_callable_return_targets: &HashMap<String, Vec<String>>,
     constants: &HashMap<String, ConstantValue>,
+    class_constants: &HashMap<String, ConstantValue>,
     object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
 ) -> Option<Vec<String>> {
     match &expr.kind {
@@ -171,6 +179,7 @@ fn callable_targets_for_param_metadata(
                 receiver,
                 method,
                 constants,
+                class_constants,
                 object_classes,
             )
             .map(|target| vec![target])
@@ -182,6 +191,7 @@ fn callable_targets_for_param_metadata(
                 receiver,
                 method,
                 constants,
+                class_constants,
                 object_classes,
             )
             .map(|target| vec![target])
@@ -202,6 +212,7 @@ fn callable_targets_for_param_metadata(
                 callable_return_targets,
                 possible_callable_return_targets,
                 constants,
+                class_constants,
                 object_classes,
             )?;
             let suffixes = callable_targets_for_param_metadata(
@@ -210,6 +221,7 @@ fn callable_targets_for_param_metadata(
                 callable_return_targets,
                 possible_callable_return_targets,
                 constants,
+                class_constants,
                 object_classes,
             )?;
             let mut targets = Vec::new();
@@ -254,6 +266,7 @@ fn callable_targets_for_param_metadata(
                 callable_return_targets,
                 possible_callable_return_targets,
                 constants,
+                class_constants,
                 object_classes,
             )?;
             for target in callable_targets_for_param_metadata(
@@ -262,6 +275,7 @@ fn callable_targets_for_param_metadata(
                 callable_return_targets,
                 possible_callable_return_targets,
                 constants,
+                class_constants,
                 object_classes,
             )? {
                 push_unique_callable_param_target(&mut targets, target);
@@ -276,10 +290,11 @@ fn static_callable_array_target_for_param_metadata(
     receiver: &Expr,
     method: &Expr,
     constants: &HashMap<String, ConstantValue>,
+    class_constants: &HashMap<String, ConstantValue>,
     object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
 ) -> Option<String> {
-    let class_name = static_callable_string_value(receiver, constants)?;
-    let method_name = static_callable_string_value(method, constants)?;
+    let class_name = static_callable_string_value(receiver, constants, class_constants)?;
+    let method_name = static_callable_string_value(method, constants, class_constants)?;
     let method = static_method_in_hierarchy(&class_name, &method_name, object_classes)?;
     matches!(method.visibility, Visibility::Public).then_some(method.symbol)
 }
@@ -308,10 +323,21 @@ fn static_method_in_hierarchy(
 fn static_callable_string_value(
     expr: &Expr,
     constants: &HashMap<String, ConstantValue>,
+    class_constants: &HashMap<String, ConstantValue>,
 ) -> Option<String> {
     match &expr.kind {
         ExprKind::StringLiteral(value) => Some(value.clone()),
         ExprKind::ConstRef(name) => match constants.get(name.as_str())? {
+            ConstantValue::Str(value) => Some(value.clone()),
+            _ => None,
+        },
+        ExprKind::ClassConstant {
+            receiver: StaticReceiver::Named(class_name),
+        } => Some(class_name.as_str().to_string()),
+        ExprKind::ScopedConstantAccess {
+            receiver: StaticReceiver::Named(class_name),
+            name,
+        } => match class_constants.get(&class_const_key(class_name, name))? {
             ConstantValue::Str(value) => Some(value.clone()),
             _ => None,
         },
@@ -321,8 +347,8 @@ fn static_callable_string_value(
             right,
         } => Some(format!(
             "{}{}",
-            static_callable_string_value(left, constants)?,
-            static_callable_string_value(right, constants)?
+            static_callable_string_value(left, constants, class_constants)?,
+            static_callable_string_value(right, constants, class_constants)?
         )),
         _ => None,
     }
