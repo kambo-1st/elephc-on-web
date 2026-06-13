@@ -39592,6 +39592,32 @@ echo ($published === WorkflowStatus::Published ? 1 : 0) . ":" . $published->valu
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_enum_object_match_results() {
+    assert_wasm_matches_php(
+        r#"<?php
+enum MatchStatus: string {
+    case Draft = "draft";
+    case Published = "pub";
+    case Archived = "arch";
+}
+function choose_match_status(int $slot): MatchStatus {
+    return match ($slot) {
+        1 => MatchStatus::Draft,
+        2 => MatchStatus::Published,
+        default => MatchStatus::Archived,
+    };
+}
+$draft = choose_match_status(1);
+$published = choose_match_status(2);
+$archived = choose_match_status(3);
+echo get_class($draft) . ":" . $draft->value . ":" . ($draft === MatchStatus::Draft ? 1 : 0) . "\n";
+echo get_class($published) . ":" . $published->value . ":" . ($published === MatchStatus::Published ? 1 : 0) . "\n";
+echo get_class($archived) . ":" . $archived->value . ":" . ($archived === MatchStatus::Archived ? 1 : 0) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_enum_cases_array_filter_get_class() {
     assert_wasm_matches_php(
         r#"<?php
