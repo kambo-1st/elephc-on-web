@@ -481,6 +481,9 @@ pub(super) fn emit_array_reduce_call(
         if let Some(kind) = emit_array_reduce_static_callback_ternary_call(args, module)? {
             return Ok(kind);
         }
+        if let Some(kind) = emit_array_reduce_dynamic_callable_descriptor_call(args, module)? {
+            return Ok(kind);
+        }
         if let Some(kind) = emit_array_reduce_dynamic_static_return_callback_call(args, module)? {
             return Ok(kind);
         }
@@ -881,12 +884,95 @@ fn emit_array_reduce_dynamic_static_return_callback_call(
     )
 }
 
+fn emit_array_reduce_dynamic_callable_descriptor_call(
+    args: &[Expr],
+    module: &mut WasmModule,
+) -> Result<Option<ValueKind>, CompileError> {
+    let [source, callback_expr, initial] = args else {
+        return Ok(None);
+    };
+    let Some(callbacks) = dynamic_array_reduce_callable_descriptor_targets(callback_expr, module) else {
+        return Ok(None);
+    };
+    let source_storage;
+    let dynamic_source = match &source.kind {
+        ExprKind::ArrayLiteral(items) => ArrayReduceDynamicSource::Literal(items),
+        ExprKind::Variable(name)
+            if module.local_kind(name) == Some(LocalKind::Array) =>
+        {
+            ArrayReduceDynamicSource::Local(name, source.span)
+        }
+        _ if expression_has_array_type(source, module) => {
+            source_storage = module
+                .next_label("array_reduce_callable_source")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_array_local(source_storage.clone());
+            emit_array_assign(&source_storage, source, module)?;
+            ArrayReduceDynamicSource::Local(&source_storage, source.span)
+        }
+        _ => return Ok(None),
+    };
+    let mut callback_shape = None;
+    for callback in &callbacks {
+        if !module.has_function(callback) {
+            return Err(CompileError::new(
+                callback_expr.span,
+                "wasm32-web dynamic array_reduce() callable descriptor can only target declared user functions",
+            ));
+        }
+        let shape = array_reduce_callback_shape(callback, callback_expr.span, module)?;
+        if callback_shape.is_some_and(|existing| existing != shape) {
+            return Err(CompileError::new(
+                callback_expr.span,
+                "wasm32-web dynamic array_reduce() callable descriptor currently requires callbacks with matching reduce signatures",
+            ));
+        }
+        callback_shape = Some(shape);
+    }
+    let Some(callback_shape) = callback_shape else {
+        return Ok(None);
+    };
+    if !array_reduce_dynamic_source_supports_shape(&dynamic_source, callback_shape, module) {
+        return Ok(None);
+    }
+    emit_array_reduce_dynamic_descriptor_source_call(
+        dynamic_source,
+        callback_expr,
+        initial,
+        callbacks,
+        callback_shape,
+        module,
+    )
+}
+
 fn dynamic_array_reduce_callback_names(expr: &Expr, module: &WasmModule) -> Option<Vec<String>> {
     match &expr.kind {
         ExprKind::FunctionCall { name, .. } => module
             .function_possible_static_string_returns(name.as_str())
             .map(<[_]>::to_vec),
         ExprKind::Variable(name) => module.possible_static_string_values(name).map(<[_]>::to_vec),
+        _ => None,
+    }
+}
+
+fn dynamic_array_reduce_callable_descriptor_targets(
+    expr: &Expr,
+    module: &WasmModule,
+) -> Option<Vec<String>> {
+    match &expr.kind {
+        ExprKind::FunctionCall { name, .. } => module
+            .function_possible_callable_return_targets(name.as_str())
+            .map(<[_]>::to_vec)
+            .or_else(|| {
+                module
+                    .function_callable_return_target(name.as_str())
+                    .map(|target| vec![target])
+            }),
+        ExprKind::Variable(name) => module
+            .possible_callable_targets(name)
+            .map(<[_]>::to_vec)
+            .or_else(|| module.callable_target(name).map(|target| vec![target])),
         _ => None,
     }
 }
@@ -1011,6 +1097,120 @@ fn emit_array_reduce_dynamic_source_call(
     }
 }
 
+fn emit_array_reduce_dynamic_descriptor_source_call(
+    source: ArrayReduceDynamicSource<'_>,
+    callback_expr: &Expr,
+    initial: &Expr,
+    callbacks: Vec<String>,
+    shape: ArrayReduceCallbackShape,
+    module: &mut WasmModule,
+) -> Result<Option<ValueKind>, CompileError> {
+    let callback_id = module.next_label("array_reduce_callable_id");
+    let matched = module.next_label("array_reduce_callable_matched");
+    for local in [&callback_id, &matched] {
+        module.declare_i32_local(local.trim_start_matches('$').to_string());
+    }
+    emit_array_reduce_callable_descriptor(callback_expr, module)?;
+    module.body().line(&format!("local.set {}", callback_id));
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", matched));
+
+    match shape {
+        ArrayReduceCallbackShape::IntToInt => {
+            let acc = module
+                .next_label("array_reduce_callable_acc")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_i64_local(acc.clone());
+            require_int(initial, module)?;
+            module.body().line(&format!("local.set ${}", acc));
+            emit_array_reduce_dynamic_descriptor_branches(
+                &callbacks,
+                &callback_id,
+                &matched,
+                module,
+                |callback, module| emit_array_reduce_dynamic_int_source(&acc, &source, callback, module),
+            )?;
+            emit_array_reduce_dynamic_missing_branch(&matched, module);
+            module.body().line(&format!("local.get ${}", acc));
+            Ok(Some(ValueKind::Int))
+        }
+        ArrayReduceCallbackShape::FloatToFloat => {
+            let acc = module
+                .next_label("array_reduce_callable_acc")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_f64_local(acc.clone());
+            emit_array_reduce_float_initial(initial, module)?;
+            module.body().line(&format!("local.set ${}", acc));
+            emit_array_reduce_dynamic_descriptor_branches(
+                &callbacks,
+                &callback_id,
+                &matched,
+                module,
+                |callback, module| emit_array_reduce_dynamic_float_source(&acc, &source, callback, module),
+            )?;
+            emit_array_reduce_dynamic_missing_branch(&matched, module);
+            module.body().line(&format!("local.get ${}", acc));
+            Ok(Some(ValueKind::Float))
+        }
+        ArrayReduceCallbackShape::BoolToBool => {
+            let acc = module
+                .next_label("array_reduce_callable_acc")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_i32_local(acc.clone());
+            emit_condition(initial, module)?;
+            module.body().line(&format!("local.set ${}", acc));
+            emit_array_reduce_dynamic_descriptor_branches(
+                &callbacks,
+                &callback_id,
+                &matched,
+                module,
+                |callback, module| emit_array_reduce_dynamic_bool_source(&acc, &source, callback, module),
+            )?;
+            emit_array_reduce_dynamic_missing_branch(&matched, module);
+            module.body().line(&format!("local.get ${}", acc));
+            Ok(Some(ValueKind::Bool))
+        }
+        ArrayReduceCallbackShape::StrToStr => {
+            let acc_ptr = module
+                .next_label("array_reduce_callable_acc_ptr")
+                .trim_start_matches('$')
+                .to_string();
+            let acc_len = module
+                .next_label("array_reduce_callable_acc_len")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_i32_local(acc_ptr.clone());
+            module.declare_i32_local(acc_len.clone());
+            emit_string_value_to_stack(initial, module)?;
+            module.body().line(&format!("local.set ${}", acc_len));
+            module.body().line(&format!("local.set ${}", acc_ptr));
+            emit_array_reduce_dynamic_descriptor_branches(
+                &callbacks,
+                &callback_id,
+                &matched,
+                module,
+                |callback, module| {
+                    emit_array_reduce_dynamic_string_source(
+                        &acc_ptr,
+                        &acc_len,
+                        &source,
+                        callback,
+                        module,
+                    )
+                },
+            )?;
+            emit_array_reduce_dynamic_missing_branch(&matched, module);
+            module.body().line(&format!("local.get ${}", acc_ptr));
+            module.body().line(&format!("local.get ${}", acc_len));
+            Ok(Some(ValueKind::Str))
+        }
+        _ => Ok(None),
+    }
+}
+
 fn emit_array_reduce_dynamic_literal_branches<F>(
     callbacks: &[String],
     callback_ptr: &str,
@@ -1050,6 +1250,61 @@ where
         module.body().close("end");
     }
     Ok(())
+}
+
+fn emit_array_reduce_dynamic_descriptor_branches<F>(
+    callbacks: &[String],
+    callback_id: &str,
+    matched: &str,
+    module: &mut WasmModule,
+    mut emit_for_callback: F,
+) -> Result<(), CompileError>
+where
+    F: FnMut(&str, &mut WasmModule) -> Result<(), CompileError>,
+{
+    for callback in callbacks {
+        let target_id = module.callable_target_id(callback);
+        module.body().line(&format!("local.get {}", callback_id));
+        module.body().line(&format!("i32.const {}", target_id));
+        module.body().line("i32.eq");
+        module.body().open("if");
+        emit_for_callback(callback, module)?;
+        module.body().line("i32.const 1");
+        module.body().line(&format!("local.set {}", matched));
+        module.body().close("end");
+    }
+    Ok(())
+}
+
+fn emit_array_reduce_callable_descriptor(
+    expr: &Expr,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    match &expr.kind {
+        ExprKind::FunctionCall { name, args } => {
+            emit_user_function_args(expr, name, args, module)?;
+            module
+                .body()
+                .line(&format!("call ${}", wasm_function_name(name)));
+            Ok(())
+        }
+        ExprKind::Variable(name) if module.possible_callable_targets(name).is_some() => {
+            module.body().line(&format!("local.get ${}", name));
+            Ok(())
+        }
+        ExprKind::Variable(name) if module.callable_target(name).is_some() => {
+            let target = module
+                .callable_target(name)
+                .expect("callable target was checked above");
+            let id = module.callable_target_id(&target);
+            module.body().line(&format!("i32.const {}", id));
+            Ok(())
+        }
+        _ => Err(CompileError::new(
+            expr.span,
+            "wasm32-web array_reduce() callable descriptor requires tracked callable metadata",
+        )),
+    }
 }
 
 fn emit_array_reduce_dynamic_missing_branch(matched: &str, module: &mut WasmModule) {

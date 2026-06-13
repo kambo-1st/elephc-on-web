@@ -31386,6 +31386,23 @@ echo array_reduce([2, 3, 4], $copy, 1) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_array_reduce_callable_return_descriptor() {
+    assert_wasm_matches_php(
+        r#"<?php
+function sum_desc(int $carry, int $value): int { return $carry + $value; }
+function mul_desc(int $carry, int $value): int { return $carry * $value; }
+function choose_reduce(bool $flag): callable {
+    return $flag ? sum_desc(...) : mul_desc(...);
+}
+echo array_reduce([1, 2, 3], choose_reduce(true), 10) . "\n";
+$cb = choose_reduce(false);
+$alias = $cb;
+echo array_reduce([2, 3, 4], $alias, 1) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_array_walk_dynamic_callable_variable() {
     assert_wasm_matches_php(
         r#"<?php
