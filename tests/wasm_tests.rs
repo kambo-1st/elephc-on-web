@@ -24108,6 +24108,38 @@ echo call_user_func_array(choose_builtin_call_name(true), ["xyz"]) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_call_user_func_dynamic_int_callback_names() {
+    assert_wasm_matches_php(
+        r#"<?php
+function runtime_call_flag(): bool { return strlen("yes") === 3; }
+function choose_dynamic_int_call(bool $flag): string { echo "pick\n"; return $flag ? "dynamic_add_one" : "dynamic_double"; }
+function dynamic_add_one(int $value): int { return $value + 1; }
+function dynamic_double(int $value): int { return $value * 2; }
+$cb = choose_dynamic_int_call(runtime_call_flag());
+echo call_user_func($cb, 5) . "\n";
+$alias = $cb;
+echo call_user_func($alias, 7) . "\n";
+echo call_user_func(choose_dynamic_int_call(false), 4) . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_call_user_func_dynamic_string_callback_names() {
+    assert_wasm_matches_php(
+        r#"<?php
+function runtime_string_call_flag(): bool { return strlen("yes") === 3; }
+function choose_dynamic_string_call(bool $flag): string { echo "pick\n"; return $flag ? "dynamic_wrap_left" : "dynamic_wrap_right"; }
+function dynamic_wrap_left(string $value): string { return "[" . $value; }
+function dynamic_wrap_right(string $value): string { return $value . "]"; }
+$value = call_user_func(choose_dynamic_string_call(runtime_string_call_flag()), "web");
+echo $value . ":" . strlen($value) . "\n";
+echo call_user_func(choose_dynamic_string_call(false), "wat") . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_array_callbacks_string_callable_variables() {
     assert_wasm_matches_php(
         r#"<?php

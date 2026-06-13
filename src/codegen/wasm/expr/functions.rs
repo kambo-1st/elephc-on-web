@@ -21,7 +21,7 @@ use crate::codegen::wasm::module::{
 
 use super::{
     emit_condition, emit_expr, emit_known_mixed_numeric_operand, emit_mixed_arg_assign,
-    emit_string_value_to_stack, emit_value_array_arg_assign, emit_value_as_local_kind,
+    emit_string_parts_equal, emit_string_value_to_stack, emit_value_array_arg_assign, emit_value_as_local_kind,
     expression_is_floaty,
     is_output_optional_int_builtin, is_output_string_builtin, known_mixed_numeric_kind,
     dynamic_numeric_operand_may_materialize, require_float, require_int,
@@ -97,13 +97,16 @@ pub(super) fn emit_call_user_func_call(
             return emit_callable_array_target(expr, target, &args[1..], module);
         }
     }
-    let Some((target, call_args)) = evaluated_call_user_func_target(args, module)? else {
-        return Err(CompileError::new(
-            expr.span,
-            "wasm32-web call_user_func() requires a statically-known user-function callback",
-        ));
-    };
-    emit_static_callable_target(expr, &target, call_args, module)
+    if let Some((target, call_args)) = evaluated_call_user_func_target(args, module)? {
+        return emit_static_callable_target(expr, &target, call_args, module);
+    }
+    if let Some(kind) = dynamic_call_user_func_return_kind(args, module)? {
+        return emit_dynamic_call_user_func_dispatch(expr, args, kind, module);
+    }
+    Err(CompileError::new(
+        expr.span,
+        "wasm32-web call_user_func() requires a statically-known user-function callback",
+    ))
 }
 
 pub(super) fn emit_call_user_func_array_call(
@@ -1036,6 +1039,7 @@ pub(super) fn call_user_func_return_kind(
     call_user_func_target(args, module).and_then(|(target, call_args)| {
         callable_return_kind(&target, call_args, module)
     })
+    .or_else(|| dynamic_call_user_func_return_kind(args, module).ok().flatten())
 }
 
 fn evaluated_call_user_func_target<'a>(
@@ -1050,6 +1054,172 @@ fn evaluated_call_user_func_target<'a>(
         return Ok(None);
     };
     Ok(Some((target, &args[1..])))
+}
+
+fn dynamic_call_user_func_return_kind(
+    args: &[Expr],
+    module: &WasmModule,
+) -> Result<Option<ValueKind>, CompileError> {
+    let Some(callback) = args.first() else {
+        return Ok(None);
+    };
+    let Some(callbacks) = dynamic_call_user_func_callback_names(callback, module) else {
+        return Ok(None);
+    };
+    let mut return_kind = None;
+    for target in callbacks {
+        if !module.has_function(&target) {
+            return Err(CompileError::new(
+                callback.span,
+                "wasm32-web dynamic call_user_func() callback helper can only return declared user functions",
+            ));
+        }
+        let Some(kind) = callable_return_kind(&target, &args[1..], module) else {
+            return Ok(None);
+        };
+        if return_kind.is_some_and(|existing| existing != kind) {
+            return Err(CompileError::new(
+                callback.span,
+                "wasm32-web dynamic call_user_func() callback helper currently requires callbacks with matching return kinds",
+            ));
+        }
+        return_kind = Some(kind);
+    }
+    Ok(return_kind)
+}
+
+fn dynamic_call_user_func_callback_names(expr: &Expr, module: &WasmModule) -> Option<Vec<String>> {
+    match &expr.kind {
+        ExprKind::FunctionCall { name, .. } => module
+            .function_possible_static_string_returns(name.as_str())
+            .map(<[_]>::to_vec),
+        ExprKind::Variable(name) => module.possible_static_string_values(name).map(<[_]>::to_vec),
+        _ => None,
+    }
+}
+
+fn emit_dynamic_call_user_func_dispatch(
+    expr: &Expr,
+    args: &[Expr],
+    kind: ValueKind,
+    module: &mut WasmModule,
+) -> Result<ValueKind, CompileError> {
+    let callback_expr = args.first().expect("dynamic call_user_func callback exists");
+    let callbacks = dynamic_call_user_func_callback_names(callback_expr, module)
+        .expect("dynamic call_user_func callback names were validated");
+    let callback_ptr = module.next_label("call_user_func_callback_ptr");
+    let callback_len = module.next_label("call_user_func_callback_len");
+    let matched = module.next_label("call_user_func_callback_matched");
+    for local in [&callback_ptr, &callback_len, &matched] {
+        module.declare_i32_local(local.trim_start_matches('$').to_string());
+    }
+    let result = module.next_label("call_user_func_result");
+    let result_aux = module.next_label("call_user_func_result_aux");
+    declare_dynamic_call_result_locals(kind, &result, &result_aux, module);
+    emit_string_value_to_stack(callback_expr, module)?;
+    module.body().line(&format!("local.set {}", callback_len));
+    module.body().line(&format!("local.set {}", callback_ptr));
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", matched));
+
+    for callback in callbacks {
+        let candidate_ptr = module.next_label("call_user_func_candidate_ptr");
+        let candidate_len = module.next_label("call_user_func_candidate_len");
+        let candidate_match = module.next_label("call_user_func_candidate_match");
+        for local in [&candidate_ptr, &candidate_len, &candidate_match] {
+            module.declare_i32_local(local.trim_start_matches('$').to_string());
+        }
+        let (ptr, len) = module.intern_string(&callback);
+        module.body().line(&format!("i32.const {}", ptr));
+        module.body().line(&format!("local.set {}", candidate_ptr));
+        module.body().line(&format!("i32.const {}", len));
+        module.body().line(&format!("local.set {}", candidate_len));
+        emit_string_parts_equal(
+            &callback_ptr,
+            &callback_len,
+            &candidate_ptr,
+            &candidate_len,
+            &candidate_match,
+            module,
+        );
+        module.body().line(&format!("local.get {}", candidate_match));
+        module.body().open("if");
+        let emitted = emit_static_callable_target(expr, &callback, &args[1..], module)?;
+        if emitted != kind {
+            return Err(CompileError::new(
+                expr.span,
+                "wasm32-web dynamic call_user_func() metadata is inconsistent",
+            ));
+        }
+        store_dynamic_call_result(kind, &result, &result_aux, module);
+        module.body().line("i32.const 1");
+        module.body().line(&format!("local.set {}", matched));
+        module.body().close("end");
+    }
+
+    module.body().line(&format!("local.get {}", matched));
+    module.body().line("i32.eqz");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    load_dynamic_call_result(kind, &result, &result_aux, module);
+    Ok(kind)
+}
+
+fn declare_dynamic_call_result_locals(
+    kind: ValueKind,
+    result: &str,
+    result_aux: &str,
+    module: &mut WasmModule,
+) {
+    match kind {
+        ValueKind::Int => module.declare_i64_local(result.trim_start_matches('$').to_string()),
+        ValueKind::Float => module.declare_f64_local(result.trim_start_matches('$').to_string()),
+        ValueKind::Bool | ValueKind::Mixed | ValueKind::Object => {
+            module.declare_i32_local(result.trim_start_matches('$').to_string());
+        }
+        ValueKind::Str | ValueKind::Array => {
+            module.declare_i32_local(result.trim_start_matches('$').to_string());
+            module.declare_i32_local(result_aux.trim_start_matches('$').to_string());
+        }
+        ValueKind::Null | ValueKind::Never => {}
+    }
+}
+
+fn store_dynamic_call_result(
+    kind: ValueKind,
+    result: &str,
+    result_aux: &str,
+    module: &mut WasmModule,
+) {
+    match kind {
+        ValueKind::Str | ValueKind::Array => {
+            module.body().line(&format!("local.set {}", result_aux));
+            module.body().line(&format!("local.set {}", result));
+        }
+        ValueKind::Int | ValueKind::Float | ValueKind::Bool | ValueKind::Mixed | ValueKind::Object => {
+            module.body().line(&format!("local.set {}", result));
+        }
+        ValueKind::Null | ValueKind::Never => {}
+    }
+}
+
+fn load_dynamic_call_result(
+    kind: ValueKind,
+    result: &str,
+    result_aux: &str,
+    module: &mut WasmModule,
+) {
+    match kind {
+        ValueKind::Str | ValueKind::Array => {
+            module.body().line(&format!("local.get {}", result));
+            module.body().line(&format!("local.get {}", result_aux));
+        }
+        ValueKind::Int | ValueKind::Float | ValueKind::Bool | ValueKind::Mixed | ValueKind::Object => {
+            module.body().line(&format!("local.get {}", result));
+        }
+        ValueKind::Null | ValueKind::Never => {}
+    }
 }
 
 pub(super) fn call_user_func_array_target_owned(

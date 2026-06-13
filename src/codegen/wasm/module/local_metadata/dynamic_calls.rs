@@ -16,12 +16,21 @@ pub(super) fn call_user_func_local_kind(
     locals: &HashMap<String, LocalKind>,
     callable_targets: &HashMap<String, String>,
     string_static_values: &HashMap<String, String>,
+    function_possible_static_string_returns: &HashMap<String, Vec<String>>,
     function_return_kinds: &HashMap<String, ValueKind>,
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
 ) -> Option<LocalKind> {
     let callback = args.first()?;
     let call_args = args[1..].to_vec();
+    if let Some(kind) = dynamic_call_user_function_local_kind(
+        callback,
+        function_possible_static_string_returns,
+        string_static_values,
+        function_return_kinds,
+    ) {
+        return Some(kind);
+    }
     call_user_function_local_kind(
         callback,
         call_args,
@@ -293,6 +302,38 @@ fn call_user_function_target_for_kind(
         }
         _ => static_string_for_metadata(callback, constants),
     }
+}
+
+fn dynamic_call_user_function_local_kind(
+    callback: &Expr,
+    function_possible_static_string_returns: &HashMap<String, Vec<String>>,
+    string_static_values: &HashMap<String, String>,
+    function_return_kinds: &HashMap<String, ValueKind>,
+) -> Option<LocalKind> {
+    let callbacks = match &callback.kind {
+        ExprKind::FunctionCall { name, .. } => {
+            function_possible_static_string_returns.get(&function_key(name.as_str()))?
+        }
+        ExprKind::Variable(name) => {
+            if string_static_values.contains_key(name) {
+                return None;
+            }
+            return None;
+        }
+        _ => return None,
+    };
+    let mut local_kind = None;
+    for callback in callbacks {
+        let kind = function_return_kinds
+            .get(&function_key(callback.as_str()))
+            .copied()
+            .map(local_kind_for_value)?;
+        if local_kind.is_some_and(|existing| existing != kind) {
+            return None;
+        }
+        local_kind = Some(kind);
+    }
+    local_kind
 }
 
 fn static_method_callable_symbol(class_name: &str, method_name: &str) -> String {
