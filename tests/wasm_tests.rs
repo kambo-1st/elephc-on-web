@@ -31285,10 +31285,15 @@ fn test_wasm32_web_e2e_matches_php_static_callable_array_typed_function_returns(
 class StaticArrayReturnCallable {
     const CLASS_NAME = "StaticArrayReturnCallable";
     const ADD = "add";
+    const SUB = "sub";
     const WRAP = "wrap";
 
     public static function add(int $value): int {
         return $value + 6;
+    }
+
+    public static function sub(int $value): int {
+        return $value - 2;
     }
 
     public static function wrap(string $value): string {
@@ -31303,9 +31308,20 @@ function make_static_array_callback(bool $flag): callable {
 function make_static_array_wrap(): callable {
     return [0 => StaticArrayReturnCallable::CLASS_NAME, 1 => StaticArrayReturnCallable::WRAP];
 }
+function make_static_array_alias(): callable {
+    $callback = [StaticArrayReturnCallable::class, StaticArrayReturnCallable::ADD];
+    return $callback;
+}
+function choose_static_array_callable(bool $flag): callable {
+    return $flag
+        ? [StaticArrayReturnCallable::class, StaticArrayReturnCallable::ADD]
+        : [StaticArrayReturnCallable::CLASS_NAME, StaticArrayReturnCallable::SUB];
+}
 $callback = make_static_array_callback(true);
 echo $callback(4) . ":" . call_user_func(make_static_array_callback(false), 5) . "\n";
 echo call_user_func_array(make_static_array_wrap(), ["value" => "web"]) . "\n";
+$alias = make_static_array_alias();
+echo $alias(2) . ":" . call_user_func(choose_static_array_callable(false), 9) . ":" . call_user_func_array(choose_static_array_callable(true), [3]) . "\n";
 "#,
     );
 }
