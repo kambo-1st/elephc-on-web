@@ -107,6 +107,15 @@ fn callable_return_target_from_expr(
             ConstantValue::Str(value) => Some(value.clone()),
             _ => None,
         },
+        ExprKind::BinaryOp {
+            left,
+            op: BinOp::Concat,
+            right,
+        } => Some(format!(
+            "{}{}",
+            callable_return_target_from_expr(left, constants, local_callable_targets)?,
+            callable_return_target_from_expr(right, constants, local_callable_targets)?
+        )),
         ExprKind::FirstClassCallable(CallableTarget::Function(name)) => Some(name.to_string()),
         ExprKind::FirstClassCallable(CallableTarget::StaticMethod {
             receiver: StaticReceiver::Named(class_name),
