@@ -31327,6 +31327,34 @@ echo $alias(2) . ":" . call_user_func(choose_static_array_callable(false), 9) . 
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_callable_typed_method_returns() {
+    assert_wasm_matches_php(
+        r#"<?php
+class MethodReturnCallable {
+    public static function add(int $value): int {
+        return $value + 7;
+    }
+
+    public static function sub(int $value): int {
+        return $value - 3;
+    }
+
+    public function choose(bool $flag): callable {
+        return $flag ? MethodReturnCallable::add(...) : MethodReturnCallable::sub(...);
+    }
+
+    public static function staticChoose(bool $flag): callable {
+        return $flag ? MethodReturnCallable::sub(...) : MethodReturnCallable::add(...);
+    }
+}
+$factory = new MethodReturnCallable();
+echo call_user_func($factory->choose(true), 5) . ":" . call_user_func($factory->choose(false), 5) . "\n";
+echo call_user_func_array(MethodReturnCallable::staticChoose(false), [8]) . ":" . call_user_func_array(MethodReturnCallable::staticChoose(true), [8]) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_builtin_callable_typed_function_return_call_user_func() {
     assert_wasm_matches_php(
         r#"<?php

@@ -15,8 +15,8 @@ use crate::span::Span;
 use crate::types::{builtin_call_sig, call_args};
 
 use crate::codegen::wasm::module::{
-    wasm_function_name, wasm_value_type, ArrayLayout, AssocKeyValue, LocalKind, ValueKind,
-    WasmModule,
+    method_call_return_key, static_method_call_return_key, wasm_function_name, wasm_value_type,
+    ArrayLayout, AssocKeyValue, LocalKind, ValueKind, WasmModule,
 };
 
 use super::{
@@ -28,6 +28,7 @@ use super::{
     evaluated_static_callback_function_name, static_assoc_access_key, static_callback_function_name,
     static_or_const_int_value, static_range_items_if_possible, static_string_value, wasm_known_builtin_exists,
     inherited_property_layout_available, method_body_uses_this_property, object_class_name_for_expr,
+    object_expr_is_known_non_null,
 };
 
 pub(super) fn emit_call_user_func_call(
@@ -1214,23 +1215,19 @@ fn dynamic_callable_return_function_return_kind(
     args: &[Expr],
     module: &WasmModule,
 ) -> Result<Option<ValueKind>, CompileError> {
-    let Some(Expr {
-        kind: ExprKind::FunctionCall { name, .. },
-        ..
-    }) = args.first()
-    else {
+    let Some(callback) = args.first() else {
         return Ok(None);
     };
-    let Some(targets) = module.function_possible_callable_return_targets(name.as_str()) else {
+    let Some(targets) = callable_return_expr_targets(callback, module) else {
         return Ok(None);
     };
     let mut return_kind = None;
-    for target in targets {
+    for target in &targets {
         if !module.has_function(target)
             && callable_builtin_return_kind(target, &args[1..], module).is_none()
         {
             return Err(CompileError::new(
-                args[0].span,
+                callback.span,
                 "wasm32-web dynamic callable return can only target declared user functions or supported builtins",
             ));
         }
@@ -1239,7 +1236,7 @@ fn dynamic_callable_return_function_return_kind(
         };
         if return_kind.is_some_and(|existing| existing != kind) {
             return Err(CompileError::new(
-                args[0].span,
+                callback.span,
                 "wasm32-web dynamic callable returns currently require callbacks with matching return kinds",
             ));
         }
@@ -1248,34 +1245,60 @@ fn dynamic_callable_return_function_return_kind(
     Ok(return_kind)
 }
 
+fn callable_return_expr_targets(expr: &Expr, module: &WasmModule) -> Option<Vec<String>> {
+    let key = callable_return_expr_key(expr, module)?;
+    module
+        .function_possible_callable_return_targets(&key)
+        .map(<[_]>::to_vec)
+        .or_else(|| {
+            module
+                .function_callable_return_target(&key)
+                .map(|target| vec![target])
+        })
+}
+
+fn callable_return_expr_key(expr: &Expr, module: &WasmModule) -> Option<String> {
+    match &expr.kind {
+        ExprKind::FunctionCall { name, .. } => Some(name.to_string()),
+        ExprKind::MethodCall { object, method, .. } => {
+            let class_name = object_class_name_for_expr(object, module)?;
+            Some(method_call_return_key(&class_name, method))
+        }
+        ExprKind::NullsafeMethodCall { object, method, .. }
+            if object_expr_is_known_non_null(object, module) =>
+        {
+            let class_name = object_class_name_for_expr(object, module)?;
+            Some(method_call_return_key(&class_name, method))
+        }
+        ExprKind::StaticMethodCall {
+            receiver, method, ..
+        } => {
+            let class_name = module.class_name_for_receiver(receiver)?;
+            Some(static_method_call_return_key(&class_name, method))
+        }
+        _ => None,
+    }
+}
+
 fn emit_dynamic_callable_return_function_dispatch(
     expr: &Expr,
     args: &[Expr],
     kind: ValueKind,
     module: &mut WasmModule,
 ) -> Result<ValueKind, CompileError> {
-    let Some(Expr {
-        kind: ExprKind::FunctionCall {
-            name,
-            args: callback_args,
-        },
-        ..
-    }) = args.first()
-    else {
+    let Some(callback) = args.first() else {
         return Err(CompileError::new(
             expr.span,
             "wasm32-web dynamic callable return dispatch requires a callback helper",
         ));
     };
-    let targets = module
-        .function_possible_callable_return_targets(name.as_str())
+    let targets = callable_return_expr_targets(callback, module)
         .ok_or_else(|| {
             CompileError::new(
                 expr.span,
                 "wasm32-web dynamic callable return metadata is missing",
             )
-        })?
-        .to_vec();
+        })?;
     let callback_id = module.next_label("call_user_func_callable_id");
     let matched = module.next_label("call_user_func_callable_matched");
     for local in [&callback_id, &matched] {
@@ -1284,8 +1307,13 @@ fn emit_dynamic_callable_return_function_dispatch(
     let result = module.next_label("call_user_func_callable_result");
     let result_aux = module.next_label("call_user_func_callable_result_aux");
     declare_dynamic_call_result_locals(kind, &result, &result_aux, module);
-    emit_user_function_args(expr, name, callback_args, module)?;
-    module.body().line(&format!("call ${}", wasm_function_name(name)));
+    let callback_kind = emit_expr(callback, module)?;
+    if callback_kind != ValueKind::Callable {
+        return Err(CompileError::new(
+            callback.span,
+            "wasm32-web dynamic callable return dispatch expected a callable descriptor",
+        ));
+    }
     module.body().line(&format!("local.set {}", callback_id));
     module.body().line("i32.const 0");
     module.body().line(&format!("local.set {}", matched));
@@ -1621,21 +1649,14 @@ fn dynamic_callable_return_function_array_return_kind(
     args: &[Expr],
     module: &WasmModule,
 ) -> Result<Option<ValueKind>, CompileError> {
-    let [
-        Expr {
-            kind: ExprKind::FunctionCall { name, .. },
-            ..
-        },
-        packed_args,
-    ] = args
-    else {
+    let [callback, packed_args] = args else {
         return Ok(None);
     };
-    let Some(targets) = module.function_possible_callable_return_targets(name.as_str()) else {
+    let Some(targets) = callable_return_expr_targets(callback, module) else {
         return Ok(None);
     };
     let mut return_kind = None;
-    for target in targets {
+    for target in &targets {
         let Some((_, call_args)) =
             call_user_func_array_target_from_parts(target, packed_args, module)
         else {
@@ -1645,7 +1666,7 @@ fn dynamic_callable_return_function_array_return_kind(
             && callable_builtin_return_kind(target, call_args.as_slice(), module).is_none()
         {
             return Err(CompileError::new(
-                args[0].span,
+                callback.span,
                 "wasm32-web dynamic callable return can only target declared user functions or supported builtins",
             ));
         }
@@ -1654,7 +1675,7 @@ fn dynamic_callable_return_function_array_return_kind(
         };
         if return_kind.is_some_and(|existing| existing != kind) {
             return Err(CompileError::new(
-                args[0].span,
+                callback.span,
                 "wasm32-web dynamic callable returns currently require callbacks with matching return kinds",
             ));
         }
@@ -1669,31 +1690,19 @@ fn emit_dynamic_callable_return_function_array_dispatch(
     kind: ValueKind,
     module: &mut WasmModule,
 ) -> Result<ValueKind, CompileError> {
-    let [
-        Expr {
-            kind: ExprKind::FunctionCall {
-                name,
-                args: callback_args,
-            },
-            ..
-        },
-        packed_args,
-    ] = args
-    else {
+    let [callback, packed_args] = args else {
         return Err(CompileError::new(
             expr.span,
             "wasm32-web dynamic callable return dispatch requires a callback helper and packed argument array",
         ));
     };
-    let targets = module
-        .function_possible_callable_return_targets(name.as_str())
+    let targets = callable_return_expr_targets(callback, module)
         .ok_or_else(|| {
             CompileError::new(
                 expr.span,
                 "wasm32-web dynamic callable return metadata is missing",
             )
-        })?
-        .to_vec();
+        })?;
     let callback_id = module.next_label("call_user_func_array_callable_id");
     let matched = module.next_label("call_user_func_array_callable_matched");
     for local in [&callback_id, &matched] {
@@ -1702,8 +1711,13 @@ fn emit_dynamic_callable_return_function_array_dispatch(
     let result = module.next_label("call_user_func_array_callable_result");
     let result_aux = module.next_label("call_user_func_array_callable_result_aux");
     declare_dynamic_call_result_locals(kind, &result, &result_aux, module);
-    emit_user_function_args(expr, name, callback_args, module)?;
-    module.body().line(&format!("call ${}", wasm_function_name(name)));
+    let callback_kind = emit_expr(callback, module)?;
+    if callback_kind != ValueKind::Callable {
+        return Err(CompileError::new(
+            callback.span,
+            "wasm32-web dynamic callable return dispatch expected a callable descriptor",
+        ));
+    }
     module.body().line(&format!("local.set {}", callback_id));
     module.body().line("i32.const 0");
     module.body().line(&format!("local.set {}", matched));

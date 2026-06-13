@@ -41,6 +41,17 @@ pub(in crate::codegen::wasm::module) fn collect_function_callable_return_targets
             targets.insert(function_key(name), target);
         }
     }
+    for method in object_callable_return_methods(object_classes) {
+        if let Some(target) = callable_return_target_from_body(
+            &method.body,
+            constants,
+            class_constants,
+            object_classes,
+            &mut HashMap::new(),
+        ) {
+            targets.insert(function_key(&method.symbol), target);
+        }
+    }
     targets
 }
 
@@ -78,7 +89,38 @@ pub(in crate::codegen::wasm::module) fn collect_function_possible_callable_retur
             targets.insert(function_key(name), values);
         }
     }
+    for method in object_callable_return_methods(object_classes) {
+        let mut values = Vec::new();
+        if collect_possible_callable_return_targets(
+            &method.body,
+            constants,
+            class_constants,
+            object_classes,
+            &mut HashMap::new(),
+            &mut values,
+        )
+        .is_some()
+            && values.len() > 1
+        {
+            targets.insert(function_key(&method.symbol), values);
+        }
+    }
     targets
+}
+
+fn object_callable_return_methods<'a>(
+    object_classes: &'a HashMap<String, object_metadata::ObjectClassInfo>,
+) -> impl Iterator<Item = &'a object_metadata::ObjectMethodInfo> {
+    object_classes
+        .values()
+        .flat_map(|class_info| {
+            class_info
+                .constructor
+                .iter()
+                .chain(class_info.methods.iter())
+                .chain(class_info.static_methods.iter())
+        })
+        .filter(|method| method.return_kind == ValueKind::Callable)
 }
 
 fn callable_return_target_from_body(

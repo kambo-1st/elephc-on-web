@@ -259,35 +259,35 @@ impl WasmModule {
             collect_function_array_return_key_kinds(program, &object_classes);
         let mut function_array_return_key_values =
             collect_function_array_return_key_values(program, &object_classes);
-        add_object_method_array_return_metadata_aliases(
+        add_object_method_return_metadata_aliases(
             &object_classes,
             &mut function_array_return_lengths,
         );
-        add_object_method_array_return_metadata_aliases(
+        add_object_method_return_metadata_aliases(
             &object_classes,
             &mut function_array_return_layouts,
         );
-        add_object_method_array_return_metadata_aliases(
+        add_object_method_return_metadata_aliases(
             &object_classes,
             &mut function_array_return_value_kinds,
         );
-        add_object_method_array_return_metadata_aliases(
+        add_object_method_return_metadata_aliases(
             &object_classes,
             &mut function_array_return_value_constants,
         );
-        add_object_method_array_return_metadata_aliases(
+        add_object_method_return_metadata_aliases(
             &object_classes,
             &mut function_array_return_runtime_value_kinds,
         );
-        add_object_method_array_return_metadata_aliases(
+        add_object_method_return_metadata_aliases(
             &object_classes,
             &mut function_array_return_nested_values,
         );
-        add_object_method_array_return_metadata_aliases(
+        add_object_method_return_metadata_aliases(
             &object_classes,
             &mut function_array_return_key_kinds,
         );
-        add_object_method_array_return_metadata_aliases(
+        add_object_method_return_metadata_aliases(
             &object_classes,
             &mut function_array_return_key_values,
         );
@@ -402,6 +402,27 @@ impl WasmModule {
                 function_array_return_key_values.insert(function.clone(), values.clone());
             }
         }
+        let mut function_callable_return_targets = collect_function_callable_return_targets(
+            program,
+            &constants,
+            &class_constants,
+            &object_classes,
+        );
+        let mut function_possible_callable_return_targets =
+            collect_function_possible_callable_return_targets(
+                program,
+                &constants,
+                &class_constants,
+                &object_classes,
+            );
+        add_object_method_return_metadata_aliases(
+            &object_classes,
+            &mut function_callable_return_targets,
+        );
+        add_object_method_return_metadata_aliases(
+            &object_classes,
+            &mut function_possible_callable_return_targets,
+        );
         let mut module = Self {
             current: FunctionBody::main(),
             functions: Vec::new(),
@@ -413,18 +434,8 @@ impl WasmModule {
             nullable_function_returns,
             function_static_string_returns: collect_function_static_string_returns(program, &constants),
             function_possible_static_string_returns: collect_function_possible_static_string_returns(program, &constants),
-            function_callable_return_targets: collect_function_callable_return_targets(
-                program,
-                &constants,
-                &class_constants,
-                &object_classes,
-            ),
-            function_possible_callable_return_targets: collect_function_possible_callable_return_targets(
-                program,
-                &constants,
-                &class_constants,
-                &object_classes,
-            ),
+            function_callable_return_targets,
+            function_possible_callable_return_targets,
             callable_target_ids: HashMap::new(),
             next_callable_target_id: 1,
             function_mixed_return_kinds: collect_function_mixed_return_kinds(program),
@@ -2596,7 +2607,7 @@ fn add_object_method_function_metadata(
     )
 }
 
-fn add_object_method_array_return_metadata_aliases<T: Clone>(
+fn add_object_method_return_metadata_aliases<T: Clone>(
     object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
     metadata: &mut HashMap<String, T>,
 ) {
