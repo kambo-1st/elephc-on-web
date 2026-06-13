@@ -39756,10 +39756,12 @@ enum Status: int {
 $cases = Suit::cases();
 $strings = array_map("is_string", $cases);
 $iterables = array_map("is_iterable", Status::cases());
+$arrays = array_map("is_array", Status::cases());
 $numeric = array_map("is_numeric", Status::cases());
 $ints = array_map("is_int", $cases);
 echo count($strings) . ":" . $strings[0] . ":" . $strings[1] . "\n";
 echo count($iterables) . ":" . $iterables[0] . ":" . $iterables[1] . "\n";
+echo count($arrays) . ":" . $arrays[0] . ":" . $arrays[1] . "\n";
 echo count($numeric) . ":" . $numeric[0] . ":" . $numeric[1] . "\n";
 echo count($ints) . ":" . $ints[0] . ":" . $ints[1] . "\n";
 "#,
@@ -40269,9 +40271,11 @@ enum Status: string {
 }
 $strings = array_filter(Suit::cases(), "is_string");
 $iterables = array_filter(Status::cases(), "is_iterable");
+$arrays = array_filter(Status::cases(), "is_array");
 $numeric = array_filter(Status::cases(), "is_numeric");
 echo count($strings) . ":" . (empty($strings) ? 1 : 0) . ":" . array_key_exists(0, $strings) . "\n";
 echo count($iterables) . ":" . (empty($iterables) ? 1 : 0) . ":" . array_key_exists(1, $iterables) . "\n";
+echo count($arrays) . ":" . (empty($arrays) ? 1 : 0) . ":" . array_key_exists(1, $arrays) . "\n";
 echo count($numeric) . ":" . (empty($numeric) ? 1 : 0) . ":" . array_key_exists(0, $numeric) . "\n";
 "#,
     );
