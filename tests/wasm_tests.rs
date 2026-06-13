@@ -35484,6 +35484,13 @@ fn test_wasm32_web_e2e_matches_php_strpos_variable_negative_offset_output() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_strpos_dynamic_offset_output() {
+    assert_wasm_matches_php(
+        "<?php\nfunction off(int $v): int { return $v; }\n$s = \"abcabc\";\n$n = \"a\";\necho strpos($s, $n, off(2) + 1) . \",\";\necho strpos($s, \"b\", 0 - off(2)) . \",\";\necho strpos($s, \"\", off(-6)) . \"\\n\";\necho strrpos($s, $n, off(1)) . \",\";\necho strrpos($s, $n, 0 - off(3)) . \",\";\necho strrpos($s, \"\", off(-1)) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_strpos_variable_needle_output() {
     assert_wasm_matches_php(
         "<?php\n$s = \"web web\";\n$n = \"web\";\n$x = \"x\";\necho strpos($s, $n, 1) . \",\" . strpos($s, $x) . \"done\\n\";\n",

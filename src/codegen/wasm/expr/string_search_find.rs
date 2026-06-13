@@ -11,12 +11,22 @@
 
 use super::*;
 
+pub(super) enum SearchOffset {
+    Static(i64),
+    Dynamic(String),
+}
+
 pub(super) fn emit_runtime_empty_search_result(
     var: &str,
     reverse: bool,
-    offset: i64,
+    offset: &SearchOffset,
     module: &mut WasmModule,
 ) {
+    let SearchOffset::Static(offset) = offset else {
+        emit_runtime_empty_search_result_dynamic(var, reverse, offset, module);
+        return;
+    };
+    let offset = *offset;
     if reverse && offset < 0 {
         emit_runtime_assert_strrpos_offset_in_range(var, offset, module);
         module.body().line(&format!("local.get ${}_len", var));
@@ -33,6 +43,33 @@ pub(super) fn emit_runtime_empty_search_result(
     } else {
         emit_runtime_assert_strpos_offset_in_range(var, offset, module);
         module.body().line(&format!("i32.const {}", offset.min(i32::MAX as i64)));
+    }
+}
+
+fn emit_runtime_empty_search_result_dynamic(
+    var: &str,
+    reverse: bool,
+    offset: &SearchOffset,
+    module: &mut WasmModule,
+) {
+    let SearchOffset::Dynamic(offset_local) = offset else {
+        unreachable!();
+    };
+    emit_runtime_assert_search_offset_in_range_dynamic(var, offset_local, module);
+    if reverse {
+        module.body().line(&format!("local.get ${}", offset_local));
+        module.body().line("i64.const 0");
+        module.body().line("i64.lt_s");
+        module.body().open("if (result i32)");
+        module.body().line(&format!("local.get ${}_len", var));
+        module.body().line(&format!("local.get ${}", offset_local));
+        module.body().line("i32.wrap_i64");
+        module.body().line("i32.add");
+        module.body().line("else");
+        module.body().line(&format!("local.get ${}_len", var));
+        module.body().close("end");
+    } else {
+        emit_runtime_forward_search_start(var, offset, module);
     }
 }
 
@@ -72,7 +109,41 @@ fn emit_runtime_assert_strrpos_offset_in_range(var: &str, offset: i64, module: &
     }
 }
 
-fn emit_runtime_forward_search_start(var: &str, offset: i64, module: &mut WasmModule) {
+fn emit_runtime_assert_search_offset_in_range_dynamic(
+    var: &str,
+    offset_local: &str,
+    module: &mut WasmModule,
+) {
+    module.body().line(&format!("local.get ${}", offset_local));
+    module.body().line("i64.const 0");
+    module.body().line("i64.lt_s");
+    module.body().open("if");
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line("i64.extend_i32_u");
+    module.body().line(&format!("local.get ${}", offset_local));
+    module.body().line("i64.add");
+    module.body().line("i64.const 0");
+    module.body().line("i64.lt_s");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    module.body().line("else");
+    module.body().line(&format!("local.get ${}", offset_local));
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line("i64.extend_i32_u");
+    module.body().line("i64.gt_u");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    module.body().close("end");
+}
+
+fn emit_runtime_forward_search_start(var: &str, offset: &SearchOffset, module: &mut WasmModule) {
+    let SearchOffset::Static(offset) = offset else {
+        emit_runtime_forward_search_start_dynamic(var, offset, module);
+        return;
+    };
+    let offset = *offset;
     emit_runtime_assert_strpos_offset_in_range(var, offset, module);
     if offset < 0 {
         module.body().line(&format!("local.get ${}_len", var));
@@ -83,13 +154,41 @@ fn emit_runtime_forward_search_start(var: &str, offset: i64, module: &mut WasmMo
     }
 }
 
+fn emit_runtime_forward_search_start_dynamic(
+    var: &str,
+    offset: &SearchOffset,
+    module: &mut WasmModule,
+) {
+    let SearchOffset::Dynamic(offset_local) = offset else {
+        unreachable!();
+    };
+    emit_runtime_assert_search_offset_in_range_dynamic(var, offset_local, module);
+    module.body().line(&format!("local.get ${}", offset_local));
+    module.body().line("i64.const 0");
+    module.body().line("i64.lt_s");
+    module.body().open("if (result i32)");
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line(&format!("local.get ${}", offset_local));
+    module.body().line("i32.wrap_i64");
+    module.body().line("i32.add");
+    module.body().line("else");
+    module.body().line(&format!("local.get ${}", offset_local));
+    module.body().line("i32.wrap_i64");
+    module.body().close("end");
+}
+
 fn emit_runtime_strrpos_max_start(
     var: &str,
     idx_local: &str,
     needle_len: usize,
-    offset: i64,
+    offset: &SearchOffset,
     module: &mut WasmModule,
 ) {
+    let SearchOffset::Static(offset) = offset else {
+        emit_runtime_strrpos_max_start_dynamic(var, idx_local, needle_len, offset, module);
+        return;
+    };
+    let offset = *offset;
     module.body().line(&format!("local.get ${}_len", var));
     module.body().line(&format!("i32.const {}", needle_len));
     module.body().line("i32.sub");
@@ -110,13 +209,55 @@ fn emit_runtime_strrpos_max_start(
     }
 }
 
+fn emit_runtime_strrpos_max_start_dynamic(
+    var: &str,
+    idx_local: &str,
+    needle_len: usize,
+    offset: &SearchOffset,
+    module: &mut WasmModule,
+) {
+    let SearchOffset::Dynamic(offset_local) = offset else {
+        unreachable!();
+    };
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line(&format!("i32.const {}", needle_len));
+    module.body().line("i32.sub");
+    module.body().line(&format!("local.set {}", idx_local));
+    module.body().line(&format!("local.get ${}", offset_local));
+    module.body().line("i64.const 0");
+    module.body().line("i64.lt_s");
+    module.body().open("if (result i32)");
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line(&format!("local.get ${}", offset_local));
+    module.body().line("i32.wrap_i64");
+    module.body().line("i32.add");
+    module.body().line(&format!("local.get {}", idx_local));
+    module.body().line("i32.lt_u");
+    module.body().open("if (result i32)");
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line(&format!("local.get ${}", offset_local));
+    module.body().line("i32.wrap_i64");
+    module.body().line("i32.add");
+    module.body().line("else");
+    module.body().line(&format!("local.get {}", idx_local));
+    module.body().close("end");
+    module.body().line("else");
+    module.body().line(&format!("local.get {}", idx_local));
+    module.body().close("end");
+}
+
 fn emit_runtime_strrpos_var_max_start(
     var: &str,
     needle_var: &str,
     idx_local: &str,
-    offset: i64,
+    offset: &SearchOffset,
     module: &mut WasmModule,
 ) {
+    let SearchOffset::Static(offset) = offset else {
+        emit_runtime_strrpos_var_max_start_dynamic(var, needle_var, idx_local, offset, module);
+        return;
+    };
+    let offset = *offset;
     module.body().line(&format!("local.get ${}_len", var));
     module.body().line(&format!("local.get ${}_len", needle_var));
     module.body().line("i32.sub");
@@ -137,10 +278,47 @@ fn emit_runtime_strrpos_var_max_start(
     }
 }
 
+fn emit_runtime_strrpos_var_max_start_dynamic(
+    var: &str,
+    needle_var: &str,
+    idx_local: &str,
+    offset: &SearchOffset,
+    module: &mut WasmModule,
+) {
+    let SearchOffset::Dynamic(offset_local) = offset else {
+        unreachable!();
+    };
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line(&format!("local.get ${}_len", needle_var));
+    module.body().line("i32.sub");
+    module.body().line(&format!("local.set {}", idx_local));
+    module.body().line(&format!("local.get ${}", offset_local));
+    module.body().line("i64.const 0");
+    module.body().line("i64.lt_s");
+    module.body().open("if (result i32)");
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line(&format!("local.get ${}", offset_local));
+    module.body().line("i32.wrap_i64");
+    module.body().line("i32.add");
+    module.body().line(&format!("local.get {}", idx_local));
+    module.body().line("i32.lt_u");
+    module.body().open("if (result i32)");
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line(&format!("local.get ${}", offset_local));
+    module.body().line("i32.wrap_i64");
+    module.body().line("i32.add");
+    module.body().line("else");
+    module.body().line(&format!("local.get {}", idx_local));
+    module.body().close("end");
+    module.body().line("else");
+    module.body().line(&format!("local.get {}", idx_local));
+    module.body().close("end");
+}
+
 pub(super) fn emit_runtime_find_literal_forward(
     var: &str,
     needle: &str,
-    start_offset: i64,
+    start_offset: &SearchOffset,
     result_local: &str,
     found_local: &str,
     module: &mut WasmModule,
@@ -179,7 +357,7 @@ pub(super) fn emit_runtime_find_literal_forward(
 pub(super) fn emit_runtime_find_var_forward(
     var: &str,
     needle_var: &str,
-    start_offset: i64,
+    start_offset: &SearchOffset,
     result_local: &str,
     found_local: &str,
     module: &mut WasmModule,
@@ -218,7 +396,7 @@ pub(super) fn emit_runtime_find_var_forward(
 pub(super) fn emit_runtime_find_literal_reverse(
     var: &str,
     needle: &str,
-    offset: i64,
+    offset: &SearchOffset,
     result_local: &str,
     found_local: &str,
     module: &mut WasmModule,
@@ -229,14 +407,7 @@ pub(super) fn emit_runtime_find_literal_reverse(
     let done_label = module.next_label("rfind_done");
     module.declare_i32_local(idx.trim_start_matches('$').to_string());
     module.declare_i32_local(min_start.trim_start_matches('$').to_string());
-    emit_runtime_assert_strrpos_offset_in_range(var, offset, module);
-    if offset >= 0 {
-        module.body().line(&format!("i32.const {}", offset.min(i32::MAX as i64)));
-        module.body().line(&format!("local.set {}", min_start));
-    } else {
-        module.body().line("i32.const 0");
-        module.body().line(&format!("local.set {}", min_start));
-    }
+    emit_runtime_set_reverse_min_start(var, offset, &min_start, module);
     module.body().line(&format!("local.get ${}_len", var));
     module.body().line(&format!("i32.const {}", needle.len()));
     module.body().line("i32.lt_u");
@@ -273,7 +444,7 @@ pub(super) fn emit_runtime_find_literal_reverse(
 pub(super) fn emit_runtime_find_var_reverse(
     var: &str,
     needle_var: &str,
-    offset: i64,
+    offset: &SearchOffset,
     result_local: &str,
     found_local: &str,
     module: &mut WasmModule,
@@ -284,14 +455,7 @@ pub(super) fn emit_runtime_find_var_reverse(
     let done_label = module.next_label("rfind_done");
     module.declare_i32_local(idx.trim_start_matches('$').to_string());
     module.declare_i32_local(min_start.trim_start_matches('$').to_string());
-    emit_runtime_assert_strrpos_offset_in_range(var, offset, module);
-    if offset >= 0 {
-        module.body().line(&format!("i32.const {}", offset.min(i32::MAX as i64)));
-        module.body().line(&format!("local.set {}", min_start));
-    } else {
-        module.body().line("i32.const 0");
-        module.body().line(&format!("local.set {}", min_start));
-    }
+    emit_runtime_set_reverse_min_start(var, offset, &min_start, module);
     module.body().line(&format!("local.get ${}_len", var));
     module.body().line(&format!("local.get ${}_len", needle_var));
     module.body().line("i32.lt_u");
@@ -324,4 +488,39 @@ pub(super) fn emit_runtime_find_var_reverse(
     module.body().close("end");
     module.body().close("end");
     module.body().close("end");
+}
+
+fn emit_runtime_set_reverse_min_start(
+    var: &str,
+    offset: &SearchOffset,
+    min_start: &str,
+    module: &mut WasmModule,
+) {
+    match offset {
+        SearchOffset::Static(offset) => {
+            emit_runtime_assert_strrpos_offset_in_range(var, *offset, module);
+            if *offset >= 0 {
+                module
+                    .body()
+                    .line(&format!("i32.const {}", (*offset).min(i32::MAX as i64)));
+                module.body().line(&format!("local.set {}", min_start));
+            } else {
+                module.body().line("i32.const 0");
+                module.body().line(&format!("local.set {}", min_start));
+            }
+        }
+        SearchOffset::Dynamic(offset_local) => {
+            emit_runtime_assert_search_offset_in_range_dynamic(var, offset_local, module);
+            module.body().line(&format!("local.get ${}", offset_local));
+            module.body().line("i64.const 0");
+            module.body().line("i64.ge_s");
+            module.body().open("if (result i32)");
+            module.body().line(&format!("local.get ${}", offset_local));
+            module.body().line("i32.wrap_i64");
+            module.body().line("else");
+            module.body().line("i32.const 0");
+            module.body().close("end");
+            module.body().line(&format!("local.set {}", min_start));
+        }
+    }
 }

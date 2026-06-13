@@ -12,7 +12,7 @@ use super::*;
 use super::string_search_find::{
     emit_runtime_empty_search_result, emit_runtime_find_literal_forward,
     emit_runtime_find_literal_reverse, emit_runtime_find_var_forward,
-    emit_runtime_find_var_reverse,
+    emit_runtime_find_var_reverse, SearchOffset,
 };
 use super::string_search_literals::eval_literal_string_int_call;
 
@@ -74,20 +74,20 @@ fn emit_runtime_output_optional_int_builtin(
     } else {
         None
     };
-    let offset = args.get(2).map(literal_int_arg).transpose()?.unwrap_or(0);
+    let offset = search_offset_arg(args.get(2), module)?;
     match name.to_ascii_lowercase().as_str() {
         "strpos" => {
             if let Some(needle_var) = needle_var {
-                emit_runtime_output_strpos_var(&var, &needle_var, false, offset, module);
+                emit_runtime_output_strpos_var(&var, &needle_var, false, &offset, module);
             } else {
-                emit_runtime_output_strpos(&var, &needle.unwrap(), false, offset, module);
+                emit_runtime_output_strpos(&var, &needle.unwrap(), false, &offset, module);
             }
         }
         "strrpos" => {
             if let Some(needle_var) = needle_var {
-                emit_runtime_output_strpos_var(&var, &needle_var, true, offset, module);
+                emit_runtime_output_strpos_var(&var, &needle_var, true, &offset, module);
             } else {
-                emit_runtime_output_strpos(&var, &needle.unwrap(), true, offset, module);
+                emit_runtime_output_strpos(&var, &needle.unwrap(), true, &offset, module);
             }
         }
         _ => return Ok(false),
@@ -133,33 +133,54 @@ pub(super) fn emit_string_search_index_from_args(
         } else {
             None
         };
-    let offset = args.get(2).map(literal_int_arg).transpose()?.unwrap_or(0);
+    let offset = search_offset_arg(args.get(2), module)?;
     match name.to_ascii_lowercase().as_str() {
         "strpos" => {
             if let Some(needle_var) = needle_var {
-                emit_runtime_strpos_index_var(&var, &needle_var, false, offset, module);
+                emit_runtime_strpos_index_var(&var, &needle_var, false, &offset, module);
             } else {
                 let needle = static_ascii_string_arg(call, needle_arg, module)?;
-                emit_runtime_strpos_index(&var, &needle, false, offset, module);
+                emit_runtime_strpos_index(&var, &needle, false, &offset, module);
             }
         }
         "strrpos" => {
             if let Some(needle_var) = needle_var {
-                emit_runtime_strpos_index_var(&var, &needle_var, true, offset, module);
+                emit_runtime_strpos_index_var(&var, &needle_var, true, &offset, module);
             } else {
                 let needle = static_ascii_string_arg(call, needle_arg, module)?;
-                emit_runtime_strpos_index(&var, &needle, true, offset, module);
+                emit_runtime_strpos_index(&var, &needle, true, &offset, module);
             }
         }
         _ => unreachable!(),
     }
     Ok(())
 }
+
+fn search_offset_arg(
+    offset: Option<&Expr>,
+    module: &mut WasmModule,
+) -> Result<SearchOffset, CompileError> {
+    let Some(offset) = offset else {
+        return Ok(SearchOffset::Static(0));
+    };
+    if let Ok(value) = literal_int_arg(offset) {
+        return Ok(SearchOffset::Static(value));
+    }
+    let local = module
+        .next_label("string_search_offset")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_i64_local(local.clone());
+    require_int(offset, module)?;
+    module.body().line(&format!("local.set ${}", local));
+    Ok(SearchOffset::Dynamic(local))
+}
+
 fn emit_runtime_output_strpos(
     var: &str,
     needle: &str,
     reverse: bool,
-    offset: i64,
+    offset: &SearchOffset,
     module: &mut WasmModule,
 ) {
     let result = module.next_label("strpos_result");
@@ -192,7 +213,7 @@ fn emit_runtime_output_strpos_var(
     var: &str,
     needle_var: &str,
     reverse: bool,
-    offset: i64,
+    offset: &SearchOffset,
     module: &mut WasmModule,
 ) {
     let result = module.next_label("strpos_result");
@@ -229,7 +250,7 @@ fn emit_runtime_strpos_index(
     var: &str,
     needle: &str,
     reverse: bool,
-    offset: i64,
+    offset: &SearchOffset,
     module: &mut WasmModule,
 ) {
     let result = module.next_label("strpos_index_result");
@@ -257,7 +278,7 @@ fn emit_runtime_strpos_index_var(
     var: &str,
     needle_var: &str,
     reverse: bool,
-    offset: i64,
+    offset: &SearchOffset,
     module: &mut WasmModule,
 ) {
     let result = module.next_label("strpos_index_result");

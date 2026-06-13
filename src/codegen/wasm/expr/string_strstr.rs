@@ -9,7 +9,9 @@
 //! - Preserves PHP false-vs-string result handling and `before_needle` range behavior.
 
 use super::*;
-use super::string_search_find::{emit_runtime_find_literal_forward, emit_runtime_find_var_forward};
+use super::string_search_find::{
+    emit_runtime_find_literal_forward, emit_runtime_find_var_forward, SearchOffset,
+};
 
 pub(super) fn emit_runtime_strstr(
     var: &str,
@@ -29,7 +31,14 @@ pub(super) fn emit_runtime_strstr(
         module.body().line("i32.const 1");
         module.body().line(&format!("local.set {}", found));
     } else {
-        emit_runtime_find_literal_forward(var, needle, 0, &start, &found, module);
+        emit_runtime_find_literal_forward(
+            var,
+            needle,
+            &SearchOffset::Static(0),
+            &start,
+            &found,
+            module,
+        );
     }
     module.body().line(&format!("local.get {}", found));
     module.body().open("if");
@@ -57,7 +66,14 @@ pub(super) fn emit_runtime_strstr_var(
     module.body().line("i32.const 1");
     module.body().line(&format!("local.set {}", found));
     module.body().line("else");
-    emit_runtime_find_var_forward(var, needle_var, 0, &start, &found, module);
+    emit_runtime_find_var_forward(
+        var,
+        needle_var,
+        &SearchOffset::Static(0),
+        &start,
+        &found,
+        module,
+    );
     module.body().close("end");
     module.body().line(&format!("local.get {}", found));
     module.body().open("if");
@@ -83,7 +99,14 @@ pub(super) fn emit_runtime_strstr_value_to_stack(
         module.body().line("i32.const 1");
         module.body().line(&format!("local.set {}", found));
     } else {
-        emit_runtime_find_literal_forward(var, needle, 0, &start, &found, module);
+        emit_runtime_find_literal_forward(
+            var,
+            needle,
+            &SearchOffset::Static(0),
+            &start,
+            &found,
+            module,
+        );
     }
     emit_runtime_strstr_found_value(var, &start, &found, before_needle, module);
 }
@@ -108,7 +131,14 @@ pub(super) fn emit_runtime_strstr_var_value_to_stack(
     module.body().line("i32.const 1");
     module.body().line(&format!("local.set {}", found));
     module.body().line("else");
-    emit_runtime_find_var_forward(var, needle_var, 0, &start, &found, module);
+    emit_runtime_find_var_forward(
+        var,
+        needle_var,
+        &SearchOffset::Static(0),
+        &start,
+        &found,
+        module,
+    );
     module.body().close("end");
     emit_runtime_strstr_found_value(var, &start, &found, before_needle, module);
 }
