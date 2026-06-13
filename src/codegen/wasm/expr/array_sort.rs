@@ -1473,6 +1473,9 @@ pub(super) fn emit_uksort_call(
         if emit_uksort_dynamic_static_return_callback_call(source, &args[1], module)? {
             return Ok(ValueKind::Bool);
         }
+        if emit_uksort_dynamic_callable_descriptor_call(source, &args[1], module)? {
+            return Ok(ValueKind::Bool);
+        }
         return Err(CompileError::new(
             args[1].span,
             "wasm32-web uksort() currently requires a static string, direct first-class function callback, or simple callable variable alias",
@@ -1780,6 +1783,70 @@ fn emit_uksort_dynamic_static_return_callback_call(
         } else {
             emit_uksort_runtime_int_compare_sort(source, &callback, module);
         }
+        module.body().line("i32.const 1");
+        module.body().line(&format!("local.set {}", matched));
+        module.body().close("end");
+    }
+
+    module.body().line(&format!("local.get {}", matched));
+    module.body().line("i32.eqz");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    invalidate_assoc_sort_key_values(source, module);
+    module.body().line("i32.const 1");
+    Ok(true)
+}
+
+fn emit_uksort_dynamic_callable_descriptor_call(
+    source: &str,
+    callback_expr: &Expr,
+    module: &mut WasmModule,
+) -> Result<bool, CompileError> {
+    let Some(callbacks) = dynamic_sort_callable_descriptor_targets(callback_expr, module) else {
+        return Ok(false);
+    };
+    let mut callback_shape = None;
+    for callback in &callbacks {
+        if !module.has_function(callback) {
+            return Err(CompileError::new(
+                callback_expr.span,
+                "wasm32-web dynamic uksort() callable descriptor can only target declared user functions",
+            ));
+        }
+        let shape = usort_callback_shape(callback, callback_expr.span, module)?;
+        if callback_shape.is_some_and(|existing| existing != shape) {
+            return Err(CompileError::new(
+                callback_expr.span,
+                "wasm32-web dynamic uksort() callable descriptor currently requires callbacks with matching comparator signatures",
+            ));
+        }
+        callback_shape = Some(shape);
+    }
+    let Some(callback_shape) = callback_shape else {
+        return Ok(false);
+    };
+    if !uksort_local_supports_shape(source, callback_shape, module) {
+        return Ok(false);
+    }
+
+    let callback_id = module.next_label("uksort_callable_id");
+    let matched = module.next_label("uksort_callable_matched");
+    for local in [&callback_id, &matched] {
+        module.declare_i32_local(local.trim_start_matches('$').to_string());
+    }
+    emit_sort_callable_descriptor(callback_expr, module)?;
+    module.body().line(&format!("local.set {}", callback_id));
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", matched));
+
+    for callback in callbacks {
+        let target_id = module.callable_target_id(&callback);
+        module.body().line(&format!("local.get {}", callback_id));
+        module.body().line(&format!("i32.const {}", target_id));
+        module.body().line("i32.eq");
+        module.body().open("if");
+        emit_uksort_supported_local(source, &callback, callback_shape, module);
         module.body().line("i32.const 1");
         module.body().line(&format!("local.set {}", matched));
         module.body().close("end");

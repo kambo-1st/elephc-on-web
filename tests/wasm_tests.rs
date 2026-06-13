@@ -31548,6 +31548,29 @@ echo "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_uksort_callable_return_descriptor() {
+    assert_wasm_matches_php(
+        r#"<?php
+function key_sort_asc_desc(string $left, string $right): int { return strcmp($left, $right); }
+function key_sort_desc_desc(string $left, string $right): int { return strcmp($right, $left); }
+function choose_key_sort(bool $flag): callable {
+    return $flag ? key_sort_asc_desc(...) : key_sort_desc_desc(...);
+}
+$values = ["b" => 3, "a" => 1, "c" => 2];
+echo (uksort($values, choose_key_sort(true)) ? 1 : 0) . ":";
+foreach ($values as $key => $value) { echo $key . "=" . $value . ","; }
+echo "\n";
+$cb = choose_key_sort(false);
+$alias = $cb;
+$more = ["x" => 4, "w" => 2, "z" => 5];
+echo (uksort($more, $alias) ? 1 : 0) . ":";
+foreach ($more as $key => $value) { echo $key . "=" . $value . ","; }
+echo "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_array_map_direct_dynamic_callback_name_helpers() {
     assert_wasm_matches_php(
         r#"<?php
