@@ -198,6 +198,34 @@ pub(super) fn collect_assignment_locals(
             function_array_return_key_values,
         );
     }
+    if let ExprKind::ExprCall { callee, .. } = &value.kind {
+        if let Some(key) = callable_expr_array_return_metadata_key_for_assignment(
+            callee,
+            function_return_kinds,
+            function_callable_return_targets,
+            function_possible_callable_return_targets,
+            function_array_return_value_kinds,
+            function_array_return_runtime_value_kinds,
+            function_array_return_nested_values,
+            function_array_return_key_kinds,
+            function_array_return_key_values,
+        ) {
+            copy_array_return_assignment_metadata(
+                name,
+                &key,
+                array_value_kinds,
+                array_runtime_value_kinds,
+                array_nested_values,
+                array_key_kinds,
+                array_key_values,
+                function_array_return_value_kinds,
+                function_array_return_runtime_value_kinds,
+                function_array_return_nested_values,
+                function_array_return_key_kinds,
+                function_array_return_key_values,
+            );
+        }
+    }
     copy_forwarded_array_param_assignment_metadata(
         name,
         value,
@@ -961,6 +989,97 @@ fn array_return_metadata_key_for_assignment(
         }
         _ => None,
     }
+}
+
+fn callable_expr_array_return_metadata_key_for_assignment(
+    callee: &Expr,
+    function_return_kinds: &HashMap<String, ValueKind>,
+    function_callable_return_targets: &HashMap<String, String>,
+    function_possible_callable_return_targets: &HashMap<String, Vec<String>>,
+    function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
+    function_array_return_runtime_value_kinds: &HashMap<String, ValueCellKind>,
+    function_array_return_nested_values: &HashMap<String, Vec<Option<NestedArrayMetadata>>>,
+    function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+    function_array_return_key_values: &HashMap<String, Vec<AssocKeyValue>>,
+) -> Option<String> {
+    let descriptor_key = callable_return_descriptor_key_for_assignment(callee, function_return_kinds)?;
+    let targets = function_possible_callable_return_targets
+        .get(&descriptor_key)
+        .cloned()
+        .or_else(|| {
+            function_callable_return_targets
+                .get(&descriptor_key)
+                .map(|target| vec![target.clone()])
+        })?;
+    let mut selected = None;
+    for target in targets {
+        let key = function_key(&target);
+        if function_return_kinds.get(&key) != Some(&ValueKind::Array) {
+            return None;
+        }
+        if let Some(existing) = selected.as_deref() {
+            if !array_return_metadata_matches(
+                existing,
+                &key,
+                function_array_return_value_kinds,
+                function_array_return_runtime_value_kinds,
+                function_array_return_nested_values,
+                function_array_return_key_kinds,
+                function_array_return_key_values,
+            ) {
+                return None;
+            }
+        } else {
+            selected = Some(key);
+        }
+    }
+    selected
+}
+
+fn callable_return_descriptor_key_for_assignment(
+    callee: &Expr,
+    function_return_kinds: &HashMap<String, ValueKind>,
+) -> Option<String> {
+    match &callee.kind {
+        ExprKind::FunctionCall { name, .. } => Some(function_key(name)),
+        ExprKind::StaticMethodCall {
+            receiver: StaticReceiver::Named(class_name),
+            method,
+            ..
+        } => Some(static_method_call_return_key(class_name.as_str(), method)),
+        ExprKind::MethodCall { object, method, .. } => {
+            if let ExprKind::NewObject { class_name, .. } = &object.kind {
+                Some(method_call_return_key(class_name.as_str(), method))
+            } else {
+                unique_unknown_receiver_array_method_key(method, function_return_kinds)
+            }
+        }
+        ExprKind::NullsafeMethodCall { object, method, .. } => {
+            if let ExprKind::NewObject { class_name, .. } = &object.kind {
+                Some(method_call_return_key(class_name.as_str(), method))
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+fn array_return_metadata_matches(
+    left: &str,
+    right: &str,
+    function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
+    function_array_return_runtime_value_kinds: &HashMap<String, ValueCellKind>,
+    function_array_return_nested_values: &HashMap<String, Vec<Option<NestedArrayMetadata>>>,
+    function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+    function_array_return_key_values: &HashMap<String, Vec<AssocKeyValue>>,
+) -> bool {
+    function_array_return_value_kinds.get(left) == function_array_return_value_kinds.get(right)
+        && function_array_return_runtime_value_kinds.get(left)
+            == function_array_return_runtime_value_kinds.get(right)
+        && function_array_return_nested_values.get(left) == function_array_return_nested_values.get(right)
+        && function_array_return_key_kinds.get(left) == function_array_return_key_kinds.get(right)
+        && function_array_return_key_values.get(left) == function_array_return_key_values.get(right)
 }
 
 fn mixed_return_method_for_assignment(

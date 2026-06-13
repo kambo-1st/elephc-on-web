@@ -219,6 +219,21 @@ pub(crate) fn emit_array_assign(
                 "wasm32-web callback array builtins require callable runtime support",
             ));
         }
+        ExprKind::ExprCall { callee, .. }
+            if callable_expr_array_return_metadata(callee, module).is_some() =>
+        {
+            let metadata = callable_expr_array_return_metadata(callee, module)
+                .expect("guarded callable expression array return metadata");
+            match emit_expr(value, module)? {
+                ValueKind::Array => {
+                    module.body().line(&format!("local.set ${}_len", name));
+                    module.body().line(&format!("local.set ${}_ptr", name));
+                    stamp_array_return_metadata(name, metadata, module);
+                    return Ok(());
+                }
+                _ => unreachable!("array-returning callable expression metadata must emit an array value"),
+            }
+        }
         ExprKind::FunctionCall { name: function_name, args }
             if module.has_function(function_name)
                 && module.function_return_kind(function_name) == Some(ValueKind::Array) =>
@@ -390,6 +405,73 @@ pub(crate) fn emit_array_assign(
     }
     module.set_array_layout(name, ArrayLayout::CompactInt);
     emit_static_array_items_assign(name, &items, module)
+}
+
+fn callable_expr_array_return_metadata(
+    callee: &Expr,
+    module: &WasmModule,
+) -> Option<MethodArrayReturnMetadata> {
+    let mut metadata: Option<MethodArrayReturnMetadata> = None;
+    for target in callable_return_expr_targets(callee, module)? {
+        if module.function_return_kind(&target) != Some(ValueKind::Array) {
+            return None;
+        }
+        let candidate = MethodArrayReturnMetadata {
+            layout: module.function_array_return_layout(&target),
+            len: module.function_array_return_length(&target),
+            value_kinds: module
+                .function_array_return_value_kinds(&target)
+                .map(|kinds| kinds.to_vec()),
+            value_constants: module
+                .function_array_return_value_constants(&target)
+                .map(|values| values.to_vec()),
+            runtime_value_kind: module.function_array_return_runtime_value_kind(&target),
+            nested_values: module
+                .function_array_return_nested_values(&target)
+                .map(|values| values.to_vec()),
+            key_kinds: module
+                .function_array_return_key_kinds(&target)
+                .map(|kinds| kinds.to_vec()),
+            key_values: module
+                .function_array_return_key_values(&target)
+                .map(|values| values.to_vec()),
+        };
+        if let Some(existing) = metadata.as_mut() {
+            if existing.layout != candidate.layout
+                || existing.len != candidate.len
+                || existing.value_kinds != candidate.value_kinds
+                || existing.runtime_value_kind != candidate.runtime_value_kind
+                || existing.nested_values != candidate.nested_values
+                || existing.key_kinds != candidate.key_kinds
+                || existing.key_values != candidate.key_values
+            {
+                return None;
+            }
+            if existing.value_constants != candidate.value_constants {
+                existing.value_constants = None;
+            }
+        } else {
+            metadata = Some(candidate);
+        }
+    }
+    metadata
+}
+
+fn stamp_array_return_metadata(
+    name: &str,
+    metadata: MethodArrayReturnMetadata,
+    module: &mut WasmModule,
+) {
+    module.set_array_layout(name, metadata.layout);
+    if let Some(len) = metadata.len {
+        module.set_array_length(name, len);
+    }
+    module.set_array_value_cell_kinds(name, metadata.value_kinds);
+    module.set_array_value_constants(name, metadata.value_constants);
+    module.set_array_runtime_value_cell_kind(name, metadata.runtime_value_kind);
+    module.set_array_nested_value_metadata(name, metadata.nested_values);
+    module.set_array_key_kinds(name, metadata.key_kinds);
+    module.set_array_key_values(name, metadata.key_values);
 }
 
 fn apply_forwarded_array_param_metadata(

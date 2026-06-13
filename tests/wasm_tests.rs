@@ -30889,6 +30889,9 @@ function callable_expr_add(int $value): int {
 function callable_expr_wrap(string $value): string {
     return "[" . $value . "]";
 }
+function callable_expr_items(string $prefix): array {
+    return ["head", "tail"];
+}
 function make_callable_expr(bool $flag): callable {
     echo $flag ? "add\n" : "wrap\n";
     return $flag ? callable_expr_add(...) : callable_expr_add(...);
@@ -30896,6 +30899,10 @@ function make_callable_expr(bool $flag): callable {
 function make_callable_expr_string(): callable {
     echo "string\n";
     return callable_expr_wrap(...);
+}
+function make_callable_expr_array(): callable {
+    echo "array\n";
+    return callable_expr_items(...);
 }
 class CallableExprFactory {
     public static function makeString(): callable {
@@ -30923,6 +30930,11 @@ $localText = ($factory->makeInstanceString())("lv");
 echo strlen($localText) . ":" . $localText . "\n";
 $localNullsafeText = ($factory?->makeInstanceString())("ln");
 echo strlen($localNullsafeText) . ":" . $localNullsafeText . "\n";
+$items = make_callable_expr_array()("row");
+echo count($items) . "\n";
+foreach ($items as $item) {
+    echo $item . "\n";
+}
 "#,
     );
 }
