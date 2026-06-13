@@ -251,5 +251,16 @@ pub(super) fn infer_many_local_kind(
     }) {
         return LocalKind::Str;
     }
+    if values.iter().all(|value| {
+        infer_local_kind(
+            value,
+            locals,
+            function_return_kinds,
+            constants,
+            class_constants,
+        ) == LocalKind::Array
+    }) {
+        return LocalKind::Array;
+    }
     LocalKind::I64
 }

@@ -36,6 +36,25 @@ pub(crate) fn emit_array_assign(
         ExprKind::ArrayAccess { .. } => {
             return emit_array_access_assign(name, value, module);
         }
+        ExprKind::Match { .. } => {
+            match emit_expr(value, module)? {
+                ValueKind::Array => {
+                    module.body().line(&format!("local.set ${}_len", name));
+                    module.body().line(&format!("local.set ${}_ptr", name));
+                    module.set_array_layout(name, ArrayLayout::CompactInt);
+                    module.clear_array_length(name);
+                    module.set_array_value_cell_kinds(name, None);
+                    module.set_array_value_constants(name, None);
+                    return Ok(());
+                }
+                _ => {
+                    return Err(CompileError::new(
+                        value.span,
+                        "wasm32-web array assignment expected an array match result",
+                    ));
+                }
+            }
+        }
         ExprKind::StaticMethodCall {
             receiver,
             method,
