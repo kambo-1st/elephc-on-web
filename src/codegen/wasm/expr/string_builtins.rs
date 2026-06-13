@@ -646,9 +646,9 @@ pub(super) fn emit_runtime_output_string_builtin(
             };
             let before_needle = args
                 .get(2)
-                .map(literal_bool_arg)
+                .map(|arg| runtime_bool_arg(arg, module))
                 .transpose()?
-                .unwrap_or(false);
+                .unwrap_or(RuntimeBoolArg::Static(false));
             if let Some(needle_var) =
                 runtime_string_arg_or_materialize(&args[1], "strstr_needle", module)?
             {

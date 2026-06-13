@@ -600,9 +600,9 @@ pub(super) fn emit_strstr_string_builtin_value_to_stack(
     };
     let before_needle = args
         .get(2)
-        .map(literal_bool_arg)
+        .map(|arg| runtime_bool_arg(arg, module))
         .transpose()?
-        .unwrap_or(false);
+        .unwrap_or(RuntimeBoolArg::Static(false));
     if let Some(needle_var) = string_arg_or_materialize(&args[1], "strstr_value_needle", module)? {
         emit_runtime_strstr_var_value_to_stack(&var, &needle_var, before_needle, module);
     } else if string_cast_value_supported(&args[1], module) && static_string_value(&args[1], module).is_none() {

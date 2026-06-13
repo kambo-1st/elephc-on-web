@@ -34553,6 +34553,13 @@ fn test_wasm32_web_e2e_matches_php_strstr_variable_before_output() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_strstr_dynamic_before_output() {
+    assert_wasm_matches_php(
+        "<?php\nfunction before(): bool { return strlen(\"web\") === 3; }\n$s = \"hello web\";\necho strstr($s, \"web\", strlen($s) > 3) . \"\\n\";\necho strstr($s, \"web\", false) . \"\\n\";\necho strstr($s, \"web\", before()) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_strstr_variable_needle_before_output() {
     assert_wasm_matches_php(
         "<?php\n$s = \"hello web\";\n$n = \"web\";\necho strstr($s, $n, true) . \"\\n\";\n",
@@ -38198,6 +38205,8 @@ echo $tail[0] . ":" . strlen($tail) . ":" . ord($tail[4]) . "\n";
 echo wrap(strstr(ident($hay), ident("wasm"))) . "\n";
 $before = strstr($hay, $needle, true);
 echo $before . ":" . strlen($before) . "\n";
+$dynamicBefore = strstr($hay, $needle, strlen($hay) > 5);
+echo $dynamicBefore . ":" . strlen($dynamicBefore) . "\n";
 $missing = strstr($hay, "php");
 echo "[" . $missing . "]:" . strlen($missing) . "\n";
 $tail[0] = "W";
