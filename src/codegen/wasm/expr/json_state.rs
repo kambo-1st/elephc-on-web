@@ -22,41 +22,85 @@ pub(super) fn emit_json_validate_call(
             "wasm32-web json_validate() expects one to three arguments",
         ));
     }
-    let depth = if let Some(depth_arg) = args.get(1) {
-        let depth = const_or_literal_int_arg(depth_arg)?;
-        if depth < 1 {
-            return Err(CompileError::new(
-                depth_arg.span,
-                "wasm32-web json_validate() depth must be greater than zero",
-            ));
-        }
-        depth as usize
-    } else {
-        512
-    };
+    let depth = json_validate_depth_arg(args.get(1), module)?;
     let flags = json_validate_flags_arg(call, args.get(2))?;
-    if let Ok(value) = static_ascii_string_arg(call, &args[0], module) {
-        let error = json_validate_literal_error(&value, depth);
-        module.body().line(&format!("i32.const {}", error));
-        module.body().line("global.set $json_last_error");
-        module.body().line(&format!("i32.const {}", i32::from(error == 0)));
-        return Ok(ValueKind::Bool);
+    let static_depth = match &depth {
+        JsonValidateDepth::Static(depth) => Some(*depth),
+        JsonValidateDepth::Dynamic(_) => None,
+    };
+    if let Some(depth) = static_depth {
+        if let Ok(value) = static_ascii_string_arg(call, &args[0], module) {
+            let error = json_validate_literal_error(&value, depth);
+            module.body().line(&format!("i32.const {}", error));
+            module.body().line("global.set $json_last_error");
+            module.body().line(&format!("i32.const {}", i32::from(error == 0)));
+            return Ok(ValueKind::Bool);
+        }
     }
-    let Some(var) = runtime_string_arg_or_materialize(&args[0], "json_validate_arg", module)? else {
+    let Some(var) = string_arg_or_materialize(&args[0], "json_validate_arg", module)? else {
         return Err(CompileError::new(
             args[0].span,
             "wasm32-web json_validate() currently requires a string value",
         ));
     };
+    let depth_local = match depth {
+        JsonValidateDepth::Static(_) => None,
+        JsonValidateDepth::Dynamic(local) => Some(local),
+    };
     module.body().line(&format!("local.get ${}_ptr", var));
     module.body().line(&format!("local.get ${}_len", var));
-    module.body().line(&format!("i32.const {}", depth));
+    match &depth_local {
+        Some(local) => module.body().line(&format!("local.get ${}", local)),
+        None => {
+            module
+                .body()
+                .line(&format!("i32.const {}", static_depth.expect("static depth")));
+        }
+    }
     module.body().line(&format!("i32.const {}", flags));
     module.body().line("call $host_json_validate");
     module.body().line("global.set $json_last_error");
     module.body().line("global.get $json_last_error");
     module.body().line("i32.eqz");
     Ok(ValueKind::Bool)
+}
+
+enum JsonValidateDepth {
+    Static(usize),
+    Dynamic(String),
+}
+
+fn json_validate_depth_arg(
+    arg: Option<&Expr>,
+    module: &mut WasmModule,
+) -> Result<JsonValidateDepth, CompileError> {
+    let Some(arg) = arg else {
+        return Ok(JsonValidateDepth::Static(512));
+    };
+    if let Some(depth) = static_or_const_int_value(arg) {
+        if depth < 1 {
+            return Err(CompileError::new(
+                arg.span,
+                "wasm32-web json_validate() depth must be greater than zero",
+            ));
+        }
+        return Ok(JsonValidateDepth::Static(depth as usize));
+    }
+    let local = module
+        .next_label("json_validate_depth")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_i32_local(local.clone());
+    require_int(arg, module)?;
+    module.body().line("i32.wrap_i64");
+    module.body().line(&format!("local.set ${}", local));
+    module.body().line(&format!("local.get ${}", local));
+    module.body().line("i32.const 1");
+    module.body().line("i32.lt_s");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    Ok(JsonValidateDepth::Dynamic(local))
 }
 
 pub(super) fn emit_json_last_error_call(
