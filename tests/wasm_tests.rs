@@ -31300,6 +31300,25 @@ echo count($mapped_copy) . ":" . $mapped_copy[0] . ":" . $mapped_copy[1] . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_array_map_callable_return_descriptor() {
+    assert_wasm_matches_php(
+        r#"<?php
+function add_one(int $x): int { return $x + 1; }
+function double_value(int $x): int { return $x * 2; }
+function choose_map(bool $flag): callable {
+    return $flag ? add_one(...) : double_value(...);
+}
+$mapped = array_map(choose_map(true), [1, 2, 3]);
+echo count($mapped) . ":" . $mapped[0] . ":" . $mapped[2] . "\n";
+$cb = choose_map(false);
+$alias = $cb;
+$mapped_alias = array_map($alias, [4, 5]);
+echo count($mapped_alias) . ":" . $mapped_alias[0] . ":" . $mapped_alias[1] . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_array_filter_dynamic_callable_variable() {
     assert_wasm_matches_php(
         r#"<?php
