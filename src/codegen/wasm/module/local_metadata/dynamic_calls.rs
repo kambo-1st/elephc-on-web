@@ -25,9 +25,13 @@ pub(super) fn call_user_func_local_kind(
     let call_args = args[1..].to_vec();
     if let Some(kind) = dynamic_call_user_function_local_kind(
         callback,
+        &call_args,
+        locals,
         function_possible_static_string_returns,
         string_static_values,
         function_return_kinds,
+        constants,
+        class_constants,
     ) {
         return Some(kind);
     }
@@ -92,9 +96,13 @@ pub(super) fn call_user_func_array_local_kind(
     }
     if let Some(kind) = dynamic_call_user_function_local_kind(
         callback,
+        &call_args,
+        locals,
         function_possible_static_string_returns,
         string_static_values,
         function_return_kinds,
+        constants,
+        class_constants,
     ) {
         return Some(kind);
     }
@@ -315,9 +323,13 @@ fn call_user_function_target_for_kind(
 
 fn dynamic_call_user_function_local_kind(
     callback: &Expr,
+    call_args: &[Expr],
+    locals: &HashMap<String, LocalKind>,
     function_possible_static_string_returns: &HashMap<String, Vec<String>>,
     string_static_values: &HashMap<String, String>,
     function_return_kinds: &HashMap<String, ValueKind>,
+    constants: &HashMap<String, ConstantValue>,
+    class_constants: &HashMap<String, ConstantValue>,
 ) -> Option<LocalKind> {
     let callbacks = match &callback.kind {
         ExprKind::FunctionCall { name, .. } => {
@@ -337,7 +349,16 @@ fn dynamic_call_user_function_local_kind(
             .get(&function_key(callback.as_str()))
             .copied()
             .map(local_kind_for_value)
-            .or_else(|| dynamic_builtin_callback_local_kind(callback))?;
+            .or_else(|| {
+                dynamic_builtin_callback_local_kind(
+                    callback,
+                    call_args,
+                    locals,
+                    function_return_kinds,
+                    constants,
+                    class_constants,
+                )
+            })?;
         if local_kind.is_some_and(|existing| existing != kind) {
             return None;
         }
@@ -346,8 +367,41 @@ fn dynamic_call_user_function_local_kind(
     local_kind
 }
 
-fn dynamic_builtin_callback_local_kind(callback: &str) -> Option<LocalKind> {
+fn dynamic_builtin_callback_local_kind(
+    callback: &str,
+    call_args: &[Expr],
+    locals: &HashMap<String, LocalKind>,
+    function_return_kinds: &HashMap<String, ValueKind>,
+    constants: &HashMap<String, ConstantValue>,
+    class_constants: &HashMap<String, ConstantValue>,
+) -> Option<LocalKind> {
     let callback = callback.to_ascii_lowercase();
+    if callback == "abs" {
+        return if any_arg_is_floaty_for_metadata(
+            call_args.first().into_iter(),
+            locals,
+            function_return_kinds,
+            constants,
+            class_constants,
+        ) {
+            Some(LocalKind::F64)
+        } else {
+            Some(LocalKind::I64)
+        };
+    }
+    if callback == "min" || callback == "max" {
+        return if any_arg_is_floaty_for_metadata(
+            call_args.iter(),
+            locals,
+            function_return_kinds,
+            constants,
+            class_constants,
+        ) {
+            Some(LocalKind::F64)
+        } else {
+            Some(LocalKind::I64)
+        };
+    }
     if matches!(
         callback.as_str(),
         "strtolower"
@@ -457,6 +511,19 @@ fn dynamic_builtin_callback_local_kind(callback: &str) -> Option<LocalKind> {
         return Some(LocalKind::I32);
     }
     None
+}
+
+fn any_arg_is_floaty_for_metadata<'a>(
+    args: impl Iterator<Item = &'a Expr>,
+    locals: &HashMap<String, LocalKind>,
+    function_return_kinds: &HashMap<String, ValueKind>,
+    constants: &HashMap<String, ConstantValue>,
+    class_constants: &HashMap<String, ConstantValue>,
+) -> bool {
+    args.into_iter().any(|arg| {
+        infer_local_kind(arg, locals, function_return_kinds, constants, class_constants)
+            == LocalKind::F64
+    })
 }
 
 fn static_method_callable_symbol(class_name: &str, method_name: &str) -> String {

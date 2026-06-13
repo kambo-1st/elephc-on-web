@@ -24189,6 +24189,21 @@ echo (($b && $c) ? 1 : 0) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_call_user_func_dynamic_arg_dependent_builtin_callback_names() {
+    assert_wasm_matches_php(
+        r#"<?php
+function choose_dynamic_extreme_builtin(bool $flag): string { echo "extreme-pick\n"; return $flag ? "min" : "max"; }
+$i = call_user_func(choose_dynamic_extreme_builtin(true), -7, 4);
+$j = call_user_func(choose_dynamic_extreme_builtin(false), 11, 4);
+$f = call_user_func(choose_dynamic_extreme_builtin(true), 2.5, 1.25);
+$g = call_user_func_array(choose_dynamic_extreme_builtin(false), [1.25, 2.5]);
+echo ($i + $j) . "\n";
+echo ($f + $g) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_array_callbacks_string_callable_variables() {
     assert_wasm_matches_php(
         r#"<?php
