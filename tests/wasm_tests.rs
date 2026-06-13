@@ -39756,6 +39756,9 @@ function maybe_null(bool $flag): mixed {
     echo $flag ? "null\n" : "value\n";
     return $flag ? null : "left";
 }
+function coalesce_return(mixed $value): mixed {
+    return $value ?? "returned";
+}
 function show_value(mixed $value) {
     echo gettype($value);
     if (is_string($value)) {
@@ -39790,6 +39793,7 @@ $short_true = passthrough("short") ?: 5;
 $short_false = passthrough(0) ?: "fallback";
 $coalesce_left = maybe_null(false) ?? "default";
 $coalesce_default = maybe_null(true) ?? 12;
+$coalesce_returned = coalesce_return(null);
 show_value(pick_match(1));
 show_value(pick_match(2));
 show_value(pick_match(3));
@@ -39802,6 +39806,9 @@ show_value($short_true);
 show_value($short_false);
 show_value($coalesce_left);
 show_value($coalesce_default);
+show_value($coalesce_returned);
+show_value(coalesce_return("kept") ?? 3);
+show_value((maybe_null(true) ?? "param"));
 "#,
     );
 }
