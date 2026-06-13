@@ -31397,6 +31397,29 @@ echo "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_array_callbacks_string_piece_names() {
+    assert_wasm_matches_php(
+        r#"<?php
+function map_piece(int $value): int { return $value + 10; }
+function filter_piece(int $value): bool { return $value > 1; }
+function reduce_piece(int $carry, int $value): int { return $carry + $value; }
+$map_prefix = "map_";
+$filter_prefix = "filter_";
+$reduce_prefix = "reduce_";
+$suffix = "piece";
+$mapped = array_map($map_prefix . $suffix, [1, 2]);
+echo $mapped[0] . ":" . $mapped[1] . "\n";
+$filtered = array_filter([0, 2, 3], $filter_prefix . $suffix);
+foreach ($filtered as $key => $value) {
+    echo $key . "=" . $value . ",";
+}
+echo "\n";
+echo array_reduce([1, 2, 3], $reduce_prefix . $suffix, 5) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_array_reduce_dynamic_callable_variable() {
     assert_wasm_matches_php(
         r#"<?php
