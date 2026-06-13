@@ -39708,6 +39708,32 @@ echo summarize_choice(9) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_returned_assoc_array_match_count_and_foreach() {
+    assert_wasm_matches_php(
+        r#"<?php
+function choose_items(int $slot): array {
+    return match ($slot) {
+        1 => ["a" => 2, "b" => 3],
+        2 => ["x" => 4],
+        default => [5 => 6, "z" => 7],
+    };
+}
+function summarize_choice(int $slot): string {
+    $items = choose_items($slot);
+    $out = count($items) . ":";
+    foreach ($items as $key => $value) {
+        $out .= $key . "=" . $value . ";";
+    }
+    return $out;
+}
+echo summarize_choice(1) . "\n";
+echo summarize_choice(2) . "\n";
+echo summarize_choice(9) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_enum_cases_array_filter_get_class() {
     assert_wasm_matches_php(
         r#"<?php

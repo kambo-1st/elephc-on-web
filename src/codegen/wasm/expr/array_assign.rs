@@ -297,6 +297,10 @@ pub(crate) fn emit_array_assign(
                         .function_array_return_key_values(function_name)
                         .map(|values| values.to_vec()),
                 );
+                module.set_array_php_normalized_runtime_keys(
+                    name,
+                    module.function_array_return_key_kinds(function_name).is_none(),
+                );
             } else {
                 module.set_array_value_cell_kinds(name, None);
                 module.set_array_nested_value_metadata(name, None);

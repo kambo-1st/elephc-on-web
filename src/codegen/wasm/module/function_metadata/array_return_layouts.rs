@@ -224,8 +224,48 @@ fn array_return_expr_layout_for_return(
         ExprKind::FunctionCall { name, .. } if name.eq_ignore_ascii_case("array_filter") => {
             Some(ArrayLayout::Assoc)
         }
+        ExprKind::Match { arms, default, .. } => match_array_return_layout_for_return(
+            arms,
+            default.as_deref(),
+            array_params,
+            constants,
+            function_return_kinds,
+            local_layouts,
+            local_string_values,
+            local_callable_targets,
+        ),
         _ => array_return_expr_layout(expr, array_params, constants),
     }
+}
+
+fn match_array_return_layout_for_return(
+    arms: &[(Vec<Expr>, Expr)],
+    default: Option<&Expr>,
+    array_params: &HashSet<&str>,
+    constants: &HashMap<String, ConstantValue>,
+    function_return_kinds: &HashMap<String, ValueKind>,
+    local_layouts: &HashMap<String, ArrayLayout>,
+    local_string_values: &HashMap<String, String>,
+    local_callable_targets: &HashMap<String, String>,
+) -> Option<ArrayLayout> {
+    let mut layout = None;
+    for value in arms.iter().map(|(_, value)| value).chain(default) {
+        let next = array_return_expr_layout_for_return(
+            value,
+            array_params,
+            constants,
+            function_return_kinds,
+            local_layouts,
+            local_string_values,
+            local_callable_targets,
+        )?;
+        match layout {
+            Some(existing) if existing != next => return None,
+            Some(_) => {}
+            None => layout = Some(next),
+        }
+    }
+    layout
 }
 
 fn array_local_assignment_layout_for_return(

@@ -713,6 +713,11 @@ pub(super) fn collect_assignment_locals(
     ) || assoc_match_result_has_runtime_keys(
         value,
         array_key_kinds,
+    ) || array_return_assignment_has_runtime_assoc_keys(
+        value,
+        function_return_kinds,
+        function_array_return_layouts,
+        function_array_return_key_kinds,
     ) || expr_has_php_normalized_runtime_keys(
         value,
         php_normalized_key_arrays,
@@ -767,6 +772,19 @@ fn assoc_match_result_has_runtime_keys(
         }
     }
     saw_assoc
+}
+
+fn array_return_assignment_has_runtime_assoc_keys(
+    value: &Expr,
+    function_return_kinds: &HashMap<String, ValueKind>,
+    function_array_return_layouts: &HashMap<String, ArrayLayout>,
+    function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+) -> bool {
+    let Some(key) = array_return_metadata_key_for_assignment(value, function_return_kinds) else {
+        return false;
+    };
+    function_array_return_layouts.get(&key) == Some(&ArrayLayout::Assoc)
+        && !function_array_return_key_kinds.contains_key(&key)
 }
 
 fn array_constant_offset_local_kind(

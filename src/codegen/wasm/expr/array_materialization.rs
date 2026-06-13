@@ -407,6 +407,11 @@ fn emit_assoc_array_return_to_stack(
             module.body().line(&format!("local.get ${}_len", name));
             Ok(())
         }
+        ExprKind::Match { subject, arms, default }
+            if match_result_is_assoc_array(arms, default.as_deref(), module) =>
+        {
+            emit_assoc_array_match_to_stack(value, subject, arms, default.as_deref(), module)
+        }
         ExprKind::FunctionCall { name, .. }
             if name.eq_ignore_ascii_case("array_fill") || name.eq_ignore_ascii_case("array_filter") =>
         {
