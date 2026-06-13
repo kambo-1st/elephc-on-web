@@ -39285,6 +39285,21 @@ echo $chunks[0][0]->value . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_direct_enum_cases_array_chunk_nested_identity_reads() {
+    assert_wasm_matches_php(
+        r#"<?php
+enum DirectChunkStatus: string {
+    case Draft = "D";
+    case Live = "L";
+}
+echo ((array_chunk(DirectChunkStatus::cases(), 1)[0][0] === DirectChunkStatus::Draft) ? 1 : 0) . ":";
+echo ((array_chunk(DirectChunkStatus::cases(), 1)[1][0] === DirectChunkStatus::Live) ? 1 : 0) . ":";
+echo array_chunk(DirectChunkStatus::cases(), 1)[1][0]->value . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_enum_cases_array_pad() {
     assert_wasm_matches_php(
         r#"<?php
