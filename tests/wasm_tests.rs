@@ -30859,6 +30859,28 @@ echo call_user_func($other, 5) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_callable_typed_function_return_conflicts_local_alias_call_user_func_array() {
+    assert_wasm_matches_php(
+        r#"<?php
+function add_pair(int $left, int $right): int {
+    return $left + $right;
+}
+function mul_pair(int $left, int $right): int {
+    return $left * $right;
+}
+function make_callback(bool $flag): callable {
+    return $flag ? add_pair(...) : mul_pair(...);
+}
+$callback = make_callback(true);
+$alias = $callback;
+echo call_user_func_array($alias, [2, 4]) . "\n";
+$other = make_callback(false);
+echo call_user_func_array($other, ["right" => 4, "left" => 2]) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_callable_typed_function_return_closures_are_rejected() {
     let source = r#"<?php
 function make_callback(): callable {
