@@ -233,6 +233,22 @@ fn emit_enum_case_array_identity_comparison_ordered(
     let ExprKind::ArrayAccess { array, index } = &array_access.kind else {
         return Ok(false);
     };
+    let ExprKind::ScopedConstantAccess { receiver, name } = &enum_case.kind else {
+        return Ok(false);
+    };
+    if module.enum_case_class(receiver, name).is_none() {
+        return Ok(false);
+    }
+    if emit_nested_enum_case_array_identity_comparison(
+        array_access,
+        array,
+        receiver,
+        name,
+        op,
+        module,
+    )? {
+        return Ok(true);
+    }
     let ExprKind::Variable(array_name) = &array.kind else {
         return Ok(false);
     };
@@ -245,12 +261,6 @@ fn emit_enum_case_array_identity_comparison_ordered(
         return Ok(false);
     };
     if module.array_length(array_name).is_some_and(|len| index >= len) {
-        return Ok(false);
-    }
-    let ExprKind::ScopedConstantAccess { receiver, name } = &enum_case.kind else {
-        return Ok(false);
-    };
-    if module.enum_case_class(receiver, name).is_none() {
         return Ok(false);
     }
     let cell = module.next_label("enum_case_array_cell");
@@ -271,6 +281,40 @@ fn emit_enum_case_array_identity_comparison_ordered(
     module.body().line("i32.add");
     module.body().line("i32.load");
     emit_enum_case_expr(enum_case, receiver, name, module)?;
+    module
+        .body()
+        .line(if matches!(op, BinOp::StrictEq) { "i32.eq" } else { "i32.ne" });
+    module.body().line("else");
+    module.body().line(if matches!(op, BinOp::StrictEq) {
+        "i32.const 0"
+    } else {
+        "i32.const 1"
+    });
+    module.body().close("end");
+    Ok(true)
+}
+
+fn emit_nested_enum_case_array_identity_comparison(
+    array_access: &Expr,
+    array: &Expr,
+    receiver: &StaticReceiver,
+    name: &str,
+    op: &BinOp,
+    module: &mut WasmModule,
+) -> Result<bool, CompileError> {
+    if !matches!(array.kind, ExprKind::ArrayAccess { .. }) {
+        return Ok(false);
+    }
+    let Some(cell) = materialize_mixed_value_cell(array_access, module)? else {
+        return Ok(false);
+    };
+    module.body().line(&format!("local.get ${}", cell));
+    module.body().line("i32.load");
+    module.body().line(&format!("i32.const {}", WASM_VALUE_TAG_OBJECT));
+    module.body().line("i32.eq");
+    module.body().open("if (result i32)");
+    emit_mixed_i32_payload(&cell, 8, module);
+    emit_enum_case_expr(array_access, receiver, name, module)?;
     module
         .body()
         .line(if matches!(op, BinOp::StrictEq) { "i32.eq" } else { "i32.ne" });

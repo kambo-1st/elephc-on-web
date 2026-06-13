@@ -39269,6 +39269,22 @@ echo count($statuses) . ":" . array_key_exists(2, $statuses[1]) . ":" . $statuse
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_enum_cases_array_chunk_nested_identity_reads() {
+    assert_wasm_matches_php(
+        r#"<?php
+enum ChunkStatus: string {
+    case Draft = "D";
+    case Live = "L";
+}
+$chunks = array_chunk(ChunkStatus::cases(), 1);
+echo (($chunks[0][0] === ChunkStatus::Draft) ? 1 : 0) . ":";
+echo (($chunks[1][0] === ChunkStatus::Live) ? 1 : 0) . ":";
+echo $chunks[0][0]->value . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_enum_cases_array_pad() {
     assert_wasm_matches_php(
         r#"<?php
