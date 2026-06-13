@@ -71,6 +71,15 @@ pub(in crate::codegen::wasm) fn static_callback_function_name(expr: &Expr, modul
             .function_static_string_return_for_call(name, args)
             .or_else(|| module.function_static_string_return(name))
             .or_else(|| module.function_callable_return_target(name.as_str())),
+        ExprKind::BinaryOp {
+            left,
+            op: BinOp::Concat,
+            right,
+        } => Some(format!(
+            "{}{}",
+            static_callback_function_name(left, module)?,
+            static_callback_function_name(right, module)?
+        )),
         ExprKind::Ternary {
             then_expr,
             else_expr,

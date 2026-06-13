@@ -30944,22 +30944,50 @@ echo call_user_func(make_callback(), 3);
 #[test]
 fn test_wasm32_web_callable_typed_function_return_runtime_strings_are_rejected() {
     let source = r#"<?php
-function make_callback(bool $flag): callable {
+function make_callback(string $suffix): callable {
     $left = "add";
-    $right = "_one";
-    return $flag ? $left . $right : "strlen";
+    return $left . $suffix;
 }
-echo call_user_func(make_callback(true), 3);
+echo call_user_func(make_callback("_one"), 3);
 "#;
 
     let program = parse_program(source);
     let err = generate(&program, WasmOutputFormat::Wat)
         .expect_err("runtime string callable returns must not silently compile");
     assert!(
-        err.message
-            .contains("wasm32-web callable returns require a statically known callable target"),
+        err.message.contains("wasm32-web callable returns require a statically known callable target")
+            || err
+                .message
+                .contains("wasm32-web callable-returning functions require static callable metadata"),
         "unexpected error: {}",
         err.message
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_callable_typed_function_return_string_pieces() {
+    assert_wasm_matches_php(
+        r#"<?php
+function add_one_from_pieces(int $value): int {
+    return $value + 1;
+}
+function double_from_pieces(int $value): int {
+    return $value * 2;
+}
+function choose_callback_from_pieces(bool $flag): callable {
+    $add_prefix = "add_";
+    $add_suffix = "one_from_pieces";
+    $double_prefix = "double_";
+    $double_suffix = "from_pieces";
+    return $flag ? $add_prefix . $add_suffix : $double_prefix . $double_suffix;
+}
+$callback = choose_callback_from_pieces(true);
+echo $callback(4) . "\n";
+$other = choose_callback_from_pieces(false);
+$alias = $other;
+echo call_user_func($alias, 5) . "\n";
+echo call_user_func_array(choose_callback_from_pieces(true), [7]) . "\n";
+"#,
     );
 }
 

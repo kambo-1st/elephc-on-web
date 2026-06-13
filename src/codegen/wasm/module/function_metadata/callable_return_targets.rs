@@ -7,7 +7,8 @@
 //!
 //! Key details:
 //! - Only callable-returning functions whose return paths resolve to one direct target are tracked.
-//! - Dynamic, closure, instance-captured, or conflicting returns stay unknown and are rejected by codegen.
+//! - Finite string-built returns are tracked when every part is statically known.
+//! - Dynamic, closure, instance-captured, or open-ended returns stay unknown and are rejected by codegen.
 
 use super::*;
 
@@ -218,35 +219,61 @@ fn collect_possible_callable_return_targets_from_expr(
     local_callable_targets: &HashMap<String, Vec<String>>,
     values: &mut Vec<String>,
 ) -> Option<()> {
+    for value in possible_callable_return_targets_from_expr(expr, constants, local_callable_targets)? {
+        push_unique_callable_return_target(values, value);
+    }
+    Some(())
+}
+
+fn possible_callable_return_targets_from_expr(
+    expr: &Expr,
+    constants: &HashMap<String, ConstantValue>,
+    local_callable_targets: &HashMap<String, Vec<String>>,
+) -> Option<Vec<String>> {
     match &expr.kind {
-        ExprKind::Variable(name) => {
-            for value in local_callable_targets.get(name)? {
-                push_unique_callable_return_target(values, value.clone());
-            }
-            Some(())
-        }
+        ExprKind::Variable(name) => Some(local_callable_targets.get(name)?.clone()),
         ExprKind::Ternary {
             then_expr,
             else_expr,
             ..
         } => {
-            collect_possible_callable_return_targets_from_expr(
+            let mut values = possible_callable_return_targets_from_expr(
                 then_expr,
                 constants,
                 local_callable_targets,
-                values,
             )?;
-            collect_possible_callable_return_targets_from_expr(
+            for value in possible_callable_return_targets_from_expr(
                 else_expr,
                 constants,
                 local_callable_targets,
-                values,
-            )
+            )? {
+                push_unique_callable_return_target(&mut values, value);
+            }
+            Some(values)
+        }
+        ExprKind::BinaryOp {
+            left,
+            op: BinOp::Concat,
+            right,
+        } => {
+            let left_values =
+                possible_callable_return_targets_from_expr(left, constants, local_callable_targets)?;
+            let right_values =
+                possible_callable_return_targets_from_expr(right, constants, local_callable_targets)?;
+            let mut values = Vec::new();
+            for left_value in &left_values {
+                for right_value in &right_values {
+                    push_unique_callable_return_target(
+                        &mut values,
+                        format!("{}{}", left_value, right_value),
+                    );
+                }
+            }
+            Some(values)
         }
         _ => {
             let value = callable_return_target_from_expr(expr, constants, &HashMap::new())?;
-            push_unique_callable_return_target(values, value);
-            Some(())
+            Some(vec![value])
         }
     }
 }
