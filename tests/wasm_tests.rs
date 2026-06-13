@@ -30830,6 +30830,25 @@ echo run_callable_param(!$flag ? callable_param_add(...) : callable_param_double
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_callable_param_string_targets() {
+    assert_wasm_matches_php(
+        r#"<?php
+function callable_param_string_add(int $value): int { return $value + 1; }
+function callable_param_string_double(int $value): int { return $value * 2; }
+function run_callable_param_string(callable $callback, int $value): int {
+    return $callback($value);
+}
+$name = "callable_param_string_double";
+$prefix = "callable_param_";
+$middle = "string_";
+echo run_callable_param_string("callable_param_string_add", 4) . "\n";
+echo run_callable_param_string($name, 5) . "\n";
+echo run_callable_param_string($prefix . $middle . "add", 6) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_callable_typed_function_return_conflicts() {
     assert_wasm_matches_php(
         r#"<?php

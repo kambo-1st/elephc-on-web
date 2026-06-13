@@ -61,6 +61,7 @@ pub(in crate::codegen::wasm::module) fn collect_function_possible_callable_param
             function_params,
             function_param_kinds,
             function_defaults,
+            constants,
         );
     }
     finalize_param_metadata(states)
@@ -75,6 +76,7 @@ fn collect_possible_callable_param_targets_in_stmt(
     function_params: &HashMap<String, Vec<String>>,
     function_param_kinds: &HashMap<String, Vec<LocalKind>>,
     function_defaults: &HashMap<String, Vec<Option<Expr>>>,
+    constants: &HashMap<String, ConstantValue>,
 ) {
     if let StmtKind::Assign { name, value } | StmtKind::TypedAssign { name, value, .. } = &stmt.kind {
         if let Some(targets) = callable_targets_for_param_metadata(
@@ -82,6 +84,7 @@ fn collect_possible_callable_param_targets_in_stmt(
             local_callable_targets,
             callable_return_targets,
             possible_callable_return_targets,
+            constants,
         ) {
             local_callable_targets.insert(name.clone(), targets);
         } else {
@@ -112,6 +115,7 @@ fn collect_possible_callable_param_targets_in_stmt(
                         local_callable_targets,
                         callable_return_targets,
                         possible_callable_return_targets,
+                        constants,
                     )
                 });
             merge_callable_param_metadata(states, &key, index, param_kinds.len(), value);
@@ -148,8 +152,44 @@ fn callable_targets_for_param_metadata(
     local_callable_targets: &HashMap<String, Vec<String>>,
     callable_return_targets: &HashMap<String, String>,
     possible_callable_return_targets: &HashMap<String, Vec<String>>,
+    constants: &HashMap<String, ConstantValue>,
 ) -> Option<Vec<String>> {
     match &expr.kind {
+        ExprKind::StringLiteral(name) => Some(vec![name.clone()]),
+        ExprKind::ConstRef(name) => match constants.get(name.as_str())? {
+            ConstantValue::Str(value) => Some(vec![value.clone()]),
+            _ => None,
+        },
+        ExprKind::BinaryOp {
+            left,
+            op: BinOp::Concat,
+            right,
+        } => {
+            let prefixes = callable_targets_for_param_metadata(
+                left,
+                local_callable_targets,
+                callable_return_targets,
+                possible_callable_return_targets,
+                constants,
+            )?;
+            let suffixes = callable_targets_for_param_metadata(
+                right,
+                local_callable_targets,
+                callable_return_targets,
+                possible_callable_return_targets,
+                constants,
+            )?;
+            let mut targets = Vec::new();
+            for prefix in &prefixes {
+                for suffix in &suffixes {
+                    push_unique_callable_param_target(
+                        &mut targets,
+                        format!("{}{}", prefix, suffix),
+                    );
+                }
+            }
+            Some(targets)
+        }
         ExprKind::FirstClassCallable(CallableTarget::Function(name)) => {
             Some(vec![name.to_string()])
         }
@@ -180,12 +220,14 @@ fn callable_targets_for_param_metadata(
                 local_callable_targets,
                 callable_return_targets,
                 possible_callable_return_targets,
+                constants,
             )?;
             for target in callable_targets_for_param_metadata(
                 else_expr,
                 local_callable_targets,
                 callable_return_targets,
                 possible_callable_return_targets,
+                constants,
             )? {
                 push_unique_callable_param_target(&mut targets, target);
             }
