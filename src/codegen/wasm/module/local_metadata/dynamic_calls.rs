@@ -438,6 +438,8 @@ fn dynamic_builtin_callback_local_kind(
             | "html_entity_decode"
             | "md5"
             | "sha1"
+            | "basename"
+            | "dirname"
     ) {
         return Some(LocalKind::Str);
     }

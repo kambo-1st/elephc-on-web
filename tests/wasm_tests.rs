@@ -24160,10 +24160,14 @@ fn test_wasm32_web_e2e_matches_php_call_user_func_dynamic_builtin_callback_names
         r#"<?php
 function runtime_builtin_call_flag(): bool { return strlen("yes") === 3; }
 function choose_dynamic_builtin_call(bool $flag): string { echo "builtin-pick\n"; return $flag ? "strtoupper" : "strtolower"; }
+function choose_dynamic_path_string_builtin(bool $flag): string { echo "path-pick\n"; return $flag ? "basename" : "dirname"; }
 echo call_user_func(choose_dynamic_builtin_call(runtime_builtin_call_flag()), "web") . "\n";
 $value = call_user_func(choose_dynamic_builtin_call(false), "WEB");
 echo strlen($value) . ":" . $value . "\n";
 echo call_user_func_array(choose_dynamic_builtin_call(false), ["WEB"]) . "\n";
+$base = call_user_func(choose_dynamic_path_string_builtin(true), "/tmp/web.php");
+$dir = call_user_func_array(choose_dynamic_path_string_builtin(false), ["/tmp/web.php"]);
+echo $base . ":" . $dir . "\n";
 "#,
     );
 }
