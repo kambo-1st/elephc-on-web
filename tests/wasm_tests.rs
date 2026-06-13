@@ -30845,6 +30845,25 @@ echo $callback(12) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_callable_typed_function_returns_static_method_aliases() {
+    assert_wasm_matches_php(
+        r#"<?php
+class MathBox {
+    public static function add_three(int $value): int {
+        return $value + 3;
+    }
+}
+function make_callback(bool $flag): callable {
+    $callback = MathBox::add_three(...);
+    return $flag ? $callback : MathBox::add_three(...);
+}
+$callback = make_callback(true);
+echo $callback(12) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_array_reduce_string_callback_null_values_are_rejected() {
     let source = r#"<?php
 function join_word(string $carry, string $value): string {
