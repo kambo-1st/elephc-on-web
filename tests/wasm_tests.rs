@@ -1964,6 +1964,13 @@ fn test_wasm32_web_e2e_matches_php_object_is_a_exact_and_assigned() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_is_a_runtime_target_strings() {
+    assert_wasm_matches_php(
+        "<?php\ninterface RuntimeIsANamed {}\nclass RuntimeIsABase {}\nclass RuntimeIsAChild extends RuntimeIsABase implements RuntimeIsANamed {}\nclass RuntimeIsAOther {}\nfunction runtime_is_a_value(): RuntimeIsAChild { echo \"value\\n\"; return new RuntimeIsAChild(); }\nfunction runtime_is_a_suffix(string $value): string { echo \"target\\n\"; return $value; }\n$prefix = \"RuntimeIsA\";\n$o = new RuntimeIsAChild();\necho (is_a($o, $prefix . runtime_is_a_suffix(\"Base\")) ? 1 : 0) . \":\";\necho (is_a($o, $prefix . runtime_is_a_suffix(\"Named\")) ? 1 : 0) . \":\";\necho (is_a($o, $prefix . runtime_is_a_suffix(\"Other\")) ? 1 : 0) . \":\";\necho (is_a(runtime_is_a_value(), $prefix . runtime_is_a_suffix(\"Base\")) ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_is_a_chained_property() {
     assert_wasm_matches_php(
         "<?php\nclass Child {}\nclass Other {}\nclass Box { public Child $child; }\n$o = new Box();\n$o->child = new Child();\necho (is_a($o->child, Child::class) ? 1 : 0) . \",\" . (is_a($o->child, \"Other\") ? 1 : 0) . \"\\n\";\n",
@@ -2800,6 +2807,13 @@ fn test_wasm32_web_e2e_matches_php_object_is_a_assigned_string_class_mode_helper
 fn test_wasm32_web_e2e_matches_php_object_is_subclass_of_exact_false_and_assigned() {
     assert_wasm_matches_php(
         "<?php\nclass ParentBox {}\nclass Box extends ParentBox {}\nclass Other {}\nfunction object_subclass_value(): Box { echo \"value\\n\"; return new Box(); }\nfunction object_subclass_target(): string { echo \"target\\n\"; return \"ParentBox\"; }\nfunction object_subclass_other(): string { echo \"other\\n\"; return \"Other\"; }\n$o = new Box();\n$ok = is_subclass_of($o, Box::class);\necho ($ok ? 1 : 0) . \",\" . (is_subclass_of($o, \"Other\") ? 1 : 0) . \",\" . (is_subclass_of(42, Box::class) ? 1 : 0) . \":\";\necho (is_subclass_of($o, object_subclass_target()) ? 1 : 0); echo \":\";\necho (is_subclass_of(42, object_subclass_other()) ? 1 : 0); echo \":\";\necho (is_subclass_of(object_subclass_value(), object_subclass_target()) ? 1 : 0); echo \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_object_is_subclass_of_runtime_target_strings() {
+    assert_wasm_matches_php(
+        "<?php\ninterface RuntimeSubNamed {}\nclass RuntimeSubBase {}\nclass RuntimeSubChild extends RuntimeSubBase implements RuntimeSubNamed {}\nclass RuntimeSubOther {}\nfunction runtime_sub_value(): RuntimeSubChild { echo \"value\\n\"; return new RuntimeSubChild(); }\nfunction runtime_sub_suffix(string $value): string { echo \"target\\n\"; return $value; }\n$prefix = \"RuntimeSub\";\n$o = new RuntimeSubChild();\necho (is_subclass_of($o, $prefix . runtime_sub_suffix(\"Base\")) ? 1 : 0) . \":\";\necho (is_subclass_of($o, $prefix . runtime_sub_suffix(\"Named\")) ? 1 : 0) . \":\";\necho (is_subclass_of($o, $prefix . runtime_sub_suffix(\"Child\")) ? 1 : 0) . \":\";\necho (is_subclass_of($o, $prefix . runtime_sub_suffix(\"Other\")) ? 1 : 0) . \":\";\necho (is_subclass_of(runtime_sub_value(), $prefix . runtime_sub_suffix(\"Base\")) ? 1 : 0) . \"\\n\";\n",
     );
 }
 

@@ -14,6 +14,7 @@
 
 use super::*;
 use crate::codegen::wasm::expr::array_value_cells::emit_store_emitted_value_kind;
+use crate::codegen::wasm::expr::existence::emit_runtime_string_matches_any;
 use crate::codegen::wasm::module::{
     method_call_return_key, static_method_call_return_key, ObjectClassInfo, ObjectPropertyInfo,
     ObjectPropertyKind, ObjectStaticPropertyInfo, EnumCaseBackingValue,
@@ -2227,6 +2228,31 @@ pub(in crate::codegen::wasm) fn emit_is_a_call(
             ));
         }
     }
+    if static_class_string_value(&args[1], module).is_none() && expression_is_stringy(&args[1], module) {
+        if let Some(value_class) = object_class_name_for_expr(&args[0], module) {
+            let kind = emit_expr(&args[0], module)?;
+            let target_var = runtime_string_arg_or_materialize(&args[1], "is_a_target", module)?
+                .ok_or_else(|| {
+                    CompileError::new(
+                        args[1].span,
+                        "wasm32-web is_a() currently requires a string target",
+                    )
+                })?;
+            if kind != ValueKind::Object {
+                emit_drop_value_kind(kind, module);
+                module.body().line("i32.const 0");
+                return Ok(ValueKind::Bool);
+            }
+            module.body().line("drop");
+            emit_runtime_string_matches_any(
+                "is_a_target",
+                runtime_class_match_targets(&value_class, false, call, module)?,
+                &target_var,
+                module,
+            );
+            return Ok(ValueKind::Bool);
+        }
+    }
     let target = static_class_string_value(&args[1], module).ok_or_else(|| {
         CompileError::new(
             args[1].span,
@@ -2278,6 +2304,32 @@ pub(in crate::codegen::wasm) fn emit_is_subclass_of_call(
                 call.span,
                 "wasm32-web is_subclass_of() string class mode currently requires a static class-string value",
             ));
+        }
+    }
+    if static_class_string_value(&args[1], module).is_none() && expression_is_stringy(&args[1], module) {
+        if let Some(value_class) = object_class_name_for_expr(&args[0], module) {
+            let kind = emit_expr(&args[0], module)?;
+            let target_var =
+                runtime_string_arg_or_materialize(&args[1], "is_subclass_of_target", module)?
+                    .ok_or_else(|| {
+                        CompileError::new(
+                            args[1].span,
+                            "wasm32-web is_subclass_of() currently requires a string target",
+                        )
+                    })?;
+            if kind != ValueKind::Object {
+                emit_drop_value_kind(kind, module);
+                module.body().line("i32.const 0");
+                return Ok(ValueKind::Bool);
+            }
+            module.body().line("drop");
+            emit_runtime_string_matches_any(
+                "is_subclass_of_target",
+                runtime_class_match_targets(&value_class, true, call, module)?,
+                &target_var,
+                module,
+            );
+            return Ok(ValueKind::Bool);
         }
     }
     let target = static_class_string_value(&args[1], module).ok_or_else(|| {
@@ -4094,6 +4146,26 @@ fn static_class_string_object_match(
         return Ok(false);
     }
     static_object_class_match(value_class, target, exclude_self, expr, module)
+}
+
+fn runtime_class_match_targets(
+    value_class: &str,
+    exclude_self: bool,
+    expr: &Expr,
+    module: &WasmModule,
+) -> Result<Vec<String>, CompileError> {
+    let mut candidates = Vec::new();
+    candidates.extend(module.declared_type_names("class_exists"));
+    candidates.extend(module.declared_type_names("interface_exists"));
+    candidates.sort();
+    candidates.dedup();
+    let mut matches = Vec::new();
+    for target in candidates {
+        if static_object_class_match(value_class, &target, exclude_self, expr, module)? {
+            matches.push(target);
+        }
+    }
+    Ok(matches)
 }
 
 fn static_class_string_value(expr: &Expr, module: &WasmModule) -> Option<String> {

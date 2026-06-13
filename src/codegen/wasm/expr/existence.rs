@@ -122,7 +122,7 @@ fn emit_runtime_declared_type_exists(kind: &str, var: &str, module: &mut WasmMod
     emit_runtime_string_matches_any("type_exists", module.declared_type_names(kind), var, module);
 }
 
-fn emit_runtime_string_matches_any(
+pub(super) fn emit_runtime_string_matches_any(
     prefix: &str,
     candidates: Vec<String>,
     var: &str,
