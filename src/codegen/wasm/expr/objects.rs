@@ -3611,6 +3611,9 @@ fn matches_static_backed_enum_object_lookup(
     let Some(arg) = args.first() else {
         return false;
     };
+    if module.enum_case_names(receiver_class).is_some() {
+        return true;
+    }
     let backing_value = static_or_module_const_int_value(arg, module)
         .map(EnumCaseBackingValue::Int)
         .or_else(|| static_string_value(arg, module).map(EnumCaseBackingValue::Str));

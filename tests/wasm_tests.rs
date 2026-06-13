@@ -39529,6 +39529,26 @@ echo get_class(Direction::tryFrom("N")) . ":" . Direction::tryFrom("S")->value .
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_backed_enum_from_and_try_from_local_args() {
+    assert_wasm_matches_php(
+        r#"<?php
+enum LocalStatus: int {
+    case Draft = 10;
+    case Published = 20;
+}
+enum LocalDirection: string {
+    case North = "N";
+    case South = "S";
+}
+$id = 20;
+$code = "N";
+echo get_class(LocalStatus::from($id)) . ":" . LocalStatus::from($id)->value . "\n";
+echo get_class(LocalDirection::tryFrom($code)) . ":" . LocalDirection::tryFrom($code)->value . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_enum_cases_array_filter_get_class() {
     assert_wasm_matches_php(
         r#"<?php

@@ -102,27 +102,25 @@ pub(super) fn emit_backed_enum_lookup_call(
             "wasm32-web backed enum lookup expects exactly one argument",
         ));
     }
-    let backing_value = static_backed_enum_lookup_value(&args[0], module).ok_or_else(|| {
-        CompileError::new(
-            args[0].span,
-            "wasm32-web backed enum lookup requires a static int or string value",
-        )
-    })?;
-    let Some(case_name) = module.enum_case_name_for_backing_value(&class_name, &backing_value)
-    else {
-        return Err(CompileError::new(
+    if let Some(backing_value) = static_backed_enum_lookup_value(&args[0], module) {
+        let Some(case_name) = module.enum_case_name_for_backing_value(&class_name, &backing_value)
+        else {
+            return Err(CompileError::new(
+                expr.span,
+                "wasm32-web backed enum lookup requires a statically matching case value",
+            ));
+        };
+        let case_expr = Expr::new(
+            ExprKind::ScopedConstantAccess {
+                receiver: receiver.clone(),
+                name: case_name.clone(),
+            },
             expr.span,
-            "wasm32-web backed enum lookup requires a statically matching case value",
-        ));
-    };
-    let case_expr = Expr::new(
-        ExprKind::ScopedConstantAccess {
-            receiver: receiver.clone(),
-            name: case_name.clone(),
-        },
-        expr.span,
-    );
-    emit_enum_case_expr(&case_expr, receiver, &case_name, module)?;
+        );
+        emit_enum_case_expr(&case_expr, receiver, &case_name, module)?;
+        return Ok(Some(ValueKind::Object));
+    }
+    emit_dynamic_backed_enum_lookup(expr, receiver, &class_name, method, &args[0], module)?;
     Ok(Some(ValueKind::Object))
 }
 
@@ -134,6 +132,223 @@ fn static_backed_enum_lookup_value(
         return Some(EnumCaseBackingValue::Int(value));
     }
     static_string_value(expr, module).map(EnumCaseBackingValue::Str)
+}
+
+fn emit_dynamic_backed_enum_lookup(
+    expr: &Expr,
+    receiver: &StaticReceiver,
+    class_name: &str,
+    method: &str,
+    arg: &Expr,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let cases = module.enum_case_names(class_name).ok_or_else(|| {
+        CompileError::new(expr.span, "wasm32-web backed enum lookup requires enum metadata")
+    })?;
+    let values = cases
+        .iter()
+        .map(|case| {
+            module.enum_case_backing_value(receiver, case).ok_or_else(|| {
+                CompileError::new(expr.span, "wasm32-web backed enum lookup requires backed cases")
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    match values.first() {
+        Some(EnumCaseBackingValue::Int(_))
+            if values.iter().all(|value| matches!(value, EnumCaseBackingValue::Int(_))) =>
+        {
+            emit_dynamic_int_backed_enum_lookup(expr, receiver, method, arg, &cases, &values, module)
+        }
+        Some(EnumCaseBackingValue::Str(_))
+            if values.iter().all(|value| matches!(value, EnumCaseBackingValue::Str(_))) =>
+        {
+            emit_dynamic_string_backed_enum_lookup(
+                expr, receiver, method, arg, &cases, &values, module,
+            )
+        }
+        _ => Err(CompileError::new(
+            expr.span,
+            "wasm32-web backed enum lookup requires consistent int or string backing values",
+        )),
+    }
+}
+
+fn emit_dynamic_int_backed_enum_lookup(
+    expr: &Expr,
+    receiver: &StaticReceiver,
+    method: &str,
+    arg: &Expr,
+    cases: &[String],
+    values: &[EnumCaseBackingValue],
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let needle = module
+        .next_label("enum_lookup_int_value")
+        .trim_start_matches('$')
+        .to_string();
+    let result = module
+        .next_label("enum_lookup_result")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_i64_local(needle.clone());
+    module.declare_i32_local(result.clone());
+    let kind = emit_expr(arg, module)?;
+    if kind != ValueKind::Int {
+        return Err(CompileError::new(
+            arg.span,
+            "wasm32-web backed enum int lookup requires an int argument",
+        ));
+    }
+    module.body().line(&format!("local.set ${}", needle));
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set ${}", result));
+    for (case, value) in cases.iter().zip(values) {
+        let EnumCaseBackingValue::Int(value) = value else {
+            unreachable!("validated int-backed enum values");
+        };
+        module.body().line(&format!("local.get ${}", needle));
+        module.body().line(&format!("i64.const {}", value));
+        module.body().line("i64.eq");
+        module.body().open("if");
+        let case_expr = Expr::new(
+            ExprKind::ScopedConstantAccess {
+                receiver: receiver.clone(),
+                name: case.clone(),
+            },
+            expr.span,
+        );
+        emit_enum_case_expr(&case_expr, receiver, case, module)?;
+        module.body().line(&format!("local.set ${}", result));
+        module.body().close("end");
+    }
+    emit_dynamic_backed_enum_miss(method, &result, module);
+    module.body().line(&format!("local.get ${}", result));
+    Ok(())
+}
+
+fn emit_dynamic_string_backed_enum_lookup(
+    expr: &Expr,
+    receiver: &StaticReceiver,
+    method: &str,
+    arg: &Expr,
+    cases: &[String],
+    values: &[EnumCaseBackingValue],
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let needle_ptr = module
+        .next_label("enum_lookup_str_ptr")
+        .trim_start_matches('$')
+        .to_string();
+    let needle_len = module
+        .next_label("enum_lookup_str_len")
+        .trim_start_matches('$')
+        .to_string();
+    let result = module
+        .next_label("enum_lookup_result")
+        .trim_start_matches('$')
+        .to_string();
+    for local in [&needle_ptr, &needle_len, &result] {
+        module.declare_i32_local(local.clone());
+    }
+    emit_string_value_to_stack(arg, module)?;
+    module.body().line(&format!("local.set ${}", needle_len));
+    module.body().line(&format!("local.set ${}", needle_ptr));
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set ${}", result));
+    for (case, value) in cases.iter().zip(values) {
+        let EnumCaseBackingValue::Str(value) = value else {
+            unreachable!("validated string-backed enum values");
+        };
+        let (ptr, len) = module.intern_string(value);
+        emit_runtime_string_literal_match(&needle_ptr, &needle_len, ptr, len, module);
+        module.body().open("if");
+        let case_expr = Expr::new(
+            ExprKind::ScopedConstantAccess {
+                receiver: receiver.clone(),
+                name: case.clone(),
+            },
+            expr.span,
+        );
+        emit_enum_case_expr(&case_expr, receiver, case, module)?;
+        module.body().line(&format!("local.set ${}", result));
+        module.body().close("end");
+    }
+    emit_dynamic_backed_enum_miss(method, &result, module);
+    module.body().line(&format!("local.get ${}", result));
+    Ok(())
+}
+
+fn emit_runtime_string_literal_match(
+    needle_ptr: &str,
+    needle_len: &str,
+    literal_ptr: usize,
+    literal_len: usize,
+    module: &mut WasmModule,
+) {
+    let index = module
+        .next_label("enum_lookup_str_index")
+        .trim_start_matches('$')
+        .to_string();
+    let matched = module
+        .next_label("enum_lookup_str_match")
+        .trim_start_matches('$')
+        .to_string();
+    let done = module.next_label("enum_lookup_str_done");
+    let loop_label = module.next_label("enum_lookup_str_loop");
+    module.declare_i32_local(index.clone());
+    module.declare_i32_local(matched.clone());
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set ${}", matched));
+    module.body().line(&format!("local.get ${}", needle_len));
+    module.body().line(&format!("i32.const {}", literal_len));
+    module.body().line("i32.eq");
+    module.body().open("if");
+    module.body().line("i32.const 1");
+    module.body().line(&format!("local.set ${}", matched));
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set ${}", index));
+    module.body().open(&format!("block {}", done));
+    module.body().open(&format!("loop {}", loop_label));
+    module.body().line(&format!("local.get ${}", index));
+    module.body().line(&format!("i32.const {}", literal_len));
+    module.body().line("i32.ge_u");
+    module.body().line(&format!("br_if {}", done));
+    module.body().line(&format!("local.get ${}", needle_ptr));
+    module.body().line(&format!("local.get ${}", index));
+    module.body().line("i32.add");
+    module.body().line("i32.load8_u");
+    module.body().line(&format!("i32.const {}", literal_ptr));
+    module.body().line(&format!("local.get ${}", index));
+    module.body().line("i32.add");
+    module.body().line("i32.load8_u");
+    module.body().line("i32.ne");
+    module.body().open("if");
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set ${}", matched));
+    module.body().line(&format!("br {}", done));
+    module.body().close("end");
+    module.body().line(&format!("local.get ${}", index));
+    module.body().line("i32.const 1");
+    module.body().line("i32.add");
+    module.body().line(&format!("local.set ${}", index));
+    module.body().line(&format!("br {}", loop_label));
+    module.body().close("end");
+    module.body().close("end");
+    module.body().close("end");
+    module.body().line(&format!("local.get ${}", matched));
+}
+
+fn emit_dynamic_backed_enum_miss(method: &str, result: &str, module: &mut WasmModule) {
+    module.body().line(&format!("local.get ${}", result));
+    module.body().line("i32.eqz");
+    module.body().open("if");
+    module.body().line("unreachable");
+    if method.eq_ignore_ascii_case("tryFrom") {
+        module
+            .body()
+            .line(";; wasm32-web tryFrom() misses need nullable enum metadata");
+    }
+    module.body().close("end");
 }
 
 pub(super) fn emit_enum_cases_array_assign(
