@@ -39671,6 +39671,18 @@ echo get_class($south) . ":" . $south->value . ":" . ($south === Direction::Sout
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_backed_enum_try_from_static_miss_null() {
+    assert_wasm_matches_php(
+        r#"<?php
+enum MissingStatus: int {
+    case Draft = 10;
+}
+echo gettype(MissingStatus::tryFrom(99)) . ":" . (is_null(MissingStatus::tryFrom(99)) ? 1 : 0) . ":" . (empty(MissingStatus::tryFrom(99)) ? 1 : 0) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_backed_enum_from_missing_value_is_rejected() {
     let program = parse_program(
         r#"<?php
@@ -39682,27 +39694,6 @@ Status::from(99);
     );
     let err = generate(&program, WasmOutputFormat::Wat)
         .expect_err("wasm backed enum from() miss needs runtime ValueError support");
-
-    assert!(
-        err.message
-            .contains("backed enum lookup requires a statically matching case value"),
-        "unexpected error: {}",
-        err.message
-    );
-}
-
-#[test]
-fn test_wasm32_web_backed_enum_try_from_missing_value_is_rejected() {
-    let program = parse_program(
-        r#"<?php
-enum Status: int {
-    case Draft = 10;
-}
-Status::tryFrom(99);
-"#,
-    );
-    let err = generate(&program, WasmOutputFormat::Wat)
-        .expect_err("wasm backed enum tryFrom() miss needs nullable enum metadata");
 
     assert!(
         err.message

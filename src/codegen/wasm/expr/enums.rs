@@ -105,6 +105,10 @@ pub(super) fn emit_backed_enum_lookup_call(
     if let Some(backing_value) = static_backed_enum_lookup_value(&args[0], module) {
         let Some(case_name) = module.enum_case_name_for_backing_value(&class_name, &backing_value)
         else {
+            if method.eq_ignore_ascii_case("tryFrom") {
+                module.body().line("i32.const 0");
+                return Ok(Some(ValueKind::Null));
+            }
             return Err(CompileError::new(
                 expr.span,
                 "wasm32-web backed enum lookup requires a statically matching case value",
