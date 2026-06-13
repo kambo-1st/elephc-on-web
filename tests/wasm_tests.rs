@@ -31633,6 +31633,35 @@ echo "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_array_filter_callable_method_return_descriptor() {
+    assert_wasm_matches_php(
+        r#"<?php
+class MethodArrayFilterCallback {
+    public static function keep_big(int $x): bool { return $x > 2; }
+    public static function keep_even(int $x): bool { return ($x % 2) === 0; }
+    public function choose(bool $flag): callable {
+        return $flag ? MethodArrayFilterCallback::keep_big(...) : MethodArrayFilterCallback::keep_even(...);
+    }
+    public static function staticChoose(bool $flag): callable {
+        return $flag ? MethodArrayFilterCallback::keep_even(...) : MethodArrayFilterCallback::keep_big(...);
+    }
+}
+$factory = new MethodArrayFilterCallback();
+$filtered = array_filter([1, 2, 3, 4], $factory->choose(true));
+foreach ($filtered as $key => $value) {
+    echo $key . ":" . $value . "|";
+}
+echo "\n";
+$filtered_static = array_filter([1, 2, 3, 4], MethodArrayFilterCallback::staticChoose(true));
+foreach ($filtered_static as $key => $value) {
+    echo $key . ":" . $value . "|";
+}
+echo "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_array_callbacks_string_piece_names() {
     assert_wasm_matches_php(
         r#"<?php
