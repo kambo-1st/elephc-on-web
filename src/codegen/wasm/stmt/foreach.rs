@@ -27,7 +27,7 @@ use compact::{
 use value::{emit_value_array_foreach, emit_value_array_foreach_by_ref};
 use super::super::expr::{
     array_literal_needs_value_cells, emit_assoc_array_items_assign, emit_array_assign,
-    emit_array_value_to_stack, emit_expr, emit_value_array_items_assign,
+    callable_expr_return_kind, emit_array_value_to_stack, emit_expr, emit_value_array_items_assign,
     emit_value_cell_address_for_local, method_call_array_return_metadata,
     nested_array_metadata_for_access_expr, normalize_assoc_items, object_class_name_for_expr,
     static_method_call_array_return_metadata,
@@ -199,6 +199,23 @@ pub(super) fn emit_foreach(
             {
                 module.set_array_key_kinds(&temp, Some(vec![AssocKeyKind::Int]));
             }
+            if module.array_layout(&temp) == ArrayLayout::Assoc {
+                return emit_assoc_array_foreach(&temp, key_var, value_var, body, module);
+            }
+            if module.array_layout(&temp) == ArrayLayout::Value {
+                return emit_value_array_foreach(&temp, key_var, value_var, body, module);
+            }
+            return emit_compact_array_foreach(&temp, key_var, value_var, body, module);
+        }
+    }
+    if let ExprKind::ExprCall { callee, args } = &array.kind {
+        if callable_expr_return_kind(module, callee, args) == Some(ValueKind::Array) {
+            let temp = module
+                .next_label("foreach_callable_expr_array_return")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_array_local(temp.clone());
+            emit_array_assign(&temp, array, module)?;
             if module.array_layout(&temp) == ArrayLayout::Assoc {
                 return emit_assoc_array_foreach(&temp, key_var, value_var, body, module);
             }

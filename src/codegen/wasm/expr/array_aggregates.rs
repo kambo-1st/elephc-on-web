@@ -78,6 +78,24 @@ pub(super) fn emit_count_call(
             emit_runtime_checked_mixed_array_count_from_cell(&format!("${}", name), module);
             Ok(ValueKind::Int)
         }
+        ExprKind::ExprCall {
+            callee,
+            args: call_args,
+        } if callable_expr_return_kind(module, callee, call_args) == Some(ValueKind::Array) =>
+        {
+            let len = module.next_label("count_callable_expr_array_len");
+            module.declare_i32_local(len.trim_start_matches('$').to_string());
+            match emit_callable_expr_call(&args[0], callee, call_args, module)? {
+                ValueKind::Array => {
+                    module.body().line(&format!("local.set {}", len));
+                    module.body().line("drop");
+                    module.body().line(&format!("local.get {}", len));
+                    module.body().line("i64.extend_i32_u");
+                    Ok(ValueKind::Int)
+                }
+                _ => unreachable!("array-returning callable expression metadata must emit an array value"),
+            }
+        }
         ExprKind::MethodCall { object, method, .. }
         | ExprKind::NullsafeMethodCall { object, method, .. }
             if method_call_return_kind(object, method, module) == Some(ValueKind::Array) =>

@@ -2619,7 +2619,7 @@ pub(super) fn callable_variable_target(module: &WasmModule, var: &str) -> Option
     module.callable_target(var).or_else(|| module.string_static_value(var))
 }
 
-pub(super) fn callable_expr_return_kind(
+pub(in crate::codegen::wasm) fn callable_expr_return_kind(
     module: &WasmModule,
     callee: &Expr,
     args: &[Expr],

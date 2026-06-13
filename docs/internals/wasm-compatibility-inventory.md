@@ -49,7 +49,7 @@ Callable inventory notes:
 - Finite callable-return descriptors are now accepted by `is_callable()` after evaluating the descriptor-producing expression for PHP-visible side effects.
 - Finite callable-return descriptors can also be invoked as expression calls, including through pipe callables, when all possible targets have compatible argument and return metadata.
 - Assigned string results from finite function, named static-method, direct new-object method, known object-local method, and known-non-null nullsafe new-object/object-local method callable-return expression calls keep string local metadata for downstream string consumers such as `strlen()`.
-- Assigned array results from finite function, named static-method, direct new-object method, known object-local method, and known-non-null nullsafe object-local method callable-return expression calls keep array length/value metadata for downstream `count()` and by-value `foreach` consumers when every possible callable target has matching array metadata.
+- Assigned array results from finite function, named static-method, direct new-object method, known object-local method, and known-non-null nullsafe object-local method callable-return expression calls keep array length/value metadata for downstream `count()` and by-value `foreach` consumers when every possible callable target has matching array metadata; direct `count()` and direct by-value `foreach` over these callable-return array expression calls also work.
 
 ## Operators
 

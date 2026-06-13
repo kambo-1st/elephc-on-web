@@ -30963,6 +30963,14 @@ echo count($nullsafeItems) . "\n";
 foreach ($nullsafeItems as $item) {
     echo $item . "\n";
 }
+echo count(make_callable_expr_array()("direct-count")) . "\n";
+echo count((CallableExprFactory::makeArray())("direct-static-count")) . "\n";
+foreach (make_callable_expr_array()("direct-foreach") as $item) {
+    echo $item . "\n";
+}
+foreach (($factory->makeInstanceArray())("direct-local-foreach") as $item) {
+    echo $item . "\n";
+}
 "#,
     );
 }
