@@ -35719,6 +35719,7 @@ wasm_oracle_cases! {
     test_wasm32_web_e2e_matches_php_number_format_variable_negative_integer => "<?php\n$n = -1234567;\necho number_format($n) . \"\\n\";\n",
     test_wasm32_web_e2e_matches_php_number_format_variable_zero => "<?php\n$n = 0;\necho number_format($n) . \"\\n\";\n",
     test_wasm32_web_e2e_matches_php_number_format_variable_decimals => "<?php\n$n = 1234567;\necho number_format($n, 2) . \"\\n\";\n",
+    test_wasm32_web_e2e_matches_php_number_format_expression_decimals => "<?php\nfunction decimals(): int { return strlen(\"abc\") - 1; }\n$n = 1234567;\necho number_format($n, decimals()) . \"\\n\";\n$value = number_format($n, decimals() + 1, \".\", \"\");\necho strlen($value) . \":\" . $value[0] . \":\" . $value[-1] . \"\\n\";\n",
     test_wasm32_web_e2e_matches_php_number_format_variable_decimal_count => "<?php\n$n = 1234567;\n$d = 2;\necho number_format($n, $d) . \"\\n\";\n",
     test_wasm32_web_e2e_matches_php_number_format_variable_float_decimal_count => "<?php\n$n = 1234567;\n$d = 2.9;\necho number_format($n, $d) . \"\\n\";\n",
     test_wasm32_web_e2e_matches_php_number_format_variable_custom_separators => "<?php\n$n = -1234567;\necho number_format($n, 2, \":\", \"_\") . \"\\n\";\n",

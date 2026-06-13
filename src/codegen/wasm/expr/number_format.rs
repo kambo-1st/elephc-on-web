@@ -426,10 +426,14 @@ pub(super) fn runtime_number_format_decimals<'a>(
         module.body().line(&format!("local.set ${}", local));
         return Ok(RuntimeNumberFormatDecimals::Variable(Cow::Owned(local)));
     }
-    Err(CompileError::new(
-        call.span,
-        "wasm32-web number_format() currently requires a literal, integer-local, float-local, or bool-local decimals argument",
-    ))
+    let local = module
+        .next_label("number_format_decimals_expr")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_i64_local(local.clone());
+    require_int(arg, module)?;
+    module.body().line(&format!("local.set ${}", local));
+    return Ok(RuntimeNumberFormatDecimals::Variable(Cow::Owned(local)));
 }
 
 fn static_float_decimal_value(expr: &Expr) -> Option<i64> {
