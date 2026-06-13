@@ -243,9 +243,33 @@ impl WasmModule {
     pub(in crate::codegen::wasm) fn set_callable_target(&mut self, name: &str, target: Option<String>) {
         if let Some(target) = target {
             self.current.callable_targets.insert(name.to_string(), target);
+            self.current.possible_callable_targets.remove(name);
             self.current.callable_instance_targets.remove(name);
         } else {
             self.current.callable_targets.remove(name);
+        }
+    }
+
+    pub(in crate::codegen::wasm) fn possible_callable_targets(&self, name: &str) -> Option<&[String]> {
+        self.current
+            .possible_callable_targets
+            .get(name)
+            .map(Vec::as_slice)
+    }
+
+    pub(in crate::codegen::wasm) fn set_possible_callable_targets(
+        &mut self,
+        name: &str,
+        targets: Option<Vec<String>>,
+    ) {
+        if let Some(targets) = targets {
+            self.current
+                .possible_callable_targets
+                .insert(name.to_string(), targets);
+            self.current.callable_targets.remove(name);
+            self.current.callable_instance_targets.remove(name);
+        } else {
+            self.current.possible_callable_targets.remove(name);
         }
     }
 
@@ -261,6 +285,7 @@ impl WasmModule {
         if let Some(target) = target {
             self.current.callable_instance_targets.insert(name.to_string(), target);
             self.current.callable_targets.remove(name);
+            self.current.possible_callable_targets.remove(name);
         } else {
             self.current.callable_instance_targets.remove(name);
         }

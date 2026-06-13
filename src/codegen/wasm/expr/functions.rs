@@ -46,6 +46,9 @@ pub(super) fn emit_call_user_func_call(
         if let Some(target) = invokable_object_target(module, var) {
             return emit_instance_callable_target(expr, &target, var, &args[1..], module);
         }
+        if let Some(kind) = dynamic_callable_local_return_kind(var, &args[1..], module)? {
+            return emit_dynamic_callable_local_dispatch(expr, var, &args[1..], kind, module);
+        }
     }
     if let Some(Expr {
         kind: ExprKind::FirstClassCallable(CallableTarget::Method { object, method }),
@@ -505,14 +508,45 @@ pub(super) fn emit_callable_assign(
             module.set_callable_instance_target(name, Some((target, capture_local)));
             Ok(())
         }
+        ExprKind::Variable(source) if module.possible_callable_targets(source).is_some() => {
+            let targets = module
+                .possible_callable_targets(source)
+                .expect("possible callable targets were checked above")
+                .to_vec();
+            module.declare_i32_local(name.to_string());
+            module.body().line(&format!("local.get ${}", source));
+            module.body().line(&format!("local.set ${}", name));
+            module.set_possible_callable_targets(name, Some(targets));
+            Ok(())
+        }
         ExprKind::FunctionCall { .. } => {
-            let Some(target) = evaluated_static_callback_function_name(value, module)? else {
+            if let Some(target) = evaluated_static_callback_function_name(value, module)? {
+                module.set_callable_target(name, Some(target));
+                return Ok(());
+            }
+            let ExprKind::FunctionCall {
+                name: function_name,
+                args,
+            } = &value.kind
+            else {
+                unreachable!("function call was matched above");
+            };
+            let Some(targets) = module
+                .function_possible_callable_return_targets(function_name.as_str())
+                .map(<[_]>::to_vec)
+            else {
                 return Err(CompileError::new(
                     value.span,
                     "wasm32-web callable-returning functions require static callable metadata",
                 ));
             };
-            module.set_callable_target(name, Some(target));
+            module.declare_i32_local(name.to_string());
+            emit_user_function_args(value, function_name, args, module)?;
+            module
+                .body()
+                .line(&format!("call ${}", wasm_function_name(function_name)));
+            module.body().line(&format!("local.set ${}", name));
+            module.set_possible_callable_targets(name, Some(targets));
             Ok(())
         }
         ExprKind::Closure { .. } | ExprKind::ClosureCall { .. } => Err(CompileError::new(
@@ -1008,6 +1042,9 @@ pub(super) fn call_user_func_return_kind(
         }
         if let Some(target) = invokable_object_target(module, var) {
             return callable_return_kind(&target, &args[1..], module);
+        }
+        if let Ok(Some(kind)) = dynamic_callable_local_return_kind(var, &args[1..], module) {
+            return Some(kind);
         }
     }
     if let Some(Expr {
@@ -2231,6 +2268,9 @@ pub(super) fn emit_callable_variable_call(
     if let Some(target) = invokable_object_target(module, var) {
         return emit_instance_callable_target(expr, &target, var, args, module);
     }
+    if let Some(kind) = dynamic_callable_local_return_kind(var, args, module)? {
+        return emit_dynamic_callable_local_dispatch(expr, var, args, kind, module);
+    }
     let Some(target) = callable_variable_target(module, var) else {
         return Err(CompileError::new(
             expr.span,
@@ -2238,6 +2278,90 @@ pub(super) fn emit_callable_variable_call(
         ));
     };
     emit_static_callable_target(expr, &target, args, module)
+}
+
+fn dynamic_callable_local_return_kind(
+    var: &str,
+    args: &[Expr],
+    module: &WasmModule,
+) -> Result<Option<ValueKind>, CompileError> {
+    let Some(targets) = module.possible_callable_targets(var) else {
+        return Ok(None);
+    };
+    let mut return_kind = None;
+    for target in targets {
+        if !module.has_function(target)
+            && callable_builtin_return_kind(target, args, module).is_none()
+        {
+            return Err(CompileError::new(
+                Span::dummy(),
+                "wasm32-web dynamic callable local can only target declared user functions or supported builtins",
+            ));
+        }
+        let Some(kind) = callable_return_kind(target, args, module) else {
+            return Ok(None);
+        };
+        if return_kind.is_some_and(|existing| existing != kind) {
+            return Err(CompileError::new(
+                Span::dummy(),
+                "wasm32-web dynamic callable locals currently require callbacks with matching return kinds",
+            ));
+        }
+        return_kind = Some(kind);
+    }
+    Ok(return_kind)
+}
+
+fn emit_dynamic_callable_local_dispatch(
+    expr: &Expr,
+    var: &str,
+    args: &[Expr],
+    kind: ValueKind,
+    module: &mut WasmModule,
+) -> Result<ValueKind, CompileError> {
+    let targets = module
+        .possible_callable_targets(var)
+        .ok_or_else(|| {
+            CompileError::new(
+                expr.span,
+                "wasm32-web dynamic callable local metadata is missing",
+            )
+        })?
+        .to_vec();
+    let matched = module.next_label("callable_local_matched");
+    module.declare_i32_local(matched.trim_start_matches('$').to_string());
+    let result = module.next_label("callable_local_result");
+    let result_aux = module.next_label("callable_local_result_aux");
+    declare_dynamic_call_result_locals(kind, &result, &result_aux, module);
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", matched));
+
+    for target in targets {
+        let target_id = module.callable_target_id(&target);
+        module.body().line(&format!("local.get ${}", var));
+        module.body().line(&format!("i32.const {}", target_id));
+        module.body().line("i32.eq");
+        module.body().open("if");
+        let emitted = emit_static_callable_target(expr, &target, args, module)?;
+        if emitted != kind {
+            return Err(CompileError::new(
+                expr.span,
+                "wasm32-web dynamic callable local metadata is inconsistent",
+            ));
+        }
+        store_dynamic_call_result(kind, &result, &result_aux, module);
+        module.body().line("i32.const 1");
+        module.body().line(&format!("local.set {}", matched));
+        module.body().close("end");
+    }
+
+    module.body().line(&format!("local.get {}", matched));
+    module.body().line("i32.eqz");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    load_dynamic_call_result(kind, &result, &result_aux, module);
+    Ok(kind)
 }
 
 pub(super) fn emit_callable_expr_call(
@@ -2278,6 +2402,9 @@ pub(super) fn callable_variable_return_kind(
     }
     if let Some(target) = invokable_object_target(module, var) {
         return callable_return_kind(&target, args, module);
+    }
+    if let Ok(Some(kind)) = dynamic_callable_local_return_kind(var, args, module) {
+        return Some(kind);
     }
     callable_variable_target(module, var).and_then(|target| callable_return_kind(&target, args, module))
 }

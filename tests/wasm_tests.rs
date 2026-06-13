@@ -30816,6 +30816,49 @@ echo call_user_func_array(make_callback(false), ["right" => 3, "left" => 2]) . "
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_callable_typed_function_return_conflicts_direct_variable_call() {
+    assert_wasm_matches_php(
+        r#"<?php
+function add_one(int $value): int {
+    return $value + 1;
+}
+function double_it(int $value): int {
+    return $value * 2;
+}
+function make_callback(bool $flag): callable {
+    return $flag ? add_one(...) : double_it(...);
+}
+$callback = make_callback(true);
+$alias = make_callback(false);
+echo $callback(4) . "\n";
+echo $alias(4) . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_callable_typed_function_return_conflicts_local_alias_call_user_func() {
+    assert_wasm_matches_php(
+        r#"<?php
+function add_one(int $value): int {
+    return $value + 1;
+}
+function double_it(int $value): int {
+    return $value * 2;
+}
+function make_callback(bool $flag): callable {
+    return $flag ? add_one(...) : double_it(...);
+}
+$callback = make_callback(true);
+$alias = $callback;
+echo call_user_func($alias, 5) . "\n";
+$other = make_callback(false);
+echo call_user_func($other, 5) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_callable_typed_function_return_closures_are_rejected() {
     let source = r#"<?php
 function make_callback(): callable {
