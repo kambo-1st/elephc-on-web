@@ -865,6 +865,21 @@ fn emit_callable_arg_descriptor(
         module.body().line(&format!("i32.const {}", id));
         return Ok(());
     }
+    if let Some(target) = callable_array_target(expr, module) {
+        match target {
+            CallableArrayTarget::Static(target) => {
+                let id = module.callable_target_id(&target);
+                module.body().line(&format!("i32.const {}", id));
+                return Ok(());
+            }
+            CallableArrayTarget::Instance { .. } => {
+                return Err(CompileError::new(
+                    expr.span,
+                    "wasm32-web callable array parameters with object receivers require callable runtime support",
+                ));
+            }
+        }
+    }
     if let ExprKind::Variable(name) = &expr.kind {
         if module.possible_callable_targets(name).is_some() {
             module.body().line(&format!("local.get ${}", name));

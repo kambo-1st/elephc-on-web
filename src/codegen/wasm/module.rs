@@ -344,6 +344,7 @@ impl WasmModule {
             &function_param_kinds,
             &function_defaults,
             &constants,
+            &object_classes,
         );
         let function_possible_callable_param_targets = collect_function_possible_callable_param_targets(
             program,
@@ -351,6 +352,7 @@ impl WasmModule {
             &function_param_kinds,
             &function_defaults,
             &constants,
+            &object_classes,
         );
         for (function, param_index) in &function_array_return_param_indices {
             if function_array_param_key_kinds

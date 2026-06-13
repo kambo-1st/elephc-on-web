@@ -30849,6 +30849,29 @@ echo run_callable_param_string($prefix . $middle . "add", 6) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_callable_param_static_method_arrays() {
+    assert_wasm_matches_php(
+        r#"<?php
+class CallableParamStaticBase {
+    public static function twice(int $value): int {
+        return $value * 2;
+    }
+}
+class CallableParamStaticChild extends CallableParamStaticBase {
+    public static function add(int $value): int {
+        return $value + 3;
+    }
+}
+function run_callable_param_static(callable $callback, int $value): int {
+    return $callback($value);
+}
+echo run_callable_param_static(["CallableParamStaticChild", "add"], 4) . "\n";
+echo run_callable_param_static([0 => "CallableParamStaticChild", 1 => "twice"], 5) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_callable_typed_function_return_conflicts() {
     assert_wasm_matches_php(
         r#"<?php
