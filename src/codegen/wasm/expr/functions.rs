@@ -507,6 +507,24 @@ pub(super) fn emit_callable_assign(
             module.set_callable_target(name, Some(method_info.symbol));
             Ok(())
         }
+        ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_) => {
+            let Some(target) = callable_array_target(value, module) else {
+                return Err(CompileError::new(
+                    value.span,
+                    "wasm32-web callable array variables require fixed callable metadata",
+                ));
+            };
+            match target {
+                CallableArrayTarget::Static(target) => {
+                    module.set_callable_target(name, Some(target));
+                    Ok(())
+                }
+                CallableArrayTarget::Instance { .. } => Err(CompileError::new(
+                    value.span,
+                    "wasm32-web callable array variables with object receivers require callable runtime support",
+                )),
+            }
+        }
         ExprKind::FirstClassCallable(CallableTarget::Method { object, method }) => {
             let (target, class_name) = direct_instance_callable_target(value, object, method, module)?;
             assign_instance_callable_capture(name, object, target, class_name, module)

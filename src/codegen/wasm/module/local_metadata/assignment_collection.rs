@@ -107,7 +107,7 @@ pub(super) fn collect_assignment_locals(
         php_normalized_key_arrays.remove(name);
     }
     array_runtime_nested_values.remove(name);
-    if let Some(target) = callable_target_for_locals(value, callable_targets) {
+    if let Some(target) = callable_target_for_locals(value, callable_targets, function_return_kinds) {
         callable_targets.insert(name.clone(), target);
     } else {
         callable_targets.remove(name);

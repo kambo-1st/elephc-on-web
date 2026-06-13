@@ -97,8 +97,20 @@ pub(super) fn static_string_for_assignment_locals(
 pub(super) fn callable_target_for_locals(
     expr: &Expr,
     callable_targets: &HashMap<String, String>,
+    function_return_kinds: &HashMap<String, ValueKind>,
 ) -> Option<String> {
     match &expr.kind {
+        ExprKind::ArrayLiteral(items) => {
+            let [receiver, method] = items.as_slice() else {
+                return None;
+            };
+            static_callable_array_target_for_locals(receiver, method, function_return_kinds)
+        }
+        ExprKind::ArrayLiteralAssoc(items) => {
+            let receiver = static_int_key_assoc_value(items, 0)?;
+            let method = static_int_key_assoc_value(items, 1)?;
+            static_callable_array_target_for_locals(receiver, method, function_return_kinds)
+        }
         ExprKind::FirstClassCallable(CallableTarget::Function(name)) => Some(name.to_string()),
         ExprKind::FirstClassCallable(CallableTarget::StaticMethod {
             receiver: StaticReceiver::Named(class_name),
@@ -113,14 +125,42 @@ pub(super) fn callable_target_for_locals(
             else_expr,
             ..
         } => {
-            let then_target = callable_target_for_locals(then_expr, callable_targets)?;
-            let else_target = callable_target_for_locals(else_expr, callable_targets)?;
+            let then_target =
+                callable_target_for_locals(then_expr, callable_targets, function_return_kinds)?;
+            let else_target =
+                callable_target_for_locals(else_expr, callable_targets, function_return_kinds)?;
             then_target
                 .eq_ignore_ascii_case(&else_target)
                 .then_some(then_target)
         }
         _ => None,
     }
+}
+
+fn static_callable_array_target_for_locals(
+    receiver: &Expr,
+    method: &Expr,
+    function_return_kinds: &HashMap<String, ValueKind>,
+) -> Option<String> {
+    let class_name = static_literal_string(receiver)?;
+    let method_name = static_literal_string(method)?;
+    let target = static_method_callable_symbol(&class_name, &method_name);
+    function_return_kinds
+        .contains_key(&function_key(&target))
+        .then_some(target)
+}
+
+fn static_literal_string(expr: &Expr) -> Option<String> {
+    match &expr.kind {
+        ExprKind::StringLiteral(value) => Some(value.clone()),
+        _ => None,
+    }
+}
+
+fn static_int_key_assoc_value(items: &[(Expr, Expr)], needle: i64) -> Option<&Expr> {
+    items.iter().rev().find_map(|(key, value)| {
+        matches!(key.kind, ExprKind::IntLiteral(key) if key == needle).then_some(value)
+    })
 }
 
 fn static_method_callable_symbol(class_name: &str, method_name: &str) -> String {

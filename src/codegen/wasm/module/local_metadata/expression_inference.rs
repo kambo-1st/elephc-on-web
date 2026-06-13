@@ -23,6 +23,9 @@ pub(super) fn infer_assignment_fallback_local_kind(
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
 ) -> LocalKind {
+    if callable_target_for_locals(expr, callable_targets, function_return_kinds).is_some() {
+        return LocalKind::Callable;
+    }
     if let ExprKind::Ternary {
         then_expr,
         else_expr,
