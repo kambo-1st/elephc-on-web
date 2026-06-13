@@ -579,16 +579,7 @@ fn emit_array_walk_dynamic_static_return_callback_call(
     let [source_expr, callback_expr] = args else {
         return Ok(false);
     };
-    let ExprKind::FunctionCall {
-        name: callback_function,
-        ..
-    } = &callback_expr.kind else {
-        return Ok(false);
-    };
-    let Some(callbacks) = module
-        .function_possible_static_string_returns(callback_function.as_str())
-        .map(|callbacks| callbacks.to_vec())
-    else {
+    let Some(callbacks) = dynamic_array_walk_callback_names(callback_expr, module) else {
         return Ok(false);
     };
     let source_storage;
@@ -672,6 +663,16 @@ fn emit_array_walk_dynamic_static_return_callback_call(
     module.body().close("end");
     module.body().line("i32.const 1");
     Ok(true)
+}
+
+fn dynamic_array_walk_callback_names(expr: &Expr, module: &WasmModule) -> Option<Vec<String>> {
+    match &expr.kind {
+        ExprKind::FunctionCall { name, .. } => module
+            .function_possible_static_string_returns(name.as_str())
+            .map(<[_]>::to_vec),
+        ExprKind::Variable(name) => module.possible_static_string_values(name).map(<[_]>::to_vec),
+        _ => None,
+    }
 }
 
 fn array_walk_local_supports_shape(

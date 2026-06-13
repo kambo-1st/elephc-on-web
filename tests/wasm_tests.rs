@@ -30523,18 +30523,6 @@ fn test_wasm32_web_callback_array_builtin_dynamic_callable_variables_are_rejecte
     let cases = [
         (
             r#"<?php
-function callback_name(bool $flag): string { return $flag ? "walk_it" : "other"; }
-function walk_it(int $x): int { return $x; }
-function runtime_callback_flag(): bool { return true; }
-$flag = runtime_callback_flag();
-$cb = callback_name($flag);
-$values = [1, 2];
-array_walk($values, $cb);
-"#,
-            "array_walk() currently requires a static string, direct first-class function callback, or simple callable variable alias",
-        ),
-        (
-            r#"<?php
 function callback_name(bool $flag): string { return $flag ? "sort_it" : "other"; }
 function sort_it(int $a, int $b): int { return $a - $b; }
 function runtime_callback_flag(): bool { return true; }
@@ -30642,6 +30630,25 @@ $cb = callback_name($flag);
 echo array_reduce([1, 2, 3], $cb, 10) . "\n";
 $copy = $cb;
 echo array_reduce([2, 3, 4], $copy, 1) . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_array_walk_dynamic_callable_variable() {
+    assert_wasm_matches_php(
+        r#"<?php
+function callback_name(bool $flag): string { echo "walk-pick\n"; return $flag ? "show_square" : "show_double"; }
+function show_square(int $value): int { echo ($value * $value) . ","; return 0; }
+function show_double(int $value): int { echo ($value * 2) . ","; return 0; }
+function runtime_callback_flag(): bool { return strlen("yes") === 3; }
+$flag = runtime_callback_flag();
+$cb = callback_name($flag);
+$walked = [2, 3];
+echo (array_walk($walked, $cb) ? 1 : 0) . "\n";
+$copy = $cb;
+$more = [4, 5];
+echo (array_walk($more, $copy) ? 1 : 0) . "\n";
 "#,
     );
 }
