@@ -710,6 +710,9 @@ pub(super) fn collect_assignment_locals(
         value,
         array_nested_values,
         array_runtime_nested_values,
+    ) || assoc_match_result_has_runtime_keys(
+        value,
+        array_key_kinds,
     ) || expr_has_php_normalized_runtime_keys(
         value,
         php_normalized_key_arrays,
@@ -741,6 +744,29 @@ pub(super) fn collect_assignment_locals(
         array_key_values.remove(name);
         php_normalized_key_arrays.insert(name.clone());
     }
+}
+
+fn assoc_match_result_has_runtime_keys(
+    value: &Expr,
+    array_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+) -> bool {
+    let ExprKind::Match { arms, default, .. } = &value.kind else {
+        return false;
+    };
+    let values = arms.iter().map(|(_, value)| value).chain(default.as_deref());
+    let mut saw_assoc = false;
+    for value in values {
+        match &value.kind {
+            ExprKind::ArrayLiteralAssoc(_) => {
+                saw_assoc = true;
+            }
+            ExprKind::Variable(name) if array_key_kinds.contains_key(name) => {
+                saw_assoc = true;
+            }
+            _ => return false,
+        }
+    }
+    saw_assoc
 }
 
 fn array_constant_offset_local_kind(

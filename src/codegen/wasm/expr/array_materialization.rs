@@ -290,6 +290,13 @@ pub(crate) fn emit_array_value_to_stack(
         {
             emit_materialized_array_return_to_stack("array_return", value, module)
         }
+        ExprKind::Match {
+            subject,
+            arms,
+            default,
+        } if match_result_is_assoc_array(arms, default.as_deref(), module) => {
+            emit_assoc_array_match_to_stack(value, subject, arms, default.as_deref(), module)
+        }
         ExprKind::Match { .. } => match emit_expr(value, module)? {
             ValueKind::Array => Ok(()),
             _ => Err(CompileError::new(
@@ -300,6 +307,72 @@ pub(crate) fn emit_array_value_to_stack(
         ExprKind::ArrayLiteralAssoc(_) => Err(array_unsupported(value)),
         _ => Err(array_unsupported(value)),
     }
+}
+
+pub(in crate::codegen::wasm) fn match_result_is_assoc_array(
+    arms: &[(Vec<Expr>, Expr)],
+    default: Option<&Expr>,
+    module: &WasmModule,
+) -> bool {
+    let mut values = arms
+        .iter()
+        .map(|(_, value)| value)
+        .chain(default);
+    values.all(|value| match &value.kind {
+        ExprKind::ArrayLiteralAssoc(_) => true,
+        ExprKind::Variable(name) => {
+            module.local_kind(name) == Some(LocalKind::Array)
+                && module.array_layout(name) == ArrayLayout::Assoc
+        }
+        _ => false,
+    })
+}
+
+pub(in crate::codegen::wasm) fn emit_assoc_array_match_to_stack(
+    expr: &Expr,
+    subject: &Expr,
+    arms: &[(Vec<Expr>, Expr)],
+    default: Option<&Expr>,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    if arms.is_empty() && default.is_none() {
+        return Err(CompileError::new(
+            expr.span,
+            "wasm32-web match expression requires at least one arm or default",
+        ));
+    }
+    let subject_local = module
+        .next_label("assoc_match_subject")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_i64_local(subject_local.clone());
+    require_int(subject, module)?;
+    module.body().line(&format!("local.set ${}", subject_local));
+    emit_assoc_array_match_chain(&subject_local, arms, default, module)
+}
+
+fn emit_assoc_array_match_chain(
+    subject_local: &str,
+    arms: &[(Vec<Expr>, Expr)],
+    default: Option<&Expr>,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    if let Some((conditions, value)) = arms.first() {
+        emit_match_condition(subject_local, conditions, module)?;
+        module.body().open("if (result i32 i32)");
+        emit_assoc_array_return_to_stack(value, module)?;
+        module.body().line("else");
+        emit_assoc_array_match_chain(subject_local, &arms[1..], default, module)?;
+        module.body().close("end");
+    } else if let Some(default) = default {
+        emit_assoc_array_return_to_stack(default, module)?;
+    } else {
+        return Err(CompileError::new(
+            crate::span::Span::dummy(),
+            "wasm32-web match without default can fail at runtime and is not supported yet",
+        ));
+    }
+    Ok(())
 }
 
 pub(crate) fn emit_return_array_value_to_stack(

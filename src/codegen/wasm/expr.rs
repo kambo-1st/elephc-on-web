@@ -233,8 +233,8 @@ use self::array_primitives::*;
 use self::array_range::*;
 pub(super) use self::array_materialization::{
     array_access_array_metadata, emit_array_value_to_stack, emit_assoc_array_copy_assign,
-    emit_indexed_array_copy_assign, emit_return_array_value_to_stack,
-    emit_value_array_copy_assign,
+    emit_assoc_array_match_to_stack, emit_indexed_array_copy_assign,
+    emit_return_array_value_to_stack, emit_value_array_copy_assign, match_result_is_assoc_array,
 };
 use self::array_slice::*;
 use self::array_splice::*;
