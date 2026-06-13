@@ -205,10 +205,15 @@ fn callable_return_expr_call_local_kind(
     function_possible_callable_return_targets: &HashMap<String, Vec<String>>,
     function_return_kinds: &HashMap<String, ValueKind>,
 ) -> Option<LocalKind> {
-    let ExprKind::FunctionCall { name, .. } = &callee.kind else {
-        return None;
+    let key = match &callee.kind {
+        ExprKind::FunctionCall { name, .. } => function_key(name.as_str()),
+        ExprKind::StaticMethodCall {
+            receiver: StaticReceiver::Named(class_name),
+            method,
+            ..
+        } => static_method_call_return_key(class_name.as_str(), method),
+        _ => return None,
     };
-    let key = function_key(name.as_str());
     let targets = function_possible_callable_return_targets
         .get(&key)
         .cloned()

@@ -30897,11 +30897,19 @@ function make_callable_expr_string(): callable {
     echo "string\n";
     return callable_expr_wrap(...);
 }
+class CallableExprFactory {
+    public static function makeString(): callable {
+        echo "static\n";
+        return callable_expr_wrap(...);
+    }
+}
 echo make_callable_expr(true)(4) . "\n";
 $value = make_callable_expr(false)(8);
 echo ($value + 2) . "\n";
 $text = make_callable_expr_string()("web");
 echo strlen($text) . ":" . $text . "\n";
+$staticText = (CallableExprFactory::makeString())("ok");
+echo strlen($staticText) . ":" . $staticText . "\n";
 "#,
     );
 }

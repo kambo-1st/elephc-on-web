@@ -48,7 +48,7 @@ Status keys:
 Callable inventory notes:
 - Finite callable-return descriptors are now accepted by `is_callable()` after evaluating the descriptor-producing expression for PHP-visible side effects.
 - Finite callable-return descriptors can also be invoked as expression calls, including through pipe callables, when all possible targets have compatible argument and return metadata.
-- Assigned string results from finite callable-return expression calls keep string local metadata for downstream string consumers such as `strlen()`.
+- Assigned string results from finite function and named static-method callable-return expression calls keep string local metadata for downstream string consumers such as `strlen()`.
 
 ## Operators
 
