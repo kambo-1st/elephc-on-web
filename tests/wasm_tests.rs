@@ -34851,6 +34851,13 @@ fn test_wasm32_web_e2e_matches_php_htmlspecialchars_variable_double_encode_bool_
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_htmlspecialchars_expression_double_encode_output() {
+    assert_wasm_matches_php(
+        "<?php\nfunction preserve(): bool { return strlen(\"web\") === 4; }\n$s = \"a&amp;b & c\";\necho htmlspecialchars($s, ENT_QUOTES, \"UTF-8\", strlen($s) < 5) . \"\\n\";\necho htmlspecialchars($s, ENT_QUOTES, \"UTF-8\", preserve()) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_htmlspecialchars_variable_double_encode_numeric_output() {
     assert_wasm_matches_php(
         "<?php\n$s = \"&#65; &#x41; &\";\necho htmlspecialchars($s, ENT_QUOTES, \"UTF-8\", false) . \"\\n\";\n",
@@ -34910,6 +34917,13 @@ fn test_wasm32_web_e2e_matches_php_htmlentities_variable_double_encode_false_out
 fn test_wasm32_web_e2e_matches_php_htmlentities_variable_double_encode_bool_output() {
     assert_wasm_matches_php(
         "<?php\n$s = \"a&quot;b & c\";\n$d = false;\necho htmlentities($s, ENT_QUOTES, \"UTF-8\", $d) . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_htmlentities_expression_double_encode_output() {
+    assert_wasm_matches_php(
+        "<?php\nfunction preserve(): bool { return strlen(\"web\") !== 3; }\n$s = \"a&quot;b & c\";\necho htmlentities($s, ENT_QUOTES, \"UTF-8\", strlen($s) < 5) . \"\\n\";\necho htmlentities($s, ENT_QUOTES, \"UTF-8\", preserve()) . \"\\n\";\n",
     );
 }
 
@@ -38223,14 +38237,21 @@ function ident(string $s): string {
 function wrap(string $s): string {
     return "[" . $s . "]";
 }
+function dynamic_preserve(): bool {
+    return strlen("web") === 4;
+}
 $s = "&amp; &#65; <tag>";
 $preserve = false;
 $encode = true;
 $a = htmlspecialchars($s, 3, "UTF-8", $preserve);
 $b = htmlentities(ident($s), 0, "UTF-8", $encode);
+$c = htmlspecialchars($s, 3, "UTF-8", dynamic_preserve());
+$d = htmlentities(ident($s), 0, "UTF-8", strlen($s) > 5);
 echo $a . "\n";
 echo $a[0] . ":" . strlen($a) . ":" . ord($a[1]) . "\n";
 echo wrap($b) . "\n";
+echo wrap($c) . "\n";
+echo wrap($d) . "\n";
 $a[0] = "#";
 echo $a . "\n";
 "##,
