@@ -324,6 +324,9 @@ pub(in crate::codegen::wasm) fn emit_array_filter_assign(
         if emit_array_filter_static_callback_ternary_assign(name, args, module)? {
             return Ok(());
         }
+        if emit_array_filter_dynamic_callable_descriptor_assign(name, args, module)? {
+            return Ok(());
+        }
         if emit_array_filter_dynamic_static_return_callback_assign(name, args, module)? {
             return Ok(());
         }
@@ -935,6 +938,69 @@ fn emit_array_filter_dynamic_static_return_callback_assign(
     Ok(true)
 }
 
+fn emit_array_filter_dynamic_callable_descriptor_assign(
+    name: &str,
+    args: &[Expr],
+    module: &mut WasmModule,
+) -> Result<bool, CompileError> {
+    let [source, callback_expr] = args else {
+        return Ok(false);
+    };
+    let Some(callbacks) = dynamic_array_filter_callable_descriptor_targets(callback_expr, module) else {
+        return Ok(false);
+    };
+    let source = match &source.kind {
+        ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_) => {
+            ArrayFilterDynamicSource::Expr(source)
+        }
+        ExprKind::Variable(source_name)
+            if module.local_kind(source_name) == Some(LocalKind::Array) =>
+        {
+            ArrayFilterDynamicSource::Local(source_name, source.span)
+        }
+        _ => return Ok(false),
+    };
+    let mut callback_shapes = Vec::with_capacity(callbacks.len());
+    for callback in &callbacks {
+        if !module.has_function(callback) {
+            return Err(CompileError::new(
+                callback_expr.span,
+                "wasm32-web dynamic array_filter() callable descriptor can only target declared user functions",
+            ));
+        }
+        callback_shapes.push(array_filter_callback_shape(callback, callback_expr.span, module)?);
+    }
+
+    let callback_id = module.next_label("array_filter_callable_id");
+    let matched = module.next_label("array_filter_callable_matched");
+    for local in [&callback_id, &matched] {
+        module.declare_i32_local(local.trim_start_matches('$').to_string());
+    }
+    emit_array_filter_callable_descriptor(callback_expr, module)?;
+    module.body().line(&format!("local.set {}", callback_id));
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", matched));
+
+    for (callback, shape) in callbacks.into_iter().zip(callback_shapes.into_iter()) {
+        let target_id = module.callable_target_id(&callback);
+        module.body().line(&format!("local.get {}", callback_id));
+        module.body().line(&format!("i32.const {}", target_id));
+        module.body().line("i32.eq");
+        module.body().open("if");
+        emit_array_filter_dynamic_source_assign(name, &source, &callback, shape, module)?;
+        module.body().line("i32.const 1");
+        module.body().line(&format!("local.set {}", matched));
+        module.body().close("end");
+    }
+
+    module.body().line(&format!("local.get {}", matched));
+    module.body().line("i32.eqz");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    Ok(true)
+}
+
 fn dynamic_array_filter_callback_names(expr: &Expr, module: &WasmModule) -> Option<Vec<String>> {
     match &expr.kind {
         ExprKind::FunctionCall { name, .. } => module
@@ -942,6 +1008,58 @@ fn dynamic_array_filter_callback_names(expr: &Expr, module: &WasmModule) -> Opti
             .map(<[_]>::to_vec),
         ExprKind::Variable(name) => module.possible_static_string_values(name).map(<[_]>::to_vec),
         _ => None,
+    }
+}
+
+fn dynamic_array_filter_callable_descriptor_targets(
+    expr: &Expr,
+    module: &WasmModule,
+) -> Option<Vec<String>> {
+    match &expr.kind {
+        ExprKind::FunctionCall { name, .. } => module
+            .function_possible_callable_return_targets(name.as_str())
+            .map(<[_]>::to_vec)
+            .or_else(|| {
+                module
+                    .function_callable_return_target(name.as_str())
+                    .map(|target| vec![target])
+            }),
+        ExprKind::Variable(name) => module
+            .possible_callable_targets(name)
+            .map(<[_]>::to_vec)
+            .or_else(|| module.callable_target(name).map(|target| vec![target])),
+        _ => None,
+    }
+}
+
+fn emit_array_filter_callable_descriptor(
+    expr: &Expr,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    match &expr.kind {
+        ExprKind::FunctionCall { name, args } => {
+            emit_user_function_args(expr, name, args, module)?;
+            module
+                .body()
+                .line(&format!("call ${}", wasm_function_name(name)));
+            Ok(())
+        }
+        ExprKind::Variable(name) if module.possible_callable_targets(name).is_some() => {
+            module.body().line(&format!("local.get ${}", name));
+            Ok(())
+        }
+        ExprKind::Variable(name) if module.callable_target(name).is_some() => {
+            let target = module
+                .callable_target(name)
+                .expect("callable target was checked above");
+            let id = module.callable_target_id(&target);
+            module.body().line(&format!("i32.const {}", id));
+            Ok(())
+        }
+        _ => Err(CompileError::new(
+            expr.span,
+            "wasm32-web array_filter() callable descriptor requires tracked callable metadata",
+        )),
     }
 }
 

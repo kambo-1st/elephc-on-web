@@ -31344,6 +31344,31 @@ echo "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_array_filter_callable_return_descriptor() {
+    assert_wasm_matches_php(
+        r#"<?php
+function keep_big(int $x): bool { return $x > 2; }
+function keep_even(int $x): bool { return ($x % 2) === 0; }
+function choose_filter(bool $flag): callable {
+    return $flag ? keep_big(...) : keep_even(...);
+}
+$filtered = array_filter([1, 2, 3, 4], choose_filter(true));
+foreach ($filtered as $key => $value) {
+    echo $key . ":" . $value . "|";
+}
+echo "\n";
+$cb = choose_filter(false);
+$alias = $cb;
+$filtered_alias = array_filter([1, 2, 3, 4], $alias);
+foreach ($filtered_alias as $key => $value) {
+    echo $key . ":" . $value . "|";
+}
+echo "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_array_reduce_dynamic_callable_variable() {
     assert_wasm_matches_php(
         r#"<?php
