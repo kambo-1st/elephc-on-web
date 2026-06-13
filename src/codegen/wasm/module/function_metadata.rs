@@ -388,6 +388,9 @@ pub(super) fn static_string_for_metadata(
             ConstantValue::Str(value) => Some(value.clone()),
             _ => None,
         },
+        ExprKind::ClassConstant {
+            receiver: StaticReceiver::Named(class_name),
+        } => Some(class_name.as_str().to_string()),
         ExprKind::BinaryOp {
             left,
             op: BinOp::Concat,

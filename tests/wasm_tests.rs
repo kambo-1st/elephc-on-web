@@ -2995,6 +2995,13 @@ fn test_wasm32_web_e2e_matches_php_static_callable_array_class_constant_names() 
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_static_callable_array_class_name_constant() {
+    assert_wasm_matches_php(
+        "<?php\nclass ClassNameCallableTarget { public static function add(int $n): int { return $n + 13; } public static function wrap(string $s): string { return \"{\" . $s . \"}\"; } }\n$class = ClassNameCallableTarget::class;\n$cb = [$class, \"add\"];\necho $cb(5) . \":\" . call_user_func([ClassNameCallableTarget::class, \"add\"], 7) . \"\\n\";\necho call_user_func_array([$class, \"wrap\"], [\"s\" => \"web\"]) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_scoped_static_string_dynamic_static_method_calls() {
     assert_wasm_matches_php(
         "<?php\nclass Base { public static function label(): string { return \"base\"; } }\nclass Box extends Base { public static function label(): string { return \"box\"; } public function selfLabel(): string { return self::{\"label\"}(); } public function parentLabel(): string { return parent::{\"label\"}(); } public function staticLabel(): string { return static::{\"label\"}(); } }\n$o = new Box();\necho $o->selfLabel() . \":\" . $o->parentLabel() . \":\" . $o->staticLabel() . \"\\n\";\n",
