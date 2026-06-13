@@ -1071,10 +1071,12 @@ fn dynamic_call_user_func_return_kind(
     };
     let mut return_kind = None;
     for target in callbacks {
-        if !module.has_function(&target) {
+        if !module.has_function(&target)
+            && callable_builtin_return_kind(&target, &args[1..], module).is_none()
+        {
             return Err(CompileError::new(
                 callback.span,
-                "wasm32-web dynamic call_user_func() callback helper can only return declared user functions",
+                "wasm32-web dynamic call_user_func() callback helper can only return declared user functions or supported builtins",
             ));
         }
         let Some(kind) = callable_return_kind(&target, &args[1..], module) else {
@@ -1237,17 +1239,19 @@ fn dynamic_call_user_func_array_return_kind(
     };
     let mut return_kind = None;
     for target in callbacks {
-        if !module.has_function(&target) {
-            return Err(CompileError::new(
-                callback.span,
-                "wasm32-web dynamic call_user_func_array() callback helper can only return declared user functions",
-            ));
-        }
         let Some((_, call_args)) =
             call_user_func_array_target_from_parts(&target, packed_args, module)
         else {
             return Ok(None);
         };
+        if !module.has_function(&target)
+            && callable_builtin_return_kind(&target, call_args.as_slice(), module).is_none()
+        {
+            return Err(CompileError::new(
+                callback.span,
+                "wasm32-web dynamic call_user_func_array() callback helper can only return declared user functions or supported builtins",
+            ));
+        }
         let Some(kind) = callable_return_kind(&target, call_args.as_slice(), module) else {
             return Ok(None);
         };

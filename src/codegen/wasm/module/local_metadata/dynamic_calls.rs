@@ -336,13 +336,55 @@ fn dynamic_call_user_function_local_kind(
         let kind = function_return_kinds
             .get(&function_key(callback.as_str()))
             .copied()
-            .map(local_kind_for_value)?;
+            .map(local_kind_for_value)
+            .or_else(|| dynamic_string_builtin_callback_local_kind(callback))?;
         if local_kind.is_some_and(|existing| existing != kind) {
             return None;
         }
         local_kind = Some(kind);
     }
     local_kind
+}
+
+fn dynamic_string_builtin_callback_local_kind(callback: &str) -> Option<LocalKind> {
+    matches!(
+        callback.to_ascii_lowercase().as_str(),
+        "strtolower"
+            | "strtoupper"
+            | "lcfirst"
+            | "ucfirst"
+            | "ucwords"
+            | "strrev"
+            | "addslashes"
+            | "stripslashes"
+            | "bin2hex"
+            | "hex2bin"
+            | "nl2br"
+            | "trim"
+            | "ltrim"
+            | "rtrim"
+            | "str_repeat"
+            | "chr"
+            | "str_pad"
+            | "substr"
+            | "substr_replace"
+            | "str_replace"
+            | "str_ireplace"
+            | "strstr"
+            | "wordwrap"
+            | "urlencode"
+            | "urldecode"
+            | "rawurlencode"
+            | "rawurldecode"
+            | "base64_encode"
+            | "base64_decode"
+            | "htmlspecialchars"
+            | "htmlentities"
+            | "html_entity_decode"
+            | "md5"
+            | "sha1"
+    )
+    .then_some(LocalKind::Str)
 }
 
 fn static_method_callable_symbol(class_name: &str, method_name: &str) -> String {
