@@ -65,6 +65,12 @@ impl WasmModule {
         self.function_static_string_returns.get(&key).cloned()
     }
 
+    pub(in crate::codegen::wasm) fn function_callable_return_target(&self, name: &str) -> Option<String> {
+        self.function_callable_return_targets
+            .get(&function_key(name))
+            .cloned()
+    }
+
     pub(in crate::codegen::wasm) fn function_possible_static_string_returns(&self, name: &str) -> Option<&[String]> {
         self.function_possible_static_string_returns
             .get(&function_key(name))

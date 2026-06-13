@@ -60,6 +60,7 @@ pub(super) enum ValueKind {
     Str,
     Array,
     Object,
+    Callable,
     Mixed,
     Null,
     Never,
@@ -159,6 +160,7 @@ pub(super) struct WasmModule {
     nullable_function_returns: HashSet<String>,
     function_static_string_returns: HashMap<String, String>,
     function_possible_static_string_returns: HashMap<String, Vec<String>>,
+    function_callable_return_targets: HashMap<String, String>,
     function_mixed_return_kinds: HashMap<String, ValueCellKind>,
     function_array_return_lengths: HashMap<String, usize>,
     function_array_return_layouts: HashMap<String, ArrayLayout>,
@@ -395,6 +397,7 @@ impl WasmModule {
             nullable_function_returns,
             function_static_string_returns: collect_function_static_string_returns(program, &constants),
             function_possible_static_string_returns: collect_function_possible_static_string_returns(program, &constants),
+            function_callable_return_targets: collect_function_callable_return_targets(program),
             function_mixed_return_kinds: collect_function_mixed_return_kinds(program),
             function_array_return_lengths,
             function_array_return_layouts,
@@ -2849,7 +2852,7 @@ pub(super) fn wasm_value_type(kind: ValueKind) -> &'static str {
         ValueKind::Int => "i64",
         ValueKind::Float => "f64",
         ValueKind::Bool => "i32",
-        ValueKind::Mixed => "i32",
+        ValueKind::Mixed | ValueKind::Callable => "i32",
         ValueKind::Object => "i32",
         ValueKind::Str | ValueKind::Array => "i32 i32",
         ValueKind::Null | ValueKind::Never => unreachable!("unsupported function result kind"),
@@ -2879,7 +2882,7 @@ fn emit_default_result(out: &mut WatEmitter, kind: ValueKind) {
             out.line("call $__rt_alloc_null_mixed_cell");
             out.line("return");
         }
-        ValueKind::Object => out.line("i32.const 0"),
+        ValueKind::Object | ValueKind::Callable => out.line("i32.const 0"),
         ValueKind::Str | ValueKind::Array => {
             out.line("i32.const 0");
             out.line("i32.const 0");

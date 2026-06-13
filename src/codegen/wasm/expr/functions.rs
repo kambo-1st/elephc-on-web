@@ -499,6 +499,16 @@ pub(super) fn emit_callable_assign(
             module.set_callable_instance_target(name, Some((target, capture_local)));
             Ok(())
         }
+        ExprKind::FunctionCall { .. } => {
+            let Some(target) = evaluated_static_callback_function_name(value, module)? else {
+                return Err(CompileError::new(
+                    value.span,
+                    "wasm32-web callable-returning functions require static callable metadata",
+                ));
+            };
+            module.set_callable_target(name, Some(target));
+            Ok(())
+        }
         ExprKind::Closure { .. } | ExprKind::ClosureCall { .. } => Err(CompileError::new(
             value.span,
             "wasm32-web closure callable variables require callable runtime support",
@@ -1184,7 +1194,7 @@ fn declare_dynamic_call_result_locals(
     match kind {
         ValueKind::Int => module.declare_i64_local(result.trim_start_matches('$').to_string()),
         ValueKind::Float => module.declare_f64_local(result.trim_start_matches('$').to_string()),
-        ValueKind::Bool | ValueKind::Mixed | ValueKind::Object => {
+        ValueKind::Bool | ValueKind::Mixed | ValueKind::Object | ValueKind::Callable => {
             module.declare_i32_local(result.trim_start_matches('$').to_string());
         }
         ValueKind::Str | ValueKind::Array => {
@@ -1206,7 +1216,7 @@ fn store_dynamic_call_result(
             module.body().line(&format!("local.set {}", result_aux));
             module.body().line(&format!("local.set {}", result));
         }
-        ValueKind::Int | ValueKind::Float | ValueKind::Bool | ValueKind::Mixed | ValueKind::Object => {
+        ValueKind::Int | ValueKind::Float | ValueKind::Bool | ValueKind::Mixed | ValueKind::Object | ValueKind::Callable => {
             module.body().line(&format!("local.set {}", result));
         }
         ValueKind::Null | ValueKind::Never => {}
@@ -1224,7 +1234,7 @@ fn load_dynamic_call_result(
             module.body().line(&format!("local.get {}", result));
             module.body().line(&format!("local.get {}", result_aux));
         }
-        ValueKind::Int | ValueKind::Float | ValueKind::Bool | ValueKind::Mixed | ValueKind::Object => {
+        ValueKind::Int | ValueKind::Float | ValueKind::Bool | ValueKind::Mixed | ValueKind::Object | ValueKind::Callable => {
             module.body().line(&format!("local.get {}", result));
         }
         ValueKind::Null | ValueKind::Never => {}

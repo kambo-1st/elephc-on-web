@@ -145,6 +145,10 @@ pub(crate) fn emit_condition(
             module.body().line("i32.const 0");
             module.body().line("i32.ne");
         }
+        ValueKind::Callable => {
+            module.body().line("drop");
+            module.body().line("i32.const 1");
+        }
         ValueKind::Mixed => {
             let local = module
                 .next_label("mixed_truthy_value")

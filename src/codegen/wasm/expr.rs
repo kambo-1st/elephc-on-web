@@ -245,6 +245,7 @@ pub(super) use self::string_control_values::*;
 pub(super) use self::string_offset_assignment::emit_string_offset_assign;
 pub(super) use self::string_arg_materialization::*;
 pub(super) use self::string_cast_materialization::*;
+pub(in crate::codegen::wasm) use self::string_comparison::evaluated_static_callback_function_name;
 use self::string_comparison::*;
 use self::scalar_numeric_strings::*;
 use self::scalar_static::*;

@@ -365,6 +365,12 @@ pub(in crate::codegen::wasm) fn emit_output_expr(
                         "wasm32-web object output requires __toString support",
                     ));
                 }
+                ValueKind::Callable => {
+                    return Err(CompileError::new(
+                        expr.span,
+                        "wasm32-web callable output requires callable string conversion runtime support",
+                    ));
+                }
                 ValueKind::Mixed => {
                     let (array_marker_ptr, _) = module.intern_string("Array");
                     module.body().line(&format!("i32.const {}", array_marker_ptr));
@@ -402,6 +408,12 @@ fn emit_output_loaded_kind(
             return Err(CompileError::new(
                 expr.span,
                 "wasm32-web object output requires __toString support",
+            ));
+        }
+        ValueKind::Callable => {
+            return Err(CompileError::new(
+                expr.span,
+                "wasm32-web callable output requires callable string conversion runtime support",
             ));
         }
         ValueKind::Mixed => {

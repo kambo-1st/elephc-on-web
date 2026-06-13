@@ -16,7 +16,7 @@ use super::emit_stmt;
 use super::super::expr::{
     dynamic_numeric_operand_may_materialize, emit_condition, emit_known_mixed_numeric_operand,
     emit_expr, emit_mixed_value_to_stack, emit_return_array_value_to_stack, emit_string_value_to_stack,
-    require_float, require_int,
+    evaluated_static_callback_function_name, require_float, require_int,
 };
 use super::super::module::{ValueKind, WasmModule};
 
@@ -86,6 +86,15 @@ pub(super) fn emit_return(
                     ));
                 }
             }
+            ValueKind::Callable => {
+                let Some(_) = evaluated_static_callback_function_name(value, module)? else {
+                    return Err(CompileError::new(
+                        value.span,
+                        "wasm32-web callable returns require a statically known callable target",
+                    ));
+                };
+                module.body().line("i32.const 0");
+            }
             ValueKind::Mixed => emit_mixed_value_to_stack(value, module)?,
             ValueKind::Never => {
                 return Err(CompileError::new(
@@ -125,6 +134,7 @@ pub(super) fn emit_return(
                     "wasm32-web object returns are not supported yet",
                 ));
             }
+            ValueKind::Callable => module.body().line("i32.const 0"),
             ValueKind::Null => {}
             ValueKind::Never => module.body().line("unreachable"),
         }

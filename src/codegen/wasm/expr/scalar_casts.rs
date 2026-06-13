@@ -95,6 +95,12 @@ fn emit_int_cast(expr: &Expr, module: &mut WasmModule) -> Result<ValueKind, Comp
                 "wasm32-web integer casts do not support object inputs yet",
             ));
         }
+        ValueKind::Callable => {
+            return Err(CompileError::new(
+                expr.span,
+                "wasm32-web integer casts do not support callable inputs yet",
+            ));
+        }
         ValueKind::Mixed => {
             return Err(CompileError::new(
                 expr.span,
@@ -164,6 +170,12 @@ fn emit_float_cast(expr: &Expr, module: &mut WasmModule) -> Result<ValueKind, Co
             return Err(CompileError::new(
                 expr.span,
                 "wasm32-web float casts do not support object inputs yet",
+            ));
+        }
+        ValueKind::Callable => {
+            return Err(CompileError::new(
+                expr.span,
+                "wasm32-web float casts do not support callable inputs yet",
             ));
         }
         ValueKind::Mixed => {

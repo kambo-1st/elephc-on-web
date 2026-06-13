@@ -292,6 +292,10 @@ pub(in crate::codegen::wasm) fn emit_gettype_string_value_to_stack(
                 module.body().line("drop");
                 "object"
             }
+            ValueKind::Callable => {
+                module.body().line("drop");
+                "object"
+            }
             ValueKind::Mixed => {
                 let local = module
                     .next_label("mixed_gettype_value")

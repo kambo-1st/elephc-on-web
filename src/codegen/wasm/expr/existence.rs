@@ -254,6 +254,7 @@ fn emit_drop_existence_arg(kind: ValueKind, module: &mut WasmModule) {
         | ValueKind::Float
         | ValueKind::Bool
         | ValueKind::Object
+        | ValueKind::Callable
         | ValueKind::Mixed
         | ValueKind::Null => {
             module.body().line("drop");
@@ -1168,6 +1169,7 @@ fn emit_drop_isset_value(kind: ValueKind, module: &mut WasmModule) {
         | ValueKind::Float
         | ValueKind::Bool
         | ValueKind::Object
+        | ValueKind::Callable
         | ValueKind::Mixed
         | ValueKind::Null => {
             module.body().line("drop");

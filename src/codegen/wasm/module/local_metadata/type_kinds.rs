@@ -38,6 +38,9 @@ pub(in crate::codegen::wasm::module) fn value_kind_from_return_type(ty: Option<&
         Some(TypeExpr::Float) => ValueKind::Float,
         Some(TypeExpr::Bool) => ValueKind::Bool,
         Some(TypeExpr::Str) => ValueKind::Str,
+        Some(TypeExpr::Named(name)) if name.is_unqualified() && name.as_str().eq_ignore_ascii_case("callable") => {
+            ValueKind::Callable
+        }
         Some(TypeExpr::Named(name)) if name.is_unqualified() && name.as_str().eq_ignore_ascii_case("mixed") => {
             ValueKind::Mixed
         }
@@ -78,6 +81,7 @@ pub(in crate::codegen::wasm::module) fn local_kind_for_value(kind: ValueKind) ->
         ValueKind::Str => LocalKind::Str,
         ValueKind::Array => LocalKind::Array,
         ValueKind::Object => LocalKind::Object,
+        ValueKind::Callable => LocalKind::Callable,
         ValueKind::Mixed => LocalKind::Mixed,
         ValueKind::Never => LocalKind::I64,
     }
@@ -101,7 +105,7 @@ pub(in crate::codegen::wasm) fn value_kind_for_local(kind: LocalKind) -> ValueKi
         LocalKind::Array => ValueKind::Array,
         LocalKind::Object => ValueKind::Object,
         LocalKind::Mixed => ValueKind::Mixed,
-        LocalKind::Callable => ValueKind::Mixed,
+        LocalKind::Callable => ValueKind::Callable,
     }
 }
 

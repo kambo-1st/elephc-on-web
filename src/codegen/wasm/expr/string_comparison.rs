@@ -69,7 +69,8 @@ pub(in crate::codegen::wasm) fn static_callback_function_name(expr: &Expr, modul
         ExprKind::Variable(name) => module.callable_target(name).or_else(|| module.string_static_value(name)),
         ExprKind::FunctionCall { name, args } => module
             .function_static_string_return_for_call(name, args)
-            .or_else(|| module.function_static_string_return(name)),
+            .or_else(|| module.function_static_string_return(name))
+            .or_else(|| module.function_callable_return_target(name.as_str())),
         ExprKind::Ternary {
             then_expr,
             else_expr,
@@ -114,12 +115,21 @@ pub(in crate::codegen::wasm) fn evaluated_static_callback_function_name(
     let Some(callback) = module
         .function_static_string_return_for_call(name, args)
         .or_else(|| module.function_static_string_return(name))
+        .or_else(|| module.function_callable_return_target(name.as_str()))
     else {
         return Ok(None);
     };
-    emit_string_value_to_stack(expr, module)?;
-    module.body().line("drop");
-    module.body().line("drop");
+    let kind = emit_expr(expr, module)?;
+    match kind {
+        ValueKind::Str | ValueKind::Array => {
+            module.body().line("drop");
+            module.body().line("drop");
+        }
+        ValueKind::Callable => {
+            module.body().line("drop");
+        }
+        _ => {}
+    }
     Ok(Some(callback))
 }
 

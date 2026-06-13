@@ -151,6 +151,7 @@ pub(in crate::codegen::wasm) fn emit_known_mixed_negate(
         Some(ValueKind::Str)
         | Some(ValueKind::Array)
         | Some(ValueKind::Object)
+        | Some(ValueKind::Callable)
         | Some(ValueKind::Mixed)
         | Some(ValueKind::Never) => {
             unreachable!("mixed numeric kind only returns numeric/null kinds")

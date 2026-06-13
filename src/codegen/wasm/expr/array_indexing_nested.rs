@@ -838,6 +838,12 @@ pub(super) fn emit_output_nested_array_index(
                 "wasm32-web object array elements are not supported in output yet",
             ));
         }
+        ValueKind::Callable => {
+            return Err(CompileError::new(
+                expr.span,
+                "wasm32-web callable array elements are not supported in output yet",
+            ));
+        }
         ValueKind::Null => module.body().line("drop"),
         ValueKind::Mixed => emit_output_value_cell_stack(module),
         ValueKind::Never => module.body().line("unreachable"),

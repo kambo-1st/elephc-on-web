@@ -3768,6 +3768,7 @@ fn wasm_result_for_value_kind(kind: ValueKind) -> &'static str {
         ValueKind::Str => "(result i32 i32)",
         ValueKind::Array => "(result i32 i32)",
         ValueKind::Object => "(result i32)",
+        ValueKind::Callable => "(result i32)",
         ValueKind::Mixed => "(result i32)",
         ValueKind::Null | ValueKind::Never => {
             unreachable!("void/never object-cell method calls do not produce stack results")
@@ -4885,6 +4886,7 @@ fn emit_drop_value_kind(kind: ValueKind, module: &mut WasmModule) {
         | ValueKind::Float
         | ValueKind::Bool
         | ValueKind::Object
+        | ValueKind::Callable
         | ValueKind::Mixed
         | ValueKind::Null => {
             module.body().line("drop");

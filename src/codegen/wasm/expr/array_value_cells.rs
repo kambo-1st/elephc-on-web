@@ -1332,6 +1332,12 @@ pub(in crate::codegen::wasm) fn emit_store_emitted_value_kind(
             module.body().line(&format!("local.get {}", ptr));
             module.body().line("call $__rt_value_store_object");
         }
+        ValueKind::Callable => {
+            return Err(CompileError::new(
+                crate::span::Span::dummy(),
+                "wasm32-web callable value cells require callable runtime support",
+            ));
+        }
         ValueKind::Mixed => {
             let source_cell = module.next_label(&format!("{}_mixed_cell", label_prefix));
             module.declare_i32_local(source_cell.trim_start_matches('$').to_string());

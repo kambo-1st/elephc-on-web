@@ -171,6 +171,7 @@ fn emit_drop_value_kind(kind: ValueKind, module: &mut WasmModule) {
         }
         ValueKind::Mixed
         | ValueKind::Object
+        | ValueKind::Callable
         | ValueKind::Int
         | ValueKind::Float
         | ValueKind::Bool

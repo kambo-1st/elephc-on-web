@@ -193,6 +193,7 @@ fn value_cell_kind_for_value_kind(kind: ValueKind) -> Option<ValueCellKind> {
         ValueKind::Array => Some(ValueCellKind::Array),
         ValueKind::Null => Some(ValueCellKind::Null),
         ValueKind::Object => None,
+        ValueKind::Callable => None,
         ValueKind::Mixed => None,
         ValueKind::Never => None,
     }

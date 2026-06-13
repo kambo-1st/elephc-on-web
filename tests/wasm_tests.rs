@@ -30778,6 +30778,22 @@ echo run(callback: add_one(...), value: 7) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_callable_typed_function_returns() {
+    assert_wasm_matches_php(
+        r#"<?php
+function add_one(int $value): int {
+    return $value + 1;
+}
+function make_callback(): callable {
+    return add_one(...);
+}
+$callback = make_callback();
+echo $callback(4) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_array_reduce_string_callback_null_values_are_rejected() {
     let source = r#"<?php
 function join_word(string $carry, string $value): string {

@@ -668,6 +668,13 @@ pub(in crate::codegen::wasm) fn emit_value_as_kind(
             }
             Ok(())
         }
+        ValueKind::Callable => {
+            let kind = emit_expr(expr, module)?;
+            if kind != ValueKind::Callable {
+                return Err(CompileError::new(expr.span, "wasm32-web expected callable value"));
+            }
+            Ok(())
+        }
         ValueKind::Mixed => emit_mixed_value_to_stack(expr, module),
         ValueKind::Null | ValueKind::Never => unreachable!("unsupported scalar result kind"),
     }
