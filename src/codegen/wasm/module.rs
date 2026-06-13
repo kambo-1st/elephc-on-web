@@ -505,6 +505,22 @@ impl WasmModule {
         }
     }
 
+    pub(super) fn declared_type_names(&self, kind: &str) -> Vec<String> {
+        let mut names = match kind {
+            "class_exists" => self
+                .object_classes
+                .values()
+                .map(|class_info| function_key(&class_info.name))
+                .collect::<Vec<_>>(),
+            "interface_exists" => self.interface_names.iter().cloned().collect(),
+            "trait_exists" => self.trait_names.iter().cloned().collect(),
+            "enum_exists" => self.enum_names.iter().cloned().collect(),
+            _ => Vec::new(),
+        };
+        names.sort();
+        names
+    }
+
     pub(super) fn object_class(&self, name: &str) -> Option<&object_metadata::ObjectClassInfo> {
         self.object_classes.get(&function_key(name))
     }

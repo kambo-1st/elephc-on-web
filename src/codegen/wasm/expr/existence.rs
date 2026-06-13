@@ -46,11 +46,12 @@ pub(super) fn emit_existence_call(
             ));
         }
     };
+    let lower_name = name.to_ascii_lowercase();
     let value = match &arg.kind {
         ExprKind::Variable(name) if module.string_static_value(name).is_some() => {
             let value = module.string_static_value(name).expect("checked by guard");
             if value.is_ascii() {
-                value
+                Some(value)
             } else {
                 return Err(CompileError::new(
                     arg.span,
@@ -62,7 +63,7 @@ pub(super) fn emit_existence_call(
             let value = evaluated_static_callback_function_name(arg, module)?
                 .expect("checked by guard");
             if value.is_ascii() {
-                value
+                Some(value)
             } else {
                 return Err(CompileError::new(
                     arg.span,
@@ -70,12 +71,28 @@ pub(super) fn emit_existence_call(
                 ));
             }
         }
-        _ => static_ascii_string_arg(call, arg, module)?,
+        _ if matches!(
+            lower_name.as_str(),
+            "class_exists" | "interface_exists" | "trait_exists" | "enum_exists"
+        ) =>
+        {
+            if let Some(var) = runtime_string_arg_or_materialize(arg, "type_exists_name", module)? {
+                if let Some(autoload) = args.get(1) {
+                    let kind = emit_expr(autoload, module)?;
+                    emit_drop_existence_arg(kind, module);
+                }
+                emit_runtime_declared_type_exists(&lower_name, &var, module);
+                return Ok(ValueKind::Bool);
+            }
+            Some(static_ascii_string_arg(call, arg, module)?)
+        }
+        _ => Some(static_ascii_string_arg(call, arg, module)?),
     };
     if let Some(autoload) = args.get(1) {
         let kind = emit_expr(autoload, module)?;
         emit_drop_existence_arg(kind, module);
     }
+    let value = value.expect("static existence names are present after non-runtime path");
     let exists = match name.to_ascii_lowercase().as_str() {
         "function_exists" => module.has_function(&value) || wasm_known_builtin_exists(&value),
         "class_exists" | "interface_exists" | "trait_exists" | "enum_exists" => {
@@ -85,6 +102,122 @@ pub(super) fn emit_existence_call(
     };
     module.body().line(&format!("i32.const {}", i32::from(exists)));
     Ok(ValueKind::Bool)
+}
+
+fn emit_runtime_declared_type_exists(kind: &str, var: &str, module: &mut WasmModule) {
+    let exists = module.next_label("type_exists_result");
+    module.declare_i32_local(exists.trim_start_matches('$').to_string());
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", exists));
+    let done = module.next_label("type_exists_done");
+    module.body().open(&format!("block {}", done));
+    for name in module.declared_type_names(kind) {
+        emit_runtime_declared_type_candidate(&name, var, &exists, &done, module);
+    }
+    module.body().close("end");
+    module.body().line(&format!("local.get {}", exists));
+}
+
+fn emit_runtime_declared_type_candidate(
+    candidate: &str,
+    var: &str,
+    exists: &str,
+    done: &str,
+    module: &mut WasmModule,
+) {
+    if !candidate.is_ascii() {
+        return;
+    }
+    let candidate = candidate.to_ascii_lowercase();
+    let index = module.next_label("type_exists_index");
+    let byte = module.next_label("type_exists_byte");
+    let expected = module.next_label("type_exists_expected");
+    let matched = module.next_label("type_exists_match");
+    let compare_done = module.next_label("type_exists_compare_done");
+    let loop_label = module.next_label("type_exists_compare_loop");
+    module.declare_i32_local(index.trim_start_matches('$').to_string());
+    module.declare_i32_local(byte.trim_start_matches('$').to_string());
+    module.declare_i32_local(expected.trim_start_matches('$').to_string());
+    module.declare_i32_local(matched.trim_start_matches('$').to_string());
+    module.body().line(&format!("local.get ${}_len", var));
+    module.body().line(&format!("i32.const {}", candidate.len()));
+    module.body().line("i32.eq");
+    module.body().open("if");
+    module.body().line("i32.const 1");
+    module.body().line(&format!("local.set {}", matched));
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", index));
+    module.body().open(&format!("block {}", compare_done));
+    module.body().open(&format!("loop {}", loop_label));
+    module.body().line(&format!("local.get {}", index));
+    module.body().line(&format!("i32.const {}", candidate.len()));
+    module.body().line("i32.lt_u");
+    module.body().open("if");
+    module.body().line(&format!("local.get ${}_ptr", var));
+    module.body().line(&format!("local.get {}", index));
+    module.body().line("i32.add");
+    module.body().line("i32.load8_u");
+    module.body().line(&format!("local.set {}", byte));
+    emit_ascii_lower_byte(&byte, module);
+    emit_candidate_byte_select(&candidate, &index, &expected, module);
+    module.body().line(&format!("local.get {}", byte));
+    module.body().line(&format!("local.get {}", expected));
+    module.body().line("i32.ne");
+    module.body().open("if");
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", matched));
+    module.body().line(&format!("br {}", compare_done));
+    module.body().close("end");
+    module.body().line(&format!("local.get {}", index));
+    module.body().line("i32.const 1");
+    module.body().line("i32.add");
+    module.body().line(&format!("local.set {}", index));
+    module.body().line(&format!("br {}", loop_label));
+    module.body().close("end");
+    module.body().close("end");
+    module.body().close("end");
+    module.body().line(&format!("local.get {}", matched));
+    module.body().open("if");
+    module.body().line("i32.const 1");
+    module.body().line(&format!("local.set {}", exists));
+    module.body().line(&format!("br {}", done));
+    module.body().close("end");
+    module.body().close("end");
+}
+
+fn emit_ascii_lower_byte(byte: &str, module: &mut WasmModule) {
+    module.body().line(&format!("local.get {}", byte));
+    module.body().line("i32.const 65");
+    module.body().line("i32.ge_u");
+    module.body().line(&format!("local.get {}", byte));
+    module.body().line("i32.const 90");
+    module.body().line("i32.le_u");
+    module.body().line("i32.and");
+    module.body().open("if");
+    module.body().line(&format!("local.get {}", byte));
+    module.body().line("i32.const 32");
+    module.body().line("i32.add");
+    module.body().line(&format!("local.set {}", byte));
+    module.body().close("end");
+}
+
+fn emit_candidate_byte_select(
+    candidate: &str,
+    index: &str,
+    expected: &str,
+    module: &mut WasmModule,
+) {
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", expected));
+    for (candidate_index, candidate_byte) in candidate.bytes().enumerate() {
+        module.body().line(&format!("local.get {}", index));
+        module.body().line(&format!("i32.const {}", candidate_index));
+        module.body().line("i32.eq");
+        module.body().open("if");
+        module.body().line(&format!("i32.const {}", candidate_byte));
+        module.body().line(&format!("local.set {}", expected));
+        module.body().close("end");
+    }
 }
 
 fn emit_drop_existence_arg(kind: ValueKind, module: &mut WasmModule) {
