@@ -474,6 +474,7 @@ fn dynamic_builtin_callback_local_kind(
             | "fmod"
             | "atan2"
             | "hypot"
+            | "round"
     ) {
         return Some(LocalKind::F64);
     }

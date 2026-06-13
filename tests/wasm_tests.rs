@@ -24174,15 +24174,19 @@ fn test_wasm32_web_e2e_matches_php_call_user_func_dynamic_scalar_builtin_callbac
         r#"<?php
 function choose_dynamic_int_builtin(bool $flag): string { echo "int-pick\n"; return $flag ? "strlen" : "ord"; }
 function choose_dynamic_float_builtin(bool $flag): string { echo "float-pick\n"; return $flag ? "sqrt" : "floatval"; }
+function choose_dynamic_round_builtin(bool $flag): string { echo "round-pick\n"; return $flag ? "round" : "ceil"; }
 function choose_dynamic_bool_builtin(bool $flag): string { echo "bool-pick\n"; return $flag ? "is_numeric" : "ctype_digit"; }
 $i = call_user_func(choose_dynamic_int_builtin(true), "web");
 $j = call_user_func_array(choose_dynamic_int_builtin(false), ["A"]);
 $f = call_user_func(choose_dynamic_float_builtin(true), 9.0);
 $g = call_user_func_array(choose_dynamic_float_builtin(false), ["2.5"]);
+$r = call_user_func(choose_dynamic_round_builtin(true), 3.6);
+$s = call_user_func_array(choose_dynamic_round_builtin(false), [2.1]);
 $b = call_user_func(choose_dynamic_bool_builtin(true), "42");
 $c = call_user_func_array(choose_dynamic_bool_builtin(false), ["42"]);
 echo ($i + $j) . "\n";
 echo ($f + $g) . "\n";
+echo ($r + $s) . "\n";
 echo (($b && $c) ? 1 : 0) . "\n";
 "#,
     );

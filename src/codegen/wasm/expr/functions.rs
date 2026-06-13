@@ -1919,6 +1919,7 @@ fn callable_builtin_return_kind(
             | "fmod"
             | "atan2"
             | "hypot"
+            | "round"
     ) {
         return Some(ValueKind::Float);
     }
