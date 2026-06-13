@@ -2135,6 +2135,36 @@ pub(in crate::codegen::wasm) fn emit_instanceof_expr(
     target: &InstanceOfTarget,
     module: &mut WasmModule,
 ) -> Result<ValueKind, CompileError> {
+    if let InstanceOfTarget::Expr(target_expr) = target {
+        if static_class_string_value(target_expr, module).is_none()
+            && expression_is_stringy(target_expr, module)
+        {
+            if let Some(value_class) = object_class_name_for_expr(value, module) {
+                let kind = emit_expr(value, module)?;
+                let target_var =
+                    runtime_string_arg_or_materialize(target_expr, "instanceof_target", module)?
+                        .ok_or_else(|| {
+                            CompileError::new(
+                                target_expr.span,
+                                "wasm32-web dynamic instanceof targets currently require a string target",
+                            )
+                        })?;
+                if kind != ValueKind::Object {
+                    emit_drop_value_kind(kind, module);
+                    module.body().line("i32.const 0");
+                    return Ok(ValueKind::Bool);
+                }
+                module.body().line("drop");
+                emit_runtime_string_matches_any(
+                    "instanceof_target",
+                    runtime_class_match_targets(&value_class, false, expr, module)?,
+                    &target_var,
+                    module,
+                );
+                return Ok(ValueKind::Bool);
+            }
+        }
+    }
     let target_expr = match target {
         InstanceOfTarget::Name(_) => None,
         InstanceOfTarget::Expr(target_expr) => Some(target_expr.as_ref()),

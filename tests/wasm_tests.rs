@@ -2853,6 +2853,13 @@ fn test_wasm32_web_e2e_matches_php_dynamic_instanceof_static_class_strings() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_dynamic_instanceof_runtime_target_strings() {
+    assert_wasm_matches_php(
+        "<?php\ninterface RuntimeInstanceNamed {}\nclass RuntimeInstanceBase {}\nclass RuntimeInstanceChild extends RuntimeInstanceBase implements RuntimeInstanceNamed {}\nclass RuntimeInstanceOther {}\nfunction runtime_instance_value(): RuntimeInstanceChild { echo \"value\\n\"; return new RuntimeInstanceChild(); }\nfunction runtime_instance_suffix(string $value): string { echo \"target\\n\"; return $value; }\n$prefix = \"RuntimeInstance\";\n$o = new RuntimeInstanceChild();\necho ($o instanceof ($prefix . runtime_instance_suffix(\"Base\")) ? 1 : 0) . \":\";\necho ($o instanceof ($prefix . runtime_instance_suffix(\"Named\")) ? 1 : 0) . \":\";\necho ($o instanceof ($prefix . runtime_instance_suffix(\"Other\")) ? 1 : 0) . \":\";\necho (runtime_instance_value() instanceof ($prefix . runtime_instance_suffix(\"Base\")) ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_dynamic_instanceof_function_target_order() {
     assert_wasm_matches_php(
         "<?php\nclass DynamicOrderBase {}\nclass DynamicOrderChild extends DynamicOrderBase {}\nfunction make_dynamic_order(): DynamicOrderChild { echo \"value\\n\"; return new DynamicOrderChild(); }\nfunction dynamic_order_target(): string { echo \"target\\n\"; return \"DynamicOrderBase\"; }\necho (make_dynamic_order() instanceof (dynamic_order_target()) ? 1 : 0) . \"\\n\";\n",
