@@ -93,6 +93,7 @@ fn callable_return_target_from_expr(
     local_callable_targets: &HashMap<String, String>,
 ) -> Option<String> {
     match &expr.kind {
+        ExprKind::StringLiteral(name) => Some(name.clone()),
         ExprKind::FirstClassCallable(CallableTarget::Function(name)) => Some(name.to_string()),
         ExprKind::FirstClassCallable(CallableTarget::StaticMethod {
             receiver: StaticReceiver::Named(class_name),

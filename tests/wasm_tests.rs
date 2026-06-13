@@ -30952,6 +30952,43 @@ echo call_user_func_array(make_callback(), ["compiler"]) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_string_callable_typed_function_return_call_user_func() {
+    assert_wasm_matches_php(
+        r#"<?php
+function make_callback(): callable {
+    return "strlen";
+}
+echo call_user_func(make_callback(), "alphabet") . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_string_callable_typed_function_return_call_user_func_array() {
+    assert_wasm_matches_php(
+        r#"<?php
+function make_callback(): callable {
+    return "strlen";
+}
+echo call_user_func_array(make_callback(), ["compiler"]) . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_string_callable_typed_function_return_alias() {
+    assert_wasm_matches_php(
+        r#"<?php
+function make_callback(): callable {
+    $callback = "strlen";
+    return $callback;
+}
+echo call_user_func(make_callback(), "metadata") . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_array_reduce_string_callback_null_values_are_rejected() {
     let source = r#"<?php
 function join_word(string $carry, string $value): string {
