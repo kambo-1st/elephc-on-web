@@ -16,6 +16,7 @@ mod array_param_layout_conflicts;
 mod array_param_lengths;
 mod array_param_nested;
 mod array_param_values;
+mod callable_param_targets;
 mod array_return_layouts;
 mod array_return_values;
 mod array_return_params;
@@ -45,6 +46,7 @@ pub(super) use self::array_param_layout_conflicts::collect_function_array_param_
 pub(super) use self::array_param_lengths::collect_function_array_param_lengths;
 pub(super) use self::array_param_nested::collect_function_array_param_runtime_nested_values;
 pub(super) use self::array_param_values::collect_function_array_param_value_kinds;
+pub(super) use self::callable_param_targets::collect_function_callable_param_targets;
 pub(super) use self::array_return_layouts::{
     callable_target_for_return_layout, collect_function_array_return_layouts,
     static_array_fill_return_len, static_callback_name_for_return_layout,

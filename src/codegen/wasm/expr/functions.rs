@@ -752,10 +752,14 @@ fn emit_value_as_arg_local(
             emit_mixed_arg_assign(local, expr, module)?;
         }
         LocalKind::Callable => {
-            return Err(CompileError::new(
-                expr.span,
-                "wasm32-web callable parameters require callable runtime support",
-            ));
+            let Some(_) = static_callback_function_name(expr, module) else {
+                return Err(CompileError::new(
+                    expr.span,
+                    "wasm32-web callable parameters require a statically known callable target",
+                ));
+            };
+            module.body().line("i32.const 0");
+            module.body().line(&format!("local.set ${}", local));
         }
     }
     Ok(())

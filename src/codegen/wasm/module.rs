@@ -175,6 +175,7 @@ pub(super) struct WasmModule {
     function_array_param_layout_conflicts: Vec<(String, usize)>,
     function_array_param_key_kinds: HashMap<String, Vec<Option<Vec<AssocKeyKind>>>>,
     function_array_param_key_values: HashMap<String, Vec<Option<Vec<AssocKeyValue>>>>,
+    function_callable_param_targets: HashMap<String, Vec<Option<String>>>,
     constants: HashMap<String, ConstantValue>,
     array_constants: HashMap<String, ConstantArrayValue>,
     class_names: HashSet<String>,
@@ -331,6 +332,12 @@ impl WasmModule {
                 &function_array_return_key_values,
                 &function_array_return_param_indices,
             );
+        let function_callable_param_targets = collect_function_callable_param_targets(
+            program,
+            &function_params,
+            &function_param_kinds,
+            &function_defaults,
+        );
         for (function, param_index) in &function_array_return_param_indices {
             if function_array_param_key_kinds
                 .get(function)
@@ -404,6 +411,7 @@ impl WasmModule {
             function_array_param_layout_conflicts,
             function_array_param_key_kinds,
             function_array_param_key_values,
+            function_callable_param_targets,
             constants,
             array_constants: collect_array_constants(program),
             class_names: collect_decl_names(program, DeclKind::Class),
@@ -926,6 +934,13 @@ impl WasmModule {
             for (param, values) in param_names.iter().zip(key_values.iter()) {
                 if let Some(values) = values {
                     function.array_key_values.insert(param.clone(), values.clone());
+                }
+            }
+        }
+        if let Some(targets) = self.function_callable_param_targets.get(&function_key) {
+            for (param, target) in param_names.iter().zip(targets.iter()) {
+                if let Some(target) = target {
+                    function.callable_targets.insert(param.clone(), target.clone());
                 }
             }
         }
