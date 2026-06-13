@@ -39618,6 +39618,24 @@ echo get_class($archived) . ":" . $archived->value . ":" . ($archived === MatchS
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_array_match_count_results() {
+    assert_wasm_matches_php(
+        r#"<?php
+function count_choice(int $slot): int {
+    return count(match ($slot) {
+        1 => [10, 20, 30],
+        2 => [40],
+        default => [50, 60],
+    });
+}
+echo count_choice(1) . "\n";
+echo count_choice(2) . "\n";
+echo count_choice(3) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_enum_cases_array_filter_get_class() {
     assert_wasm_matches_php(
         r#"<?php

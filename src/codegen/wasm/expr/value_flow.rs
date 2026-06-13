@@ -248,6 +248,9 @@ pub(in crate::codegen::wasm) fn match_result_kind(
     if !values.is_empty() && values.iter().all(|value| expression_is_booly(value, module)) {
         return Ok(ValueKind::Bool);
     }
+    if !values.is_empty() && values.iter().all(|value| expression_is_arrayy(value, module)) {
+        return Ok(ValueKind::Array);
+    }
     if !values.is_empty() && values.iter().all(|value| expression_is_objecty(value, module)) {
         return Ok(ValueKind::Object);
     }

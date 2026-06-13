@@ -177,6 +177,25 @@ pub(super) fn emit_count_call(
                 emit_runtime_checked_mixed_array_count_from_cell(&format!("${}", cell), module);
                 return Ok(ValueKind::Int);
             }
+            if matches!(args[0].kind, ExprKind::Match { .. }) {
+                let len = module.next_label("count_match_array_len");
+                module.declare_i32_local(len.trim_start_matches('$').to_string());
+                match emit_expr(&args[0], module)? {
+                    ValueKind::Array => {
+                        module.body().line(&format!("local.set {}", len));
+                        module.body().line("drop");
+                        module.body().line(&format!("local.get {}", len));
+                        module.body().line("i64.extend_i32_u");
+                        return Ok(ValueKind::Int);
+                    }
+                    _ => {
+                        return Err(CompileError::new(
+                            args[0].span,
+                            "wasm32-web count() requires an array value",
+                        ));
+                    }
+                }
+            }
             if expression_is_arrayy(&args[0], module) || expression_has_array_type(&args[0], module) {
                 let temp = module
                     .next_label("count_array_expr")
