@@ -64,6 +64,12 @@ pub(in crate::codegen::wasm) fn emit_binary(
         }
         let left_object = object_class_name_for_expr(left, module).is_some();
         let right_object = object_class_name_for_expr(right, module).is_some();
+        if right_object && emit_mixed_object_identity_comparison(left, right, op, module)? {
+            return Ok(ValueKind::Bool);
+        }
+        if left_object && emit_mixed_object_identity_comparison(right, left, op, module)? {
+            return Ok(ValueKind::Bool);
+        }
         if left_object && right_object {
             emit_expr(left, module)?;
             emit_expr(right, module)?;
@@ -369,6 +375,48 @@ fn emit_drop_value_kind(kind: ValueKind, module: &mut WasmModule) {
         }
         ValueKind::Never => {}
     }
+}
+
+fn emit_mixed_object_identity_comparison(
+    mixed_expr: &Expr,
+    object_expr: &Expr,
+    op: &BinOp,
+    module: &mut WasmModule,
+) -> Result<bool, CompileError> {
+    let Some(cell) = materialize_mixed_value_cell(mixed_expr, module)? else {
+        return Ok(false);
+    };
+    let object_local = module
+        .next_label("mixed_object_identity_ptr")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_i32_local(object_local.clone());
+    let kind = emit_expr(object_expr, module)?;
+    if kind != ValueKind::Object {
+        return Err(CompileError::new(
+            object_expr.span,
+            "wasm32-web strict object identity expected an object expression",
+        ));
+    }
+    module.body().line(&format!("local.set ${}", object_local));
+    module.body().line(&format!("local.get ${}", cell));
+    module.body().line("i32.load");
+    module.body().line(&format!("i32.const {}", WASM_VALUE_TAG_OBJECT));
+    module.body().line("i32.eq");
+    module.body().open("if (result i32)");
+    emit_mixed_i32_payload(&cell, 8, module);
+    module.body().line(&format!("local.get ${}", object_local));
+    module
+        .body()
+        .line(if matches!(op, BinOp::StrictEq) { "i32.eq" } else { "i32.ne" });
+    module.body().line("else");
+    module.body().line(if matches!(op, BinOp::StrictEq) {
+        "i32.const 0"
+    } else {
+        "i32.const 1"
+    });
+    module.body().close("end");
+    Ok(true)
 }
 
 pub(in crate::codegen::wasm) fn emit_mixed_literal_comparison(

@@ -39683,6 +39683,24 @@ echo gettype(MissingStatus::tryFrom(99)) . ":" . (is_null(MissingStatus::tryFrom
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_enum_cases_in_mixed_value_cells() {
+    assert_wasm_matches_php(
+        r#"<?php
+enum MixedStatus: int {
+    case Draft = 10;
+    case Published = 20;
+}
+function id_enum(mixed $value): mixed { return $value; }
+$items = [MixedStatus::Draft, MixedStatus::Published];
+$draft = id_enum($items[0]);
+$published = id_enum(MixedStatus::Published);
+echo get_class($draft) . ":" . $draft->value . ":" . ($draft === MixedStatus::Draft ? 1 : 0) . "\n";
+echo get_class($published) . ":" . $published->value . ":" . ($items[1] === $published ? 1 : 0) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_backed_enum_from_missing_value_is_rejected() {
     let program = parse_program(
         r#"<?php
