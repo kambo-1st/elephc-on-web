@@ -34625,6 +34625,13 @@ fn test_wasm32_web_e2e_matches_php_wordwrap_cut_expression_width_output() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_wordwrap_dynamic_cut_output() {
+    assert_wasm_matches_php(
+        "<?php\nfunction cut_flag(): bool { return strlen(\"web\") === 3; }\n$s = \"hellowebtarget\";\n$cut = false;\necho wordwrap($s, 5, \"|\", $cut) . \"\\n\";\n$cut = true;\necho wordwrap($s, 5, \"|\", $cut) . \"\\n\";\necho wordwrap($s, 5, \"|\", cut_flag()) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_urlencode_output() {
     assert_wasm_matches_php("<?php\necho urlencode(\"web target~\") . \"\\n\";\n");
 }
@@ -37659,6 +37666,22 @@ $u = $t;
 $t[0] = "Z";
 $t[20] = "!";
 echo json_encode($t) . "|" . json_encode($u) . "|" . json_encode($s) . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_wordwrap_string_values_dynamic_cut() {
+    assert_wasm_matches_php(
+        r#"<?php
+function cut_flag(): bool { return true; }
+function ident(string $v): string { return $v; }
+$s = "hellowebtarget";
+$cut = false;
+$a = wordwrap($s, 5, "|", $cut);
+$b = wordwrap($s, 5, "|", cut_flag());
+echo strlen($a) . ":" . ident($a) . "\n";
+echo strlen($b) . ":" . ident($b) . "\n";
 "#,
     );
 }

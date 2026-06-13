@@ -437,7 +437,7 @@ use self::sprintf::{
 use self::sprintf_literal::{eval_literal_sprintf, format_php_general};
 use self::wordwrap::{
     emit_runtime_wordwrap, emit_runtime_wordwrap_dynamic,
-    emit_wordwrap_string_builtin_value_to_stack, WasmBreakText,
+    emit_wordwrap_string_builtin_value_to_stack, WasmBreakText, WasmWordwrapCut,
 };
 use self::path_builtins::{
     emit_runtime_basename, emit_runtime_basename_var_suffix, emit_runtime_dirname,

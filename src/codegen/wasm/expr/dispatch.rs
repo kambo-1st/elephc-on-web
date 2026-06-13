@@ -593,6 +593,16 @@ pub(in crate::codegen::wasm) fn require_int(expr: &Expr, module: &mut WasmModule
     }
 }
 
+pub(in crate::codegen::wasm) fn require_bool(expr: &Expr, module: &mut WasmModule) -> Result<(), CompileError> {
+    match emit_expr(expr, module)? {
+        ValueKind::Bool => Ok(()),
+        _ => Err(CompileError::new(
+            expr.span,
+            "wasm32-web runtime WAT output expected a boolean expression",
+        )),
+    }
+}
+
 pub(in crate::codegen::wasm) fn require_float(expr: &Expr, module: &mut WasmModule) -> Result<(), CompileError> {
     match emit_expr(expr, module)? {
         ValueKind::Float => Ok(()),

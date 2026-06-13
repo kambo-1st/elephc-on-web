@@ -534,9 +534,10 @@ pub(super) fn emit_runtime_output_string_builtin(
             };
             let cut = args
                 .get(3)
-                .map(literal_bool_arg)
+                .map(|arg| runtime_bool_arg(arg, module))
                 .transpose()?
-                .unwrap_or(false);
+                .map(WasmWordwrapCut::from)
+                .unwrap_or(WasmWordwrapCut::Static(false));
             match args.get(1) {
                 Some(width) => {
                     if let Some(width) = static_int_value(width) {

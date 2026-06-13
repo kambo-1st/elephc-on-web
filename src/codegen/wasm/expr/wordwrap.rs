@@ -63,7 +63,12 @@ pub(super) fn emit_wordwrap_string_builtin_value_to_stack(
         }
         None => WasmBreakText::Literal("\n"),
     };
-    let cut = args.get(3).map(literal_bool_arg).transpose()?.unwrap_or(false);
+    let cut = args
+        .get(3)
+        .map(|arg| runtime_bool_arg(arg, module))
+        .transpose()?
+        .map(WasmWordwrapCut::from)
+        .unwrap_or(WasmWordwrapCut::Static(false));
     if let Some(width_expr) = dynamic_width {
         emit_runtime_wordwrap_dynamic_value_to_stack(&var, width_expr, break_text, cut, module)?;
     } else {
@@ -79,11 +84,26 @@ pub(super) enum WasmBreakText<'a> {
     Variable(&'a str),
 }
 
+#[derive(Clone)]
+pub(super) enum WasmWordwrapCut<'a> {
+    Static(bool),
+    Local(Cow<'a, str>),
+}
+
+impl<'a> From<RuntimeBoolArg<'a>> for WasmWordwrapCut<'a> {
+    fn from(value: RuntimeBoolArg<'a>) -> Self {
+        match value {
+            RuntimeBoolArg::Static(value) => Self::Static(value),
+            RuntimeBoolArg::Variable(local) => Self::Local(local),
+        }
+    }
+}
+
 pub(super) fn emit_runtime_wordwrap(
     var: &str,
     width: i64,
     break_text: WasmBreakText<'_>,
-    cut: bool,
+    cut: WasmWordwrapCut<'_>,
     module: &mut WasmModule,
 ) {
     let width = width.max(1).min(i32::MAX as i64);
@@ -165,7 +185,8 @@ pub(super) fn emit_runtime_wordwrap(
     module.body().line(&format!("local.get {}", word_start));
     module.body().line("i32.sub");
     module.body().line(&format!("local.set {}", word_len));
-    if cut {
+    let close_cut_guard = emit_wordwrap_cut_guard_start(cut.clone(), module);
+    if !matches!(cut, WasmWordwrapCut::Static(false)) {
         module.body().line(&format!("local.get {}", word_len));
         module.body().line(&format!("i32.const {}", width));
         module.body().line("i32.gt_u");
@@ -215,6 +236,7 @@ pub(super) fn emit_runtime_wordwrap(
         module.body().line(&format!("br {}", loop_label));
         module.body().close("end");
     }
+    emit_wordwrap_cut_guard_end(close_cut_guard, module);
     module.body().line(&format!("local.get {}", line_len));
     module.body().line("i32.eqz");
     module.body().open("if (result i32)");
@@ -269,7 +291,7 @@ pub(super) fn emit_runtime_wordwrap_dynamic(
     var: &str,
     width_expr: &Expr,
     break_text: WasmBreakText<'_>,
-    cut: bool,
+    cut: WasmWordwrapCut<'_>,
     module: &mut WasmModule,
 ) -> Result<(), CompileError> {
     let width64 = module.next_label("wrap_width64");
@@ -371,7 +393,8 @@ pub(super) fn emit_runtime_wordwrap_dynamic(
     module.body().line(&format!("local.get {}", word_start));
     module.body().line("i32.sub");
     module.body().line(&format!("local.set {}", word_len));
-    if cut {
+    let close_cut_guard = emit_wordwrap_cut_guard_start(cut.clone(), module);
+    if !matches!(cut, WasmWordwrapCut::Static(false)) {
         module.body().line(&format!("local.get {}", word_len));
         module.body().line(&format!("local.get {}", width));
         module.body().line("i32.gt_u");
@@ -421,6 +444,7 @@ pub(super) fn emit_runtime_wordwrap_dynamic(
         module.body().line(&format!("br {}", loop_label));
         module.body().close("end");
     }
+    emit_wordwrap_cut_guard_end(close_cut_guard, module);
     module.body().line(&format!("local.get {}", line_len));
     module.body().line("i32.eqz");
     module.body().open("if (result i32)");
@@ -483,5 +507,23 @@ fn emit_write_wordwrap_break(
             emit_write_static_string(break_ptr, break_len, module);
         }
         WasmBreakText::Variable(break_var) => emit_write_string_var(break_var, module),
+    }
+}
+
+fn emit_wordwrap_cut_guard_start(cut: WasmWordwrapCut<'_>, module: &mut WasmModule) -> bool {
+    match cut {
+        WasmWordwrapCut::Static(true) => false,
+        WasmWordwrapCut::Static(false) => false,
+        WasmWordwrapCut::Local(local) => {
+            module.body().line(&format!("local.get ${}", local));
+            module.body().open("if");
+            true
+        }
+    }
+}
+
+fn emit_wordwrap_cut_guard_end(close_guard: bool, module: &mut WasmModule) {
+    if close_guard {
+        module.body().close("end");
     }
 }

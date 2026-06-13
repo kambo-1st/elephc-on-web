@@ -20,7 +20,7 @@ pub(super) fn emit_runtime_wordwrap_value_to_stack(
     var: &str,
     width: WasmWordwrapWidth<'_>,
     break_text: WasmBreakText<'_>,
-    cut: bool,
+    cut: WasmWordwrapCut<'_>,
     module: &mut WasmModule,
 ) {
     let idx = module.next_label("wrap_value_idx");
@@ -123,7 +123,8 @@ pub(super) fn emit_runtime_wordwrap_value_to_stack(
     module.body().line(&format!("local.get {}", word_start));
     module.body().line("i32.sub");
     module.body().line(&format!("local.set {}", word_len));
-    if cut {
+    let close_cut_guard = emit_wordwrap_cut_guard_start(cut.clone(), module);
+    if !matches!(cut, WasmWordwrapCut::Static(false)) {
         module.body().line(&format!("local.get {}", word_len));
         emit_wordwrap_width_value(width, module);
         module.body().line("i32.gt_u");
@@ -173,6 +174,7 @@ pub(super) fn emit_runtime_wordwrap_value_to_stack(
         module.body().line(&format!("br {}", loop_label));
         module.body().close("end");
     }
+    emit_wordwrap_cut_guard_end(close_cut_guard, module);
     module.body().line(&format!("local.get {}", line_len));
     module.body().line("i32.eqz");
     module.body().open("if (result i32)");
@@ -234,7 +236,7 @@ pub(super) fn emit_runtime_wordwrap_dynamic_value_to_stack(
     var: &str,
     width_expr: &Expr,
     break_text: WasmBreakText<'_>,
-    cut: bool,
+    cut: WasmWordwrapCut<'_>,
     module: &mut WasmModule,
 ) -> Result<(), CompileError> {
     let width64 = module.next_label("wrap_value_width64");

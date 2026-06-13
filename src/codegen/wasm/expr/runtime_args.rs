@@ -11,6 +11,7 @@
 //! - PHP-visible validation errors stay at the caller site that owns the builtin semantics.
 
 use super::*;
+use super::dispatch::require_bool;
 
 pub(super) fn runtime_string_variable_arg<'a>(expr: &'a Expr, module: &WasmModule) -> Option<&'a str> {
     match &expr.kind {
@@ -55,20 +56,27 @@ pub(super) enum RuntimePadType<'a> {
     Variable(Cow<'a, str>),
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(super) enum RuntimeBoolArg<'a> {
     Static(bool),
-    Variable(&'a str),
+    Variable(Cow<'a, str>),
 }
 
 pub(super) fn runtime_bool_arg<'a>(
     expr: &'a Expr,
-    module: &WasmModule,
+    module: &mut WasmModule,
 ) -> Result<RuntimeBoolArg<'a>, CompileError> {
-    if let Some(var) = runtime_bool_variable_arg(expr, module) {
-        return Ok(RuntimeBoolArg::Variable(var));
+    if let Some(value) = static_or_const_or_i32_bool_value(expr, module) {
+        return Ok(RuntimeBoolArg::Static(value));
     }
-    literal_bool_arg(expr).map(RuntimeBoolArg::Static)
+    if let Some(var) = runtime_bool_variable_arg(expr, module) {
+        return Ok(RuntimeBoolArg::Variable(Cow::Borrowed(var)));
+    }
+    let local = module.next_label("runtime_bool_arg").trim_start_matches('$').to_string();
+    module.declare_i32_local(local.clone());
+    require_bool(expr, module)?;
+    module.body().line(&format!("local.set ${}", local));
+    Ok(RuntimeBoolArg::Variable(Cow::Owned(local)))
 }
 
 pub(super) fn runtime_str_pad_type<'a>(
