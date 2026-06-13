@@ -34748,6 +34748,13 @@ fn test_wasm32_web_e2e_matches_php_base64_decode_strict_argument_output() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_base64_decode_dynamic_strict_output() {
+    assert_wasm_matches_php(
+        "<?php\nfunction strict_mode(): bool { return strlen(\"web\") === 3; }\n$a = \"d2Vi\";\n$b = \"Q@Q==\";\necho base64_decode($a, strlen($a) > 2) . \"\\n\";\necho base64_decode($b, false) . \"x\\n\";\necho base64_decode($b, strict_mode()) . \"x\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_base64_decode_variable_nonstrict_invalid_output() {
     assert_wasm_matches_php("<?php\n$a = \"Q@Q==\";\necho base64_decode($a) . \"x\\n\";\n");
 }
@@ -37192,6 +37199,22 @@ fn test_wasm32_web_e2e_matches_php_base64_decode_string_values_strict_invalid_is
 $s = "!!!!";
 $t = base64_decode($s, true);
 echo "x" . $t . "y\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_base64_decode_string_values_dynamic_strict() {
+    assert_wasm_matches_php(
+        r#"<?php
+function strict_mode(): bool { return strlen("web") === 3; }
+function ident(string $v): string { return $v; }
+$s = "d2Vi";
+$bad = "Q@Q==";
+$a = base64_decode($s, strlen($s) > 2);
+$b = base64_decode($bad, strict_mode());
+echo ident($a) . ":" . strlen($a) . "\n";
+echo ident($b) . ":" . strlen($b) . "\n";
 "#,
     );
 }

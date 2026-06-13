@@ -248,7 +248,7 @@ pub(super) fn emit_runtime_base64_encode_value_to_stack(var: &str, module: &mut 
     module.body().line(&format!("local.get {}", out_len));
 }
 
-pub(super) fn emit_runtime_base64_decode(var: &str, strict: bool, module: &mut WasmModule) {
+pub(super) fn emit_runtime_base64_decode(var: &str, strict: RuntimeBoolArg<'_>, module: &mut WasmModule) {
     let idx = module.next_label("b64d_idx");
     let byte = module.next_label("b64d_byte");
     let slot = module.next_label("b64d_slot");
@@ -264,9 +264,7 @@ pub(super) fn emit_runtime_base64_decode(var: &str, strict: bool, module: &mut W
         module.declare_i32_local(local.trim_start_matches('$').to_string());
     }
     module.body().open(&format!("block {}", invalid_label));
-    if strict {
-        emit_runtime_base64_strict_prescan(var, &idx, &byte, &invalid_label, module);
-    }
+    emit_runtime_base64_strict_prescan_guarded(var, &idx, &byte, &invalid_label, strict.clone(), module);
     module.body().line("i32.const 0");
     module.body().line(&format!("local.set {}", idx));
     module.body().line("i32.const 0");
@@ -310,7 +308,11 @@ pub(super) fn emit_runtime_base64_decode(var: &str, strict: bool, module: &mut W
     module.body().close("end");
 }
 
-pub(super) fn emit_runtime_base64_decode_value_to_stack(var: &str, strict: bool, module: &mut WasmModule) {
+pub(super) fn emit_runtime_base64_decode_value_to_stack(
+    var: &str,
+    strict: RuntimeBoolArg<'_>,
+    module: &mut WasmModule,
+) {
     let idx = module.next_label("b64d_value_idx");
     let byte = module.next_label("b64d_value_byte");
     let slot = module.next_label("b64d_value_slot");
@@ -347,9 +349,7 @@ pub(super) fn emit_runtime_base64_decode_value_to_stack(var: &str, strict: bool,
     module.body().line("i32.const 0");
     module.body().line(&format!("local.set {}", out_idx));
     module.body().open(&format!("block {}", invalid_label));
-    if strict {
-        emit_runtime_base64_strict_prescan(var, &idx, &byte, &invalid_label, module);
-    }
+    emit_runtime_base64_strict_prescan_guarded(var, &idx, &byte, &invalid_label, strict.clone(), module);
     module.body().line("i32.const 0");
     module.body().line(&format!("local.set {}", idx));
     module.body().line("i32.const 0");
@@ -438,6 +438,26 @@ pub(super) fn emit_runtime_base64_strict_prescan(
     module.body().close("end");
 }
 
+fn emit_runtime_base64_strict_prescan_guarded(
+    var: &str,
+    idx: &str,
+    byte: &str,
+    invalid_label: &str,
+    strict: RuntimeBoolArg<'_>,
+    module: &mut WasmModule,
+) {
+    match strict {
+        RuntimeBoolArg::Static(true) => emit_runtime_base64_strict_prescan(var, idx, byte, invalid_label, module),
+        RuntimeBoolArg::Static(false) => {}
+        RuntimeBoolArg::Variable(local) => {
+            module.body().line(&format!("local.get ${}", local));
+            module.body().open("if");
+            emit_runtime_base64_strict_prescan(var, idx, byte, invalid_label, module);
+            module.body().close("end");
+        }
+    }
+}
+
 pub(super) fn emit_assign_base64_slot(
     slot: &str,
     value: &str,
@@ -481,7 +501,7 @@ pub(super) fn emit_flush_base64_tail(
     v2: &str,
     v3: &str,
     invalid_label: &str,
-    strict: bool,
+    strict: RuntimeBoolArg<'_>,
     module: &mut WasmModule,
 ) {
     module.body().line(&format!("local.get {}", slot));
@@ -506,11 +526,7 @@ pub(super) fn emit_flush_base64_tail(
     module.body().line("i32.eqz");
     module.body().line("i32.eqz");
     module.body().open("if");
-    if strict {
-        module.body().line(&format!("br {}", invalid_label));
-    } else {
-        module.body().line("unreachable");
-    }
+    emit_base64_invalid_tail(strict, invalid_label, None, module);
     module.body().close("end");
     module.body().close("end");
     module.body().close("end");
@@ -574,7 +590,7 @@ pub(super) fn emit_flush_base64_tail_to_memory(
     out_ptr: &str,
     out_idx: &str,
     invalid_label: &str,
-    strict: bool,
+    strict: RuntimeBoolArg<'_>,
     module: &mut WasmModule,
 ) {
     module.body().line(&format!("local.get {}", slot));
@@ -599,16 +615,42 @@ pub(super) fn emit_flush_base64_tail_to_memory(
     module.body().line("i32.eqz");
     module.body().line("i32.eqz");
     module.body().open("if");
-    if strict {
-        module.body().line("i32.const 0");
-        module.body().line(&format!("local.set {}", out_idx));
-        module.body().line(&format!("br {}", invalid_label));
-    } else {
-        module.body().line("unreachable");
+    emit_base64_invalid_tail(strict, invalid_label, Some(out_idx), module);
+    module.body().close("end");
+    module.body().close("end");
+    module.body().close("end");
+}
+
+fn emit_base64_invalid_tail(
+    strict: RuntimeBoolArg<'_>,
+    invalid_label: &str,
+    out_idx: Option<&str>,
+    module: &mut WasmModule,
+) {
+    match strict {
+        RuntimeBoolArg::Static(true) => {
+            if let Some(out_idx) = out_idx {
+                module.body().line("i32.const 0");
+                module.body().line(&format!("local.set {}", out_idx));
+            }
+            module.body().line(&format!("br {}", invalid_label));
+        }
+        RuntimeBoolArg::Static(false) => {
+            module.body().line("unreachable");
+        }
+        RuntimeBoolArg::Variable(local) => {
+            module.body().line(&format!("local.get ${}", local));
+            module.body().open("if");
+            if let Some(out_idx) = out_idx {
+                module.body().line("i32.const 0");
+                module.body().line(&format!("local.set {}", out_idx));
+            }
+            module.body().line(&format!("br {}", invalid_label));
+            module.body().line("else");
+            module.body().line("unreachable");
+            module.body().close("end");
+        }
     }
-    module.body().close("end");
-    module.body().close("end");
-    module.body().close("end");
 }
 
 pub(super) fn emit_store_base64_quartet(

@@ -95,9 +95,9 @@ pub(super) fn emit_runtime_output_string_builtin(
             };
             let strict = args
                 .get(1)
-                .map(literal_bool_arg)
+                .map(|arg| runtime_bool_arg(arg, module))
                 .transpose()?
-                .unwrap_or(false);
+                .unwrap_or(RuntimeBoolArg::Static(false));
             emit_runtime_base64_decode(&var, strict, module);
             Ok(true)
         }

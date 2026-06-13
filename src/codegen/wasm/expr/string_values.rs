@@ -431,10 +431,10 @@ pub(super) fn emit_base64_decode_string_builtin_value_to_stack(
     }
     let strict = args
         .get(1)
-        .map(literal_bool_arg)
+        .map(|arg| runtime_bool_arg(arg, module))
         .transpose()?
-        .unwrap_or(false);
-    if static_string_value(&args[0], module).is_some() {
+        .unwrap_or(RuntimeBoolArg::Static(false));
+    if static_string_value(&args[0], module).is_some() && matches!(strict, RuntimeBoolArg::Static(_)) {
         let value = eval_output_string_builtin(call, name, args, module)?;
         let (ptr, len) = module.intern_string(&value);
         module.body().line(&format!("i32.const {}", ptr));
