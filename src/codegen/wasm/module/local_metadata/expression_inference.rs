@@ -213,16 +213,28 @@ fn callable_return_expr_call_local_kind(
             ..
         } => static_method_call_return_key(class_name.as_str(), method),
         ExprKind::MethodCall { object, method, .. } => {
-            let ExprKind::NewObject { class_name, .. } = &object.kind else {
-                return None;
-            };
-            method_call_return_key(class_name.as_str(), method)
+            if let ExprKind::NewObject { class_name, .. } = &object.kind {
+                method_call_return_key(class_name.as_str(), method)
+            } else {
+                unique_callable_return_method_key(
+                    method,
+                    function_callable_return_targets,
+                    function_possible_callable_return_targets,
+                    function_return_kinds,
+                )?
+            }
         }
         ExprKind::NullsafeMethodCall { object, method, .. } => {
-            let ExprKind::NewObject { class_name, .. } = &object.kind else {
-                return None;
-            };
-            method_call_return_key(class_name.as_str(), method)
+            if let ExprKind::NewObject { class_name, .. } = &object.kind {
+                method_call_return_key(class_name.as_str(), method)
+            } else {
+                unique_callable_return_method_key(
+                    method,
+                    function_callable_return_targets,
+                    function_possible_callable_return_targets,
+                    function_return_kinds,
+                )?
+            }
         }
         _ => return None,
     };
@@ -244,6 +256,46 @@ fn callable_return_expr_call_local_kind(
     }
     let _ = args;
     kind.map(local_kind_for_value)
+}
+
+fn unique_callable_return_method_key(
+    method: &str,
+    function_callable_return_targets: &HashMap<String, String>,
+    function_possible_callable_return_targets: &HashMap<String, Vec<String>>,
+    function_return_kinds: &HashMap<String, ValueKind>,
+) -> Option<String> {
+    let suffix = format!("->{}", function_key(method));
+    let mut found = None;
+    let mut found_kind = None;
+    for key in function_callable_return_targets
+        .keys()
+        .chain(function_possible_callable_return_targets.keys())
+        .filter(|key| key.ends_with(&suffix))
+    {
+        let targets = function_possible_callable_return_targets
+            .get(key)
+            .cloned()
+            .or_else(|| {
+                function_callable_return_targets
+                    .get(key)
+                    .map(|target| vec![target.clone()])
+            })?;
+        let mut key_kind = None;
+        for target in targets {
+            let target_kind = function_return_kinds.get(&function_key(&target)).copied()?;
+            if key_kind.is_some_and(|existing| existing != target_kind) {
+                return None;
+            }
+            key_kind = Some(target_kind);
+        }
+        let key_kind = key_kind?;
+        if found_kind.is_some_and(|existing| existing != key_kind) {
+            return None;
+        }
+        found = Some(key.clone());
+        found_kind = Some(key_kind);
+    }
+    found
 }
 
 fn array_reduce_assignment_local_kind(

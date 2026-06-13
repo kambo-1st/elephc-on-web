@@ -30918,6 +30918,11 @@ $instanceText = ((new CallableExprFactory())->makeInstanceString())("go");
 echo strlen($instanceText) . ":" . $instanceText . "\n";
 $nullsafeText = ((new CallableExprFactory())?->makeInstanceString())("ns");
 echo strlen($nullsafeText) . ":" . $nullsafeText . "\n";
+$factory = new CallableExprFactory();
+$localText = ($factory->makeInstanceString())("lv");
+echo strlen($localText) . ":" . $localText . "\n";
+$localNullsafeText = ($factory?->makeInstanceString())("ln");
+echo strlen($localNullsafeText) . ":" . $localNullsafeText . "\n";
 "#,
     );
 }
