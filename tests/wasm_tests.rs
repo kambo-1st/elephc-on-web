@@ -30827,6 +30827,24 @@ echo $callback(11) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_callable_typed_function_returns_static_method() {
+    assert_wasm_matches_php(
+        r#"<?php
+class MathBox {
+    public static function add_two(int $value): int {
+        return $value + 2;
+    }
+}
+function make_callback(): callable {
+    return MathBox::add_two(...);
+}
+$callback = make_callback();
+echo $callback(12) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_array_reduce_string_callback_null_values_are_rejected() {
     let source = r#"<?php
 function join_word(string $carry, string $value): string {

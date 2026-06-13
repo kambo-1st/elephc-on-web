@@ -94,6 +94,14 @@ fn callable_return_target_from_expr(
 ) -> Option<String> {
     match &expr.kind {
         ExprKind::FirstClassCallable(CallableTarget::Function(name)) => Some(name.to_string()),
+        ExprKind::FirstClassCallable(CallableTarget::StaticMethod {
+            receiver: StaticReceiver::Named(class_name),
+            method,
+        }) => Some(format!(
+            "__wasm_static_method_{}_{}",
+            function_key(class_name.as_str()),
+            function_key(method)
+        )),
         ExprKind::Variable(name) => local_callable_targets.get(name).cloned(),
         ExprKind::Ternary {
             then_expr,
