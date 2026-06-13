@@ -30761,6 +30761,23 @@ echo run(Formatter::bracket(...), "web") . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_callable_typed_function_named_and_ternary_params() {
+    assert_wasm_matches_php(
+        r#"<?php
+function add_one(int $value): int {
+    return $value + 1;
+}
+function run(callable $callback, int $value): int {
+    return $callback($value);
+}
+$callback = true ? add_one(...) : add_one(...);
+echo run(value: 4, callback: $callback) . "\n";
+echo run(callback: add_one(...), value: 7) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_array_reduce_string_callback_null_values_are_rejected() {
     let source = r#"<?php
 function join_word(string $carry, string $value): string {
