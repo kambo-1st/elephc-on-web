@@ -547,10 +547,10 @@ use self::literal_strings::{
 };
 use self::functions::{
     call_user_func_array_return_kind, call_user_func_return_kind, call_user_func_target,
-    callable_expr_return_kind, callable_return_kind, callable_variable_return_kind,
-    callable_variable_target, emit_call_user_func_array_call, emit_call_user_func_call,
-    emit_callable_assign, emit_callable_expr_call, emit_callable_variable_call,
-    emit_user_function_args, object_expr_is_invokable,
+    callable_expr_return_kind, callable_return_kind, callable_return_expr_targets,
+    callable_variable_return_kind, callable_variable_target, emit_call_user_func_array_call,
+    emit_call_user_func_call, emit_callable_assign, emit_callable_expr_call,
+    emit_callable_variable_call, emit_user_function_args, object_expr_is_invokable,
 };
 
 use super::module::{

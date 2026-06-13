@@ -31560,6 +31560,29 @@ echo count($mapped_alias) . ":" . $mapped_alias[0] . ":" . $mapped_alias[1] . "\
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_array_map_callable_method_return_descriptor() {
+    assert_wasm_matches_php(
+        r#"<?php
+class MethodArrayMapCallback {
+    public static function add_one(int $x): int { return $x + 1; }
+    public static function double_value(int $x): int { return $x * 2; }
+    public function choose(bool $flag): callable {
+        return $flag ? MethodArrayMapCallback::add_one(...) : MethodArrayMapCallback::double_value(...);
+    }
+    public static function staticChoose(bool $flag): callable {
+        return $flag ? MethodArrayMapCallback::double_value(...) : MethodArrayMapCallback::add_one(...);
+    }
+}
+$factory = new MethodArrayMapCallback();
+$mapped = array_map($factory->choose(true), [1, 2, 3]);
+echo count($mapped) . ":" . $mapped[0] . ":" . $mapped[2] . "\n";
+$mapped_static = array_map(MethodArrayMapCallback::staticChoose(true), [4, 5]);
+echo count($mapped_static) . ":" . $mapped_static[0] . ":" . $mapped_static[1] . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_array_filter_dynamic_callable_variable() {
     assert_wasm_matches_php(
         r#"<?php

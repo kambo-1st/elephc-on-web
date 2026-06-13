@@ -1245,7 +1245,7 @@ fn dynamic_callable_return_function_return_kind(
     Ok(return_kind)
 }
 
-fn callable_return_expr_targets(expr: &Expr, module: &WasmModule) -> Option<Vec<String>> {
+pub(super) fn callable_return_expr_targets(expr: &Expr, module: &WasmModule) -> Option<Vec<String>> {
     let key = callable_return_expr_key(expr, module)?;
     module
         .function_possible_callable_return_targets(&key)
