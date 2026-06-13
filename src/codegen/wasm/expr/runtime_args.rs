@@ -49,10 +49,10 @@ pub(super) fn runtime_bool_variable_arg<'a>(expr: &'a Expr, module: &WasmModule)
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(super) enum RuntimePadType<'a> {
     Static(i64),
-    Variable(&'a str),
+    Variable(Cow<'a, str>),
 }
 
 #[derive(Clone, Copy)]
@@ -72,9 +72,9 @@ pub(super) fn runtime_bool_arg<'a>(
 }
 
 pub(super) fn runtime_str_pad_type<'a>(
-    call: &Expr,
+    _call: &Expr,
     arg: Option<&'a Expr>,
-    module: &WasmModule,
+    module: &mut WasmModule,
 ) -> Result<RuntimePadType<'a>, CompileError> {
     let Some(arg) = arg else {
         return Ok(RuntimePadType::Static(1));
@@ -83,10 +83,11 @@ pub(super) fn runtime_str_pad_type<'a>(
         return Ok(RuntimePadType::Static(pad_type));
     }
     if let Some(var) = runtime_int_variable_arg(arg, module) {
-        return Ok(RuntimePadType::Variable(var));
+        return Ok(RuntimePadType::Variable(Cow::Borrowed(var)));
     }
-    Err(CompileError::new(
-        call.span,
-        "wasm32-web str_pad() currently requires a literal, constant, or integer-local pad type",
-    ))
+    let local = module.next_label("str_pad_type").trim_start_matches('$').to_string();
+    module.declare_i64_local(local.clone());
+    require_int(arg, module)?;
+    module.body().line(&format!("local.set ${}", local));
+    Ok(RuntimePadType::Variable(Cow::Owned(local)))
 }

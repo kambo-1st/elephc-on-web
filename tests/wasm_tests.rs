@@ -34378,6 +34378,13 @@ fn test_wasm32_web_e2e_matches_php_str_pad_variable_type_output() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_str_pad_expression_type_output() {
+    assert_wasm_matches_php(
+        "<?php\nfunction left_type(): int { return STR_PAD_LEFT; }\n$s = \"web\";\necho str_pad($s, 6, \".\", left_type()) . \"\\n\";\n$value = str_pad($s, 8, \".\", left_type() + 2);\necho strlen($value) . \":\" . $value[0] . \":\" . $value[-1] . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_substr_replace_without_length_output() {
     assert_wasm_matches_php("<?php\necho substr_replace(\"abcdef\", \"XY\", 2) . \"\\n\";\n");
 }
