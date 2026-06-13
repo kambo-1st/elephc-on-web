@@ -35,6 +35,7 @@ pub(super) fn collect_if_locals(
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
     function_array_return_key_values: &HashMap<String, Vec<AssocKeyValue>>,
     function_array_return_param_indices: &HashMap<String, usize>,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
     array_constants: &HashMap<String, ConstantArrayValue>,
@@ -61,9 +62,10 @@ pub(super) fn collect_if_locals(
         function_array_return_key_kinds,
         function_array_return_key_values,
         function_array_return_param_indices,
+        object_classes,
         constants,
         class_constants,
-                array_constants,
+        array_constants,
     );
     for (_, body) in elseif_clauses {
         collect_stmt_body_locals(
@@ -88,9 +90,10 @@ pub(super) fn collect_if_locals(
             function_array_return_key_kinds,
             function_array_return_key_values,
             function_array_return_param_indices,
+            object_classes,
             constants,
             class_constants,
-                array_constants,
+            array_constants,
         );
     }
     if let Some(else_body) = else_body {
@@ -116,9 +119,10 @@ pub(super) fn collect_if_locals(
             function_array_return_key_kinds,
             function_array_return_key_values,
             function_array_return_param_indices,
+            object_classes,
             constants,
             class_constants,
-                array_constants,
+            array_constants,
         );
     }
 }
@@ -147,6 +151,7 @@ pub(super) fn collect_for_locals(
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
     function_array_return_key_values: &HashMap<String, Vec<AssocKeyValue>>,
     function_array_return_param_indices: &HashMap<String, usize>,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
     array_constants: &HashMap<String, ConstantArrayValue>,
@@ -174,9 +179,10 @@ pub(super) fn collect_for_locals(
             function_array_return_key_kinds,
             function_array_return_key_values,
             function_array_return_param_indices,
+            object_classes,
             constants,
             class_constants,
-                array_constants,
+            array_constants,
         );
     }
     collect_stmt_body_locals(
@@ -201,9 +207,10 @@ pub(super) fn collect_for_locals(
         function_array_return_key_kinds,
         function_array_return_key_values,
         function_array_return_param_indices,
+        object_classes,
         constants,
         class_constants,
-                array_constants,
+        array_constants,
     );
     if let Some(update) = update {
         super::collect_stmt_locals(
@@ -228,9 +235,10 @@ pub(super) fn collect_for_locals(
             function_array_return_key_kinds,
             function_array_return_key_values,
             function_array_return_param_indices,
+            object_classes,
             constants,
             class_constants,
-                array_constants,
+            array_constants,
         );
     }
 }
@@ -258,6 +266,7 @@ pub(super) fn collect_switch_locals(
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
     function_array_return_key_values: &HashMap<String, Vec<AssocKeyValue>>,
     function_array_return_param_indices: &HashMap<String, usize>,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
     array_constants: &HashMap<String, ConstantArrayValue>,
@@ -285,9 +294,10 @@ pub(super) fn collect_switch_locals(
             function_array_return_key_kinds,
             function_array_return_key_values,
             function_array_return_param_indices,
+            object_classes,
             constants,
             class_constants,
-                array_constants,
+            array_constants,
         );
     }
     if let Some(default) = default {
@@ -313,9 +323,10 @@ pub(super) fn collect_switch_locals(
             function_array_return_key_kinds,
             function_array_return_key_values,
             function_array_return_param_indices,
+            object_classes,
             constants,
             class_constants,
-                array_constants,
+            array_constants,
         );
     }
 }
@@ -342,6 +353,7 @@ pub(super) fn collect_stmt_body_locals(
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
     function_array_return_key_values: &HashMap<String, Vec<AssocKeyValue>>,
     function_array_return_param_indices: &HashMap<String, usize>,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
     array_constants: &HashMap<String, ConstantArrayValue>,
@@ -369,9 +381,10 @@ pub(super) fn collect_stmt_body_locals(
             function_array_return_key_kinds,
             function_array_return_key_values,
             function_array_return_param_indices,
+            object_classes,
             constants,
             class_constants,
-                array_constants,
+            array_constants,
         );
     }
 }

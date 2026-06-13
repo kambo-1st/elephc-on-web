@@ -35,6 +35,7 @@ pub(super) fn collect_assignment_locals(
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
     function_array_return_key_values: &HashMap<String, Vec<AssocKeyValue>>,
     function_array_return_param_indices: &HashMap<String, usize>,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
     array_constants: &HashMap<String, ConstantArrayValue>,
@@ -84,6 +85,7 @@ pub(super) fn collect_assignment_locals(
                     string_static_values,
                     function_possible_static_string_returns,
                     function_return_kinds,
+                    object_classes,
                     constants,
                     class_constants,
                 )
@@ -107,7 +109,9 @@ pub(super) fn collect_assignment_locals(
         php_normalized_key_arrays.remove(name);
     }
     array_runtime_nested_values.remove(name);
-    if let Some(target) = callable_target_for_locals(value, callable_targets, function_return_kinds) {
+    if let Some(target) =
+        callable_target_for_locals(value, callable_targets, function_return_kinds, object_classes)
+    {
         callable_targets.insert(name.clone(), target);
     } else {
         callable_targets.remove(name);

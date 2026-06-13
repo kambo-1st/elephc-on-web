@@ -27591,6 +27591,26 @@ echo call_user_func_array($string_cb, ["value" => "web"]) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_inherited_static_callable_array_variable_direct_calls() {
+    assert_wasm_matches_php(
+        r#"<?php
+class InheritedStaticCallableArrayBase {
+    public static function twice(int $value): int {
+        return $value * 2;
+    }
+}
+class InheritedStaticCallableArrayChild extends InheritedStaticCallableArrayBase {
+}
+$cb = ["InheritedStaticCallableArrayChild", "twice"];
+$alias = $cb;
+echo $cb(5) . ":" . $alias(6) . "\n";
+echo call_user_func($cb, 7) . "\n";
+echo call_user_func_array($alias, [8]) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_callable_ternary_different_instance_receivers_are_rejected() {
     let program = parse_program(
         "<?php

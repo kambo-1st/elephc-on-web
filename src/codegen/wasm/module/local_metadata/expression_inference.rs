@@ -20,10 +20,13 @@ pub(super) fn infer_assignment_fallback_local_kind(
     string_static_values: &HashMap<String, String>,
     function_possible_static_string_returns: &HashMap<String, Vec<String>>,
     function_return_kinds: &HashMap<String, ValueKind>,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
 ) -> LocalKind {
-    if callable_target_for_locals(expr, callable_targets, function_return_kinds).is_some() {
+    if callable_target_for_locals(expr, callable_targets, function_return_kinds, object_classes)
+        .is_some()
+    {
         return LocalKind::Callable;
     }
     if let ExprKind::Ternary {
@@ -40,6 +43,7 @@ pub(super) fn infer_assignment_fallback_local_kind(
             string_static_values,
             function_possible_static_string_returns,
             function_return_kinds,
+            object_classes,
             constants,
             class_constants,
         );
@@ -54,6 +58,7 @@ pub(super) fn infer_assignment_fallback_local_kind(
             string_static_values,
             function_possible_static_string_returns,
             function_return_kinds,
+            object_classes,
             constants,
             class_constants,
         );
@@ -123,6 +128,7 @@ fn infer_assignment_branch_local_kind(
     string_static_values: &HashMap<String, String>,
     function_possible_static_string_returns: &HashMap<String, Vec<String>>,
     function_return_kinds: &HashMap<String, ValueKind>,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
 ) -> LocalKind {
@@ -135,6 +141,7 @@ fn infer_assignment_branch_local_kind(
             string_static_values,
             function_possible_static_string_returns,
             function_return_kinds,
+            object_classes,
             constants,
             class_constants,
         ),
@@ -146,6 +153,7 @@ fn infer_assignment_branch_local_kind(
             string_static_values,
             function_possible_static_string_returns,
             function_return_kinds,
+            object_classes,
             constants,
             class_constants,
         ),
