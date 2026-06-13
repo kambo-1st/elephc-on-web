@@ -105,20 +105,30 @@ pub(super) fn emit_existence_call(
 }
 
 fn emit_runtime_declared_type_exists(kind: &str, var: &str, module: &mut WasmModule) {
-    let exists = module.next_label("type_exists_result");
+    emit_runtime_string_matches_any("type_exists", module.declared_type_names(kind), var, module);
+}
+
+fn emit_runtime_string_matches_any(
+    prefix: &str,
+    candidates: Vec<String>,
+    var: &str,
+    module: &mut WasmModule,
+) {
+    let exists = module.next_label(&format!("{}_result", prefix));
     module.declare_i32_local(exists.trim_start_matches('$').to_string());
     module.body().line("i32.const 0");
     module.body().line(&format!("local.set {}", exists));
-    let done = module.next_label("type_exists_done");
+    let done = module.next_label(&format!("{}_done", prefix));
     module.body().open(&format!("block {}", done));
-    for name in module.declared_type_names(kind) {
-        emit_runtime_declared_type_candidate(&name, var, &exists, &done, module);
+    for candidate in candidates {
+        emit_runtime_string_match_candidate(prefix, &candidate, var, &exists, &done, module);
     }
     module.body().close("end");
     module.body().line(&format!("local.get {}", exists));
 }
 
-fn emit_runtime_declared_type_candidate(
+fn emit_runtime_string_match_candidate(
+    prefix: &str,
     candidate: &str,
     var: &str,
     exists: &str,
@@ -129,12 +139,12 @@ fn emit_runtime_declared_type_candidate(
         return;
     }
     let candidate = candidate.to_ascii_lowercase();
-    let index = module.next_label("type_exists_index");
-    let byte = module.next_label("type_exists_byte");
-    let expected = module.next_label("type_exists_expected");
-    let matched = module.next_label("type_exists_match");
-    let compare_done = module.next_label("type_exists_compare_done");
-    let loop_label = module.next_label("type_exists_compare_loop");
+    let index = module.next_label(&format!("{}_index", prefix));
+    let byte = module.next_label(&format!("{}_byte", prefix));
+    let expected = module.next_label(&format!("{}_expected", prefix));
+    let matched = module.next_label(&format!("{}_match", prefix));
+    let compare_done = module.next_label(&format!("{}_compare_done", prefix));
+    let loop_label = module.next_label(&format!("{}_compare_loop", prefix));
     module.declare_i32_local(index.trim_start_matches('$').to_string());
     module.declare_i32_local(byte.trim_start_matches('$').to_string());
     module.declare_i32_local(expected.trim_start_matches('$').to_string());
@@ -259,6 +269,19 @@ pub(super) fn emit_member_exists_call(
             ),
         )
     })?;
+    if let Some(var) = runtime_string_arg_or_materialize(member, "member_exists_name", module)? {
+        let candidates = match name.to_ascii_lowercase().as_str() {
+            "method_exists" => runtime_visible_method_names(
+                &target.class_name,
+                target.object_target,
+                module,
+            ),
+            "property_exists" => runtime_visible_property_names(&target.class_name, module),
+            _ => unreachable!(),
+        };
+        emit_runtime_string_matches_any("member_exists", candidates, &var, module);
+        return Ok(ValueKind::Bool);
+    }
     let member_name = member_exists_member_name(call, member, module)?;
     let exists = match name.to_ascii_lowercase().as_str() {
         "method_exists" => {
@@ -271,6 +294,71 @@ pub(super) fn emit_member_exists_call(
     };
     module.body().line(&format!("i32.const {}", i32::from(exists)));
     Ok(ValueKind::Bool)
+}
+
+fn runtime_visible_method_names(
+    class_name: &str,
+    object_target: bool,
+    module: &WasmModule,
+) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut current = Some(class_name.to_string());
+    while let Some(candidate) = current {
+        let Some(class_info) = module.object_class(&candidate) else {
+            break;
+        };
+        names.extend(
+            class_info
+                .constructor
+                .iter()
+                .chain(class_info.methods.iter())
+                .chain(class_info.static_methods.iter())
+                .filter(|method| {
+                    object_target
+                        || method.owner_class.eq_ignore_ascii_case(class_name)
+                        || method.visibility != Visibility::Private
+                })
+                .map(|method| method.name.clone()),
+        );
+        current = class_info.parent.clone();
+    }
+    names.sort_by_key(|name| name.to_ascii_lowercase());
+    names.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
+    names
+}
+
+fn runtime_visible_property_names(class_name: &str, module: &WasmModule) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut current = Some(class_name.to_string());
+    while let Some(candidate) = current {
+        let Some(class_info) = module.object_class(&candidate) else {
+            break;
+        };
+        names.extend(
+            class_info
+                .properties
+                .iter()
+                .filter(|property| {
+                    property.owner_class.eq_ignore_ascii_case(class_name)
+                        || property.visibility != Visibility::Private
+                })
+                .map(|property| property.name.clone()),
+        );
+        names.extend(
+            class_info
+                .static_properties
+                .iter()
+                .filter(|property| {
+                    property.owner_class.eq_ignore_ascii_case(class_name)
+                        || property.visibility != Visibility::Private
+                })
+                .map(|property| property.name.clone()),
+        );
+        current = class_info.parent.clone();
+    }
+    names.sort_by_key(|name| name.to_ascii_lowercase());
+    names.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
+    names
 }
 
 struct MemberExistsTarget {
