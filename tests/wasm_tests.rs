@@ -31502,6 +31502,29 @@ echo "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_uasort_callable_return_descriptor() {
+    assert_wasm_matches_php(
+        r#"<?php
+function assoc_sort_asc_desc(int $left, int $right): int { return $left - $right; }
+function assoc_sort_desc_desc(int $left, int $right): int { return $right - $left; }
+function choose_assoc_sort(bool $flag): callable {
+    return $flag ? assoc_sort_asc_desc(...) : assoc_sort_desc_desc(...);
+}
+$values = ["b" => 3, "a" => 1, "c" => 2];
+echo (uasort($values, choose_assoc_sort(true)) ? 1 : 0) . ":";
+foreach ($values as $key => $value) { echo $key . "=" . $value . ","; }
+echo "\n";
+$cb = choose_assoc_sort(false);
+$alias = $cb;
+$more = ["x" => 4, "y" => 2, "z" => 5];
+echo (uasort($more, $alias) ? 1 : 0) . ":";
+foreach ($more as $key => $value) { echo $key . "=" . $value . ","; }
+echo "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_uksort_dynamic_callable_variable() {
     assert_wasm_matches_php(
         r#"<?php
