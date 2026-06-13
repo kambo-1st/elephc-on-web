@@ -23,12 +23,16 @@ pub(super) fn emit_json_validate_call(
         ));
     }
     let depth = json_validate_depth_arg(args.get(1), module)?;
-    let flags = json_validate_flags_arg(call, args.get(2))?;
+    let flags = json_validate_flags_arg(call, args.get(2), module)?;
     let static_depth = match &depth {
         JsonValidateDepth::Static(depth) => Some(*depth),
         JsonValidateDepth::Dynamic(_) => None,
     };
-    if let Some(depth) = static_depth {
+    let static_flags = match &flags {
+        JsonValidateFlags::Static(flags) => Some(*flags),
+        JsonValidateFlags::Dynamic(_) => None,
+    };
+    if let (Some(depth), Some(_flags)) = (static_depth, static_flags) {
         if let Ok(value) = static_ascii_string_arg(call, &args[0], module) {
             let error = json_validate_literal_error(&value, depth);
             module.body().line(&format!("i32.const {}", error));
@@ -47,6 +51,10 @@ pub(super) fn emit_json_validate_call(
         JsonValidateDepth::Static(_) => None,
         JsonValidateDepth::Dynamic(local) => Some(local),
     };
+    let flags_local = match flags {
+        JsonValidateFlags::Static(_) => None,
+        JsonValidateFlags::Dynamic(local) => Some(local),
+    };
     module.body().line(&format!("local.get ${}_ptr", var));
     module.body().line(&format!("local.get ${}_len", var));
     match &depth_local {
@@ -57,7 +65,14 @@ pub(super) fn emit_json_validate_call(
                 .line(&format!("i32.const {}", static_depth.expect("static depth")));
         }
     }
-    module.body().line(&format!("i32.const {}", flags));
+    match &flags_local {
+        Some(local) => module.body().line(&format!("local.get ${}", local)),
+        None => {
+            module
+                .body()
+                .line(&format!("i32.const {}", static_flags.expect("static flags")));
+        }
+    }
     module.body().line("call $host_json_validate");
     module.body().line("global.set $json_last_error");
     module.body().line("global.get $json_last_error");
@@ -67,6 +82,11 @@ pub(super) fn emit_json_validate_call(
 
 enum JsonValidateDepth {
     Static(usize),
+    Dynamic(String),
+}
+
+enum JsonValidateFlags {
+    Static(i64),
     Dynamic(String),
 }
 
@@ -169,15 +189,45 @@ pub(super) fn emit_json_last_error_msg_value_to_stack(
     Ok(())
 }
 
-fn json_validate_flags_arg(call: &Expr, arg: Option<&Expr>) -> Result<i64, CompileError> {
-    let flags = arg.map(const_or_literal_int_arg).transpose()?.unwrap_or(0);
+fn json_validate_flags_arg(
+    call: &Expr,
+    arg: Option<&Expr>,
+    module: &mut WasmModule,
+) -> Result<JsonValidateFlags, CompileError> {
+    let Some(arg) = arg else {
+        return Ok(JsonValidateFlags::Static(0));
+    };
+    if let Some(flags) = static_or_const_int_value(arg) {
+        validate_json_validate_flags(call, flags)?;
+        return Ok(JsonValidateFlags::Static(flags));
+    }
+    let local = module
+        .next_label("json_validate_flags")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_i32_local(local.clone());
+    require_int(arg, module)?;
+    module.body().line("i32.wrap_i64");
+    module.body().line(&format!("local.set ${}", local));
+    module.body().line(&format!("local.get ${}", local));
+    module.body().line("i32.const 1048576");
+    module.body().line("i32.const -1");
+    module.body().line("i32.xor");
+    module.body().line("i32.and");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    Ok(JsonValidateFlags::Dynamic(local))
+}
+
+fn validate_json_validate_flags(call: &Expr, flags: i64) -> Result<(), CompileError> {
     if flags & !1_048_576 != 0 {
         return Err(CompileError::new(
             call.span,
             "wasm32-web json_validate() flags currently support only JSON_INVALID_UTF8_IGNORE",
         ));
     }
-    Ok(flags)
+    Ok(())
 }
 
 fn json_validate_literal_error(value: &str, max_depth: usize) -> i32 {
