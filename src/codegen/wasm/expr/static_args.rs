@@ -262,6 +262,7 @@ pub(super) fn const_int_value(name: &Name) -> Option<i64> {
         "SORT_REGULAR" => Some(0),
         "SORT_NUMERIC" => Some(1),
         "SORT_STRING" => Some(2),
+        "SORT_LOCALE_STRING" => Some(5),
         "ARRAY_FILTER_USE_BOTH" => Some(1),
         "ARRAY_FILTER_USE_KEY" => Some(2),
         "JSON_HEX_TAG" => Some(1),
@@ -415,4 +416,3 @@ pub(super) fn literal_php_array_int_key(value: &str) -> Option<i64> {
     }
     value.parse::<i64>().ok()
 }
-

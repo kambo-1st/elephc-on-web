@@ -352,6 +352,7 @@ fn is_builtin_global_constant(name: &str) -> bool {
             | "SORT_REGULAR"
             | "SORT_NUMERIC"
             | "SORT_STRING"
+            | "SORT_LOCALE_STRING"
             | "FNM_NOESCAPE"
             | "FNM_PATHNAME"
             | "FNM_PERIOD"

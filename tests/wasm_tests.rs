@@ -18585,13 +18585,31 @@ echo "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_array_unique_locale_string_mode() {
+    assert_wasm_matches_php(
+        r#"<?php
+$literal = array_unique(["a", "A", "a", 1, "1"], 5);
+$constant = array_unique(["b", "B", "b", 2, "2"], SORT_LOCALE_STRING);
+foreach ($literal as $key => $value) {
+    echo $key . ":" . gettype($value) . ":" . $value . "|";
+}
+echo "\n";
+foreach ($constant as $key => $value) {
+    echo $key . ":" . gettype($value) . ":" . $value . "|";
+}
+echo "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_array_unique_unsupported_sort_flag_is_rejected() {
-    let program = parse_program("<?php $unique = array_unique([1, 2, 1], 5);");
+    let program = parse_program("<?php $unique = array_unique([1, 2, 1], 6);");
     let err = generate(&program, WasmOutputFormat::Wat)
         .expect_err("array_unique unsupported sort flag must not silently compile");
     assert!(
         err.message
-            .contains("array_unique() currently supports SORT_STRING and static-literal SORT_REGULAR/SORT_NUMERIC modes plus PHP flag 3"),
+            .contains("array_unique() currently supports SORT_STRING, SORT_LOCALE_STRING, static-literal SORT_REGULAR/SORT_NUMERIC, and PHP flag 3"),
         "unexpected error: {}",
         err.message
     );

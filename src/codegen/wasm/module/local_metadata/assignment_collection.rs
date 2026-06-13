@@ -506,7 +506,7 @@ pub(super) fn collect_assignment_locals(
         array_value_kinds.insert(name.clone(), kinds);
         array_runtime_value_kinds.remove(name);
     }
-    if let Some((keys, values)) = array_unique_static_regular_metadata_for_assignment(value) {
+    if let Some((keys, values)) = array_unique_static_literal_metadata_for_assignment(value) {
         array_value_kinds.insert(name.clone(), values);
         array_runtime_value_kinds.remove(name);
         array_nested_values.remove(name);
@@ -1406,7 +1406,7 @@ fn array_unique_source_has_unknown_values(
     }
 }
 
-fn array_unique_static_regular_metadata_for_assignment(
+fn array_unique_static_literal_metadata_for_assignment(
     value: &Expr,
 ) -> Option<(Vec<AssocKeyKind>, Vec<ValueCellKind>)> {
     let ExprKind::FunctionCall { name, args } = &value.kind else {
@@ -1432,8 +1432,11 @@ fn array_unique_static_regular_metadata_for_assignment(
 
 fn array_unique_static_literal_metadata_arg(arg: &Expr) -> bool {
     match &arg.kind {
-        ExprKind::IntLiteral(value) => matches!(*value, 0 | 1 | 3),
-        ExprKind::ConstRef(name) => matches!(name.as_str(), "SORT_REGULAR" | "SORT_NUMERIC"),
+        ExprKind::IntLiteral(value) => matches!(*value, 0 | 1 | 2 | 3 | 5),
+        ExprKind::ConstRef(name) => matches!(
+            name.as_str(),
+            "SORT_REGULAR" | "SORT_NUMERIC" | "SORT_STRING" | "SORT_LOCALE_STRING"
+        ),
         _ => false,
     }
 }

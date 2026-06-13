@@ -81,10 +81,10 @@ pub(super) fn array_unique_sort_mode(
     match value {
         0 | 3 => Ok(ArrayUniqueSortMode::Regular),
         1 => Ok(ArrayUniqueSortMode::Numeric),
-        2 => Ok(ArrayUniqueSortMode::String),
+        2 | 5 => Ok(ArrayUniqueSortMode::String),
         _ => Err(CompileError::new(
             sort_flag.span,
-            "wasm32-web array_unique() currently supports SORT_STRING and static-literal SORT_REGULAR/SORT_NUMERIC modes plus PHP flag 3",
+            "wasm32-web array_unique() currently supports SORT_STRING, SORT_LOCALE_STRING, static-literal SORT_REGULAR/SORT_NUMERIC, and PHP flag 3",
         )),
     }
 }
