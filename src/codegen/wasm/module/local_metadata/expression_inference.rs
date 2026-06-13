@@ -18,6 +18,8 @@ pub(super) fn infer_assignment_fallback_local_kind(
     array_key_values: &HashMap<String, Vec<AssocKeyValue>>,
     callable_targets: &HashMap<String, String>,
     string_static_values: &HashMap<String, String>,
+    function_callable_return_targets: &HashMap<String, String>,
+    function_possible_callable_return_targets: &HashMap<String, Vec<String>>,
     function_possible_static_string_returns: &HashMap<String, Vec<String>>,
     function_return_kinds: &HashMap<String, ValueKind>,
     object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
@@ -49,6 +51,8 @@ pub(super) fn infer_assignment_fallback_local_kind(
             array_key_values,
             callable_targets,
             string_static_values,
+            function_callable_return_targets,
+            function_possible_callable_return_targets,
             function_possible_static_string_returns,
             function_return_kinds,
             object_classes,
@@ -64,6 +68,8 @@ pub(super) fn infer_assignment_fallback_local_kind(
             array_key_values,
             callable_targets,
             string_static_values,
+            function_callable_return_targets,
+            function_possible_callable_return_targets,
             function_possible_static_string_returns,
             function_return_kinds,
             object_classes,
@@ -111,6 +117,17 @@ pub(super) fn infer_assignment_fallback_local_kind(
             .unwrap_or(LocalKind::I64);
         }
     }
+    if let ExprKind::ExprCall { callee, args } = &expr.kind {
+        if let Some(kind) = callable_return_expr_call_local_kind(
+            callee,
+            args,
+            function_callable_return_targets,
+            function_possible_callable_return_targets,
+            function_return_kinds,
+        ) {
+            return kind;
+        }
+    }
     if let ExprKind::ClosureCall { var, .. } = &expr.kind {
         if let Some(target) = callable_targets
             .get(var)
@@ -134,6 +151,8 @@ fn infer_assignment_branch_local_kind(
     array_key_values: &HashMap<String, Vec<AssocKeyValue>>,
     callable_targets: &HashMap<String, String>,
     string_static_values: &HashMap<String, String>,
+    function_callable_return_targets: &HashMap<String, String>,
+    function_possible_callable_return_targets: &HashMap<String, Vec<String>>,
     function_possible_static_string_returns: &HashMap<String, Vec<String>>,
     function_return_kinds: &HashMap<String, ValueKind>,
     object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
@@ -147,6 +166,8 @@ fn infer_assignment_branch_local_kind(
             array_key_values,
             callable_targets,
             string_static_values,
+            function_callable_return_targets,
+            function_possible_callable_return_targets,
             function_possible_static_string_returns,
             function_return_kinds,
             object_classes,
@@ -159,6 +180,8 @@ fn infer_assignment_branch_local_kind(
             array_key_values,
             callable_targets,
             string_static_values,
+            function_callable_return_targets,
+            function_possible_callable_return_targets,
             function_possible_static_string_returns,
             function_return_kinds,
             object_classes,
@@ -173,6 +196,37 @@ fn infer_assignment_branch_local_kind(
         (left, right) if left == right => left,
         _ => LocalKind::Mixed,
     }
+}
+
+fn callable_return_expr_call_local_kind(
+    callee: &Expr,
+    args: &[Expr],
+    function_callable_return_targets: &HashMap<String, String>,
+    function_possible_callable_return_targets: &HashMap<String, Vec<String>>,
+    function_return_kinds: &HashMap<String, ValueKind>,
+) -> Option<LocalKind> {
+    let ExprKind::FunctionCall { name, .. } = &callee.kind else {
+        return None;
+    };
+    let key = function_key(name.as_str());
+    let targets = function_possible_callable_return_targets
+        .get(&key)
+        .cloned()
+        .or_else(|| {
+            function_callable_return_targets
+                .get(&key)
+                .map(|target| vec![target.clone()])
+        })?;
+    let mut kind = None;
+    for target in targets {
+        let target_kind = function_return_kinds.get(&function_key(&target)).copied()?;
+        if kind.is_some_and(|existing| existing != target_kind) {
+            return None;
+        }
+        kind = Some(target_kind);
+    }
+    let _ = args;
+    kind.map(local_kind_for_value)
 }
 
 fn array_reduce_assignment_local_kind(

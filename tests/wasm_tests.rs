@@ -30900,7 +30900,8 @@ function make_callable_expr_string(): callable {
 echo make_callable_expr(true)(4) . "\n";
 $value = make_callable_expr(false)(8);
 echo ($value + 2) . "\n";
-echo make_callable_expr_string()("web") . "\n";
+$text = make_callable_expr_string()("web");
+echo strlen($text) . ":" . $text . "\n";
 "#,
     );
 }
