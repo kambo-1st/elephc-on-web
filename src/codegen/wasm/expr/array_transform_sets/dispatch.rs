@@ -569,7 +569,7 @@ pub(in crate::codegen::wasm::expr) fn emit_indexed_array_transform_assign(
                 ))
             }
         }
-        ExprKind::FunctionCall { .. }
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
             if matches!(
                 function_name.to_ascii_lowercase().as_str(),
                 "array_values" | "array_keys"
@@ -585,7 +585,8 @@ pub(in crate::codegen::wasm::expr) fn emit_indexed_array_transform_assign(
             } else if module.array_layout(&temp) == ArrayLayout::Value
                 && function_name.eq_ignore_ascii_case("array_values")
             {
-                let result = emit_dynamic_value_array_transform_assign(name, &args[0], function_name, module);
+                let source = Expr::new(ExprKind::Variable(temp.clone()), args[0].span);
+                let result = emit_dynamic_value_array_transform_assign(name, &source, function_name, module);
                 module.set_array_value_cell_kinds(
                     name,
                     module.array_value_cell_kinds(&temp).map(|kinds| kinds.to_vec()),
@@ -995,7 +996,7 @@ pub(in crate::codegen::wasm::expr) fn emit_indexed_array_transform_assign(
                 }
             }
         }
-        ExprKind::FunctionCall { .. }
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
             if function_name.eq_ignore_ascii_case("array_reverse")
                 && expression_has_array_type(&args[0], module) =>
         {
@@ -1033,7 +1034,12 @@ pub(in crate::codegen::wasm::expr) fn emit_indexed_array_transform_assign(
                         module,
                     )
                 } else {
-                emit_dynamic_indexed_array_transform_assign(name, &args[0], function_name, module)
+                    emit_dynamic_indexed_array_transform_assign(
+                        name,
+                        &Expr::new(ExprKind::Variable(temp), args[0].span),
+                        function_name,
+                        module,
+                    )
                 }
             }
         }

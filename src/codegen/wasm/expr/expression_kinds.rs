@@ -618,6 +618,9 @@ pub(in crate::codegen::wasm) fn expression_has_array_type(expr: &Expr, module: &
             object_expr_is_known_non_null(object, module)
                 && method_call_array_return_metadata(object, method, module).is_some()
         }
+        ExprKind::ExprCall { callee, args } => {
+            callable_expr_return_kind(module, callee, args) == Some(ValueKind::Array)
+        }
         _ => false,
     }
 }

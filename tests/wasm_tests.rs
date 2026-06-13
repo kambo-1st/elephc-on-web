@@ -30971,6 +30971,12 @@ foreach (make_callable_expr_array()("direct-foreach") as $item) {
 foreach (($factory->makeInstanceArray())("direct-local-foreach") as $item) {
     echo $item . "\n";
 }
+foreach (array_values(make_callable_expr_array()("direct-values")) as $item) {
+    echo $item . "\n";
+}
+foreach (array_reverse(($factory->makeInstanceArray())("direct-reverse")) as $item) {
+    echo $item . "\n";
+}
 "#,
     );
 }
