@@ -128,6 +128,36 @@ pub(super) fn emit_backed_enum_lookup_call(
     Ok(Some(ValueKind::Object))
 }
 
+pub(in crate::codegen::wasm) fn emit_dynamic_backed_enum_try_from_pointer(
+    expr: &Expr,
+    module: &mut WasmModule,
+) -> Result<bool, CompileError> {
+    let ExprKind::StaticMethodCall {
+        receiver,
+        method,
+        args,
+    } = &expr.kind
+    else {
+        return Ok(false);
+    };
+    if !method.eq_ignore_ascii_case("tryFrom") {
+        return Ok(false);
+    }
+    let [arg] = args.as_slice() else {
+        return Ok(false);
+    };
+    let Some(class_name) = module.class_name_for_receiver(receiver) else {
+        return Ok(false);
+    };
+    if module.enum_case_names(&class_name).is_none()
+        || static_backed_enum_lookup_value(arg, module).is_some()
+    {
+        return Ok(false);
+    }
+    emit_dynamic_backed_enum_lookup(expr, receiver, &class_name, method, arg, module)?;
+    Ok(true)
+}
+
 fn static_backed_enum_lookup_value(
     expr: &Expr,
     module: &WasmModule,
@@ -343,15 +373,13 @@ fn emit_runtime_string_literal_match(
 }
 
 fn emit_dynamic_backed_enum_miss(method: &str, result: &str, module: &mut WasmModule) {
+    if method.eq_ignore_ascii_case("tryFrom") {
+        return;
+    }
     module.body().line(&format!("local.get ${}", result));
     module.body().line("i32.eqz");
     module.body().open("if");
     module.body().line("unreachable");
-    if method.eq_ignore_ascii_case("tryFrom") {
-        module
-            .body()
-            .line(";; wasm32-web tryFrom() misses need nullable enum metadata");
-    }
     module.body().close("end");
 }
 

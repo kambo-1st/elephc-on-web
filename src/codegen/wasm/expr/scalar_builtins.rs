@@ -196,6 +196,26 @@ pub(in crate::codegen::wasm) fn emit_gettype_string_value_to_stack(
         emit_mixed_gettype_string_value_to_stack(&cell, module);
         return Ok(());
     }
+    if emit_dynamic_backed_enum_try_from_pointer(arg, module)? {
+        let object = module
+            .next_label("enum_try_from_gettype_object")
+            .trim_start_matches('$')
+            .to_string();
+        module.declare_i32_local(object.clone());
+        module.body().line(&format!("local.set ${}", object));
+        module.body().line(&format!("local.get ${}", object));
+        module.body().line("i32.eqz");
+        module.body().open("if (result i32 i32)");
+        let (ptr, len) = module.intern_string("NULL");
+        module.body().line(&format!("i32.const {}", ptr));
+        module.body().line(&format!("i32.const {}", len));
+        module.body().line("else");
+        let (ptr, len) = module.intern_string("object");
+        module.body().line(&format!("i32.const {}", ptr));
+        module.body().line(&format!("i32.const {}", len));
+        module.body().close("end");
+        return Ok(());
+    }
     let type_name = match &arg.kind {
         ExprKind::StringLiteral(_) => "string",
         ExprKind::Variable(name) if module.local_kind(name) == Some(LocalKind::Str) => "string",

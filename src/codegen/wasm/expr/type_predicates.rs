@@ -61,6 +61,15 @@ pub(super) fn emit_type_predicate_call(
             return Ok(ValueKind::Bool);
         }
     }
+    if matches!(name.to_ascii_lowercase().as_str(), "is_null" | "is_object")
+        && emit_dynamic_backed_enum_try_from_pointer(arg, module)?
+    {
+        module.body().line("i32.eqz");
+        if name.eq_ignore_ascii_case("is_object") {
+            module.body().line("i32.eqz");
+        }
+        return Ok(ValueKind::Bool);
+    }
     let kind = classify_predicate_arg(arg, module)?;
     let matches = match name.to_ascii_lowercase().as_str() {
         "is_int" => kind == ValueKind::Int,

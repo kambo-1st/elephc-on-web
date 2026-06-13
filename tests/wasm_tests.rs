@@ -39683,6 +39683,30 @@ echo gettype(MissingStatus::tryFrom(99)) . ":" . (is_null(MissingStatus::tryFrom
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_backed_enum_try_from_dynamic_miss_null_consumers() {
+    assert_wasm_matches_php(
+        r#"<?php
+enum DynamicMissingStatus: int {
+    case Draft = 10;
+    case Published = 20;
+}
+enum DynamicMissingDirection: string {
+    case North = "N";
+    case South = "S";
+}
+function missing_status(): int { return 99; }
+function present_status(): int { return 10; }
+function missing_direction(): string { return "X"; }
+function present_direction(): string { return "S"; }
+echo gettype(DynamicMissingStatus::tryFrom(missing_status())) . ":" . (is_null(DynamicMissingStatus::tryFrom(missing_status())) ? 1 : 0) . ":" . (is_object(DynamicMissingStatus::tryFrom(missing_status())) ? 1 : 0) . ":" . (empty(DynamicMissingStatus::tryFrom(missing_status())) ? 1 : 0) . "\n";
+echo gettype(DynamicMissingStatus::tryFrom(present_status())) . ":" . (is_null(DynamicMissingStatus::tryFrom(present_status())) ? 1 : 0) . ":" . (is_object(DynamicMissingStatus::tryFrom(present_status())) ? 1 : 0) . ":" . (empty(DynamicMissingStatus::tryFrom(present_status())) ? 1 : 0) . "\n";
+echo gettype(DynamicMissingDirection::tryFrom(missing_direction())) . ":" . (is_null(DynamicMissingDirection::tryFrom(missing_direction())) ? 1 : 0) . ":" . (is_object(DynamicMissingDirection::tryFrom(missing_direction())) ? 1 : 0) . ":" . (empty(DynamicMissingDirection::tryFrom(missing_direction())) ? 1 : 0) . "\n";
+echo gettype(DynamicMissingDirection::tryFrom(present_direction())) . ":" . (is_null(DynamicMissingDirection::tryFrom(present_direction())) ? 1 : 0) . ":" . (is_object(DynamicMissingDirection::tryFrom(present_direction())) ? 1 : 0) . ":" . (empty(DynamicMissingDirection::tryFrom(present_direction())) ? 1 : 0) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_enum_cases_in_mixed_value_cells() {
     assert_wasm_matches_php(
         r#"<?php

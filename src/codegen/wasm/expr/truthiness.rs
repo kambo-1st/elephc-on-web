@@ -104,6 +104,11 @@ pub(crate) fn emit_condition(
         emit_mixed_local_truthiness(&cell, module);
         return Ok(());
     }
+    if emit_dynamic_backed_enum_try_from_pointer(expr, module)? {
+        module.body().line("i32.const 0");
+        module.body().line("i32.ne");
+        return Ok(());
+    }
 
     let kind = emit_expr(expr, module)?;
     match kind {
