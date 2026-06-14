@@ -1945,6 +1945,13 @@ fn test_wasm32_web_e2e_matches_php_object_magic_get_dynamic_property_name() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_magic_get_mixed_branch_returns() {
+    assert_wasm_matches_php(
+        "<?php\nclass MagicMixedReadBag { public bool $flip = false; public function __get(string $name): mixed { if ($this->flip) { return $name; } $this->flip = true; return 123; } }\n$o = new MagicMixedReadBag();\necho $o->id;\necho \"|\";\necho $o->slug;\necho \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_magic_set_missing_property_writes() {
     assert_wasm_matches_php(
         "<?php\nclass MagicWriteBag { public string $last = \"\"; public function __set(string $name, mixed $value): void { echo \"set:\" . $name . \"\\n\"; $this->last = $name . \":\" . $value; } }\n$o = new MagicWriteBag();\n$o->title = \"wasm\";\necho $o->last . \"\\n\";\n$o->count = 7;\necho $o->last . \"\\n\";\n",
