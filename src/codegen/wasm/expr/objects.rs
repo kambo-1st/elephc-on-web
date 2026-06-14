@@ -516,9 +516,45 @@ pub(in crate::codegen::wasm) fn emit_object_property_isset_expr(
     property: &str,
     module: &mut WasmModule,
 ) -> Result<ValueKind, CompileError> {
+    if let Some(kind) = emit_missing_property_magic_isset_expr(expr, object, property, module)? {
+        return Ok(kind);
+    }
     let kind = emit_property_access_expr(expr, object, property, module)?;
     emit_loaded_property_isset(kind, module);
     Ok(ValueKind::Bool)
+}
+
+fn emit_missing_property_magic_isset_expr(
+    expr: &Expr,
+    object: &Expr,
+    property: &str,
+    module: &mut WasmModule,
+) -> Result<Option<ValueKind>, CompileError> {
+    if object_receiver_needs_runtime_class_id(object, module) || object_class_name_for_expr(object, module).is_none() {
+        return Ok(None);
+    }
+    let class_name = object_class_name_for_expr(object, module).expect("checked above");
+    let Some(class_info) = module.object_class(&class_name) else {
+        return Ok(None);
+    };
+    if class_info.properties.iter().any(|property_info| {
+        property_info.name == property
+            && module.object_member_is_accessible(&property_info.owner_class, &property_info.visibility)
+    }) {
+        return Ok(None);
+    }
+    let Some((_, method)) = module.object_method_in_hierarchy(&class_name, "__isset") else {
+        return Ok(None);
+    };
+    if !module.object_member_is_accessible(&method.owner_class, &method.visibility)
+        || method.return_kind != ValueKind::Bool
+        || method.param_kinds.as_slice() != [LocalKind::Str]
+    {
+        return Ok(None);
+    }
+    let property_arg = Expr::new(ExprKind::StringLiteral(property.to_string()), expr.span);
+    let kind = emit_method_call_expr(expr, object, "__isset", &[property_arg], module)?;
+    Ok(Some(kind))
 }
 
 pub(in crate::codegen::wasm) fn emit_dynamic_object_property_isset_expr(

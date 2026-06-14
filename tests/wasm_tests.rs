@@ -1917,6 +1917,13 @@ fn test_wasm32_web_e2e_matches_php_object_known_dynamic_property_assignment_expr
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_magic_isset_missing_property() {
+    assert_wasm_matches_php(
+        "<?php\nclass MagicBag { public string $known = \"set\"; public function __isset(string $name): bool { echo \"magic:\" . $name . \"\\n\"; return $name === \"dynamic\"; } }\n$o = new MagicBag();\necho (isset($o->known) ? 1 : 0) . \"\\n\";\necho (isset($o->dynamic) ? 1 : 0) . \"\\n\";\necho (isset($o->other) ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_scalar_property_writes() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public int $i = 0; public float $f = 0.0; public bool $b = false; public string $s = \"\"; }\n$o = new Box();\n$o->i = 9;\n$o->f = 2.5;\n$o->b = true;\n$o->s = \"wasm\";\necho $o->i . \",\" . $o->f . \",\" . $o->b . \",\" . $o->s . \"\\n\";\n",
