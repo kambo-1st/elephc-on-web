@@ -3346,9 +3346,23 @@ fn test_wasm32_web_e2e_matches_php_array_map_value_float_return() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_map_int_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction map_dynamic_static_int(int $value): int { return $value * 3; }\nclass DynamicStaticMapIntBox { public static function items(): array { return [2, 4, 6]; } }\n$name = \"items\";\n$mapped = array_map(\"map_dynamic_static_int\", DynamicStaticMapIntBox::{$name}());\necho count($mapped) . \":\" . $mapped[0] . \":\" . $mapped[1] . \":\" . $mapped[2];\nforeach ($mapped as $key => $value) { echo \":\" . $key . \"=\" . $value; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_map_float_return() {
     assert_wasm_matches_php(
         "<?php\nfunction map_dynamic_static_float(float $value): float { return $value + 0.5; }\nclass DynamicStaticMapFloatBox { public static function items(): array { return [1.25, 2.5, 3.75]; } }\n$name = \"items\";\n$mapped = array_map(\"map_dynamic_static_float\", DynamicStaticMapFloatBox::{$name}());\necho count($mapped) . \":\" . $mapped[0] . \":\" . $mapped[1] . \":\" . $mapped[2];\nforeach ($mapped as $key => $value) { echo \":\" . $key . \"=\" . $value; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_map_bool_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction map_dynamic_static_bool(bool $value): bool { return !$value; }\nclass DynamicStaticMapBoolBox { public static function items(): array { return [true, false, true]; } }\n$name = \"items\";\n$mapped = array_map(\"map_dynamic_static_bool\", DynamicStaticMapBoolBox::{$name}());\necho count($mapped) . \":\" . ($mapped[0] ? 1 : 0) . \":\" . ($mapped[1] ? 1 : 0) . \":\" . ($mapped[2] ? 1 : 0);\nforeach ($mapped as $key => $value) { echo \":\" . $key . \"=\" . ($value ? \"T\" : \"F\"); }\necho \"\\n\";\n",
     );
 }
 
