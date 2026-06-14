@@ -2043,6 +2043,13 @@ fn test_wasm32_web_e2e_matches_php_object_magic_call_mixed_string_direct_consume
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_magic_call_mixed_scalar_direct_consumers() {
+    assert_wasm_matches_php(
+        "<?php\nclass MagicCallMixedIntDirect { public function __call(string $method, array $args): mixed { return 4; } }\nclass MagicCallMixedFloatDirect { public function __call(string $method, array $args): mixed { return 2.5; } }\nclass MagicCallMixedBoolDirect { public function __call(string $method, array $args): mixed { return true; } }\nclass MagicCallMixedNullDirect { public function __call(string $method, array $args): mixed { return null; } }\n$i = new MagicCallMixedIntDirect();\n$f = new MagicCallMixedFloatDirect();\n$b = new MagicCallMixedBoolDirect();\n$n = new MagicCallMixedNullDirect();\necho gettype($i->number()) . \":\" . ($i->number() + 3) . \":\" . intval($f->ratio()) . \":\" . (empty($b->flag()) ? 1 : 0) . \":\" . gettype($n->missing()) . \":\" . (empty($n->missing()) ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_scalar_property_writes() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public int $i = 0; public float $f = 0.0; public bool $b = false; public string $s = \"\"; }\n$o = new Box();\n$o->i = 9;\n$o->f = 2.5;\n$o->b = true;\n$o->s = \"wasm\";\necho $o->i . \",\" . $o->f . \",\" . $o->b . \",\" . $o->s . \"\\n\";\n",
