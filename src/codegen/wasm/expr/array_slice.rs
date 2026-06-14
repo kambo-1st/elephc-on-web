@@ -399,7 +399,9 @@ pub(super) fn emit_indexed_array_slice_assign(
                 )
             }
         }
-        ExprKind::FunctionCall { .. } if expression_has_array_type(&args[0], module) => {
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
+            if expression_has_array_type(&args[0], module) =>
+        {
             let temp = materialize_array_map_multi_source(&args[0], "array_slice_source", module)?;
             if module.array_layout(&temp) == ArrayLayout::Assoc {
                 emit_assoc_array_slice_assign(name, &temp, args[0].span, offset, length, preserve_keys, module)
