@@ -407,7 +407,7 @@ pub(crate) fn emit_array_assign(
     emit_static_array_items_assign(name, &items, module)
 }
 
-fn callable_expr_array_return_metadata(
+pub(in crate::codegen::wasm) fn callable_expr_array_return_metadata(
     callee: &Expr,
     module: &WasmModule,
 ) -> Option<MethodArrayReturnMetadata> {

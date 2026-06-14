@@ -99,6 +99,33 @@ pub(in crate::codegen::wasm::expr) fn emit_array_search_false_comparison_bool(
             emit_array_assign(&temp, haystack, module)?;
             temp.as_str()
         }
+        ExprKind::ExprCall { callee, .. }
+            if callable_expr_array_return_metadata(callee, module)
+                .is_some_and(|metadata| metadata.layout == ArrayLayout::Assoc) =>
+        {
+            temp = module
+                .next_label("array_search_false_expr_source")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_array_local(temp.clone());
+            emit_array_assign(&temp, haystack, module)?;
+            temp.as_str()
+        }
+        _ if expression_has_array_type(haystack, module)
+            && !expression_is_arrayy(haystack, module)
+            && !matches!(haystack.kind, ExprKind::ExprCall { .. }) =>
+        {
+            temp = module
+                .next_label("array_search_false_expr_source")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_array_local(temp.clone());
+            emit_array_assign(&temp, haystack, module)?;
+            if module.array_layout(&temp) != ArrayLayout::Assoc {
+                return Ok(false);
+            }
+            temp.as_str()
+        }
         _ => return Ok(false),
     };
     let Some(key_kinds) = module.array_key_kinds(var) else {

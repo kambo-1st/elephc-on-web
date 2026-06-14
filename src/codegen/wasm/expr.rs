@@ -203,7 +203,7 @@ use self::array_aggregates::{
     emit_array_rand_assign, emit_array_rand_call, emit_count_call, emit_numeric_array_fold_call,
     known_indexed_array_expr_len,
 };
-pub(super) use self::array_assign::emit_array_assign;
+pub(super) use self::array_assign::{callable_expr_array_return_metadata, emit_array_assign};
 use self::array_builders::*;
 use self::array_chunk::*;
 use self::array_chunk_static::*;
