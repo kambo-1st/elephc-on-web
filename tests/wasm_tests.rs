@@ -3367,6 +3367,27 @@ fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_walk_ret
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_walk_int_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction show_dynamic_static_walk_int(int $value): void { echo ($value + 1) . \"|\"; }\nclass DynamicStaticWalkIntBox { public static function items(): array { return [2, 4, 6]; } }\n$name = \"items\";\necho (array_walk(DynamicStaticWalkIntBox::{$name}(), \"show_dynamic_static_walk_int\") ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_walk_float_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction show_dynamic_static_walk_float(float $value): void { echo ($value + 0.5) . \"|\"; }\nclass DynamicStaticWalkFloatBox { public static function items(): array { return [1.25, 2.5]; } }\n$name = \"items\";\necho (array_walk(DynamicStaticWalkFloatBox::{$name}(), \"show_dynamic_static_walk_float\") ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_walk_bool_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction show_dynamic_static_walk_bool(bool $value): void { echo ($value ? \"T\" : \"F\") . \"|\"; }\nclass DynamicStaticWalkBoolBox { public static function items(): array { return [true, false, true]; } }\n$name = \"items\";\necho (array_walk(DynamicStaticWalkBoolBox::{$name}(), \"show_dynamic_static_walk_bool\") ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_static_string_dynamic_static_method_first_class_callable() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public static function add(int $n): int { return $n + 10; } }\n$cb = Box::{\"add\"}(...);\necho (is_callable($cb) ? 1 : 0) . \":\" . $cb(5) . \":\" . call_user_func($cb, 7) . \"\\n\";\n",
