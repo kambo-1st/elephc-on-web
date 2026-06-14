@@ -642,6 +642,14 @@ pub(in crate::codegen::wasm) fn emit_array_map_assign(
             emit_array_map_value_floats_as_ints_local_assign(name, source, args[1].span, &callback, module)
         }
         ExprKind::Variable(source)
+            if shape == ArrayMapCallbackShape::FloatToFloat
+                && module.local_kind(source) == Some(LocalKind::Array)
+                && module.array_layout(source) == ArrayLayout::Value
+                && array_filter_value_cells_are_floats(source, module) =>
+        {
+            emit_array_map_value_float_local_assign(name, source, args[1].span, &callback, module)
+        }
+        ExprKind::Variable(source)
             if shape == ArrayMapCallbackShape::IntToInt
                 && module.local_kind(source) == Some(LocalKind::Array)
                 && module.array_layout(source) == ArrayLayout::Value
@@ -1922,6 +1930,12 @@ fn emit_array_map_staged_assign(
                 && array_filter_value_cells_are_floats(source, module) =>
         {
             emit_array_map_value_floats_as_ints_local_assign(name, source, source_span, callback, module)
+        }
+        ArrayMapCallbackShape::FloatToFloat
+            if module.array_layout(source) == ArrayLayout::Value
+                && array_filter_value_cells_are_floats(source, module) =>
+        {
+            emit_array_map_value_float_local_assign(name, source, source_span, callback, module)
         }
         ArrayMapCallbackShape::IntToInt
             if module.array_layout(source) == ArrayLayout::Value

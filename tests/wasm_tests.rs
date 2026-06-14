@@ -3339,6 +3339,20 @@ fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_map_retu
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_array_map_value_float_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction map_value_float(float $value): float { return $value + 0.5; }\n$items = [1.25, 2.5, 3.75];\n$mapped = array_map(\"map_value_float\", $items);\necho count($mapped) . \":\" . $mapped[0] . \":\" . $mapped[1] . \":\" . $mapped[2];\nforeach ($mapped as $key => $value) { echo \":\" . $key . \"=\" . $value; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_map_float_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction map_dynamic_static_float(float $value): float { return $value + 0.5; }\nclass DynamicStaticMapFloatBox { public static function items(): array { return [1.25, 2.5, 3.75]; } }\n$name = \"items\";\n$mapped = array_map(\"map_dynamic_static_float\", DynamicStaticMapFloatBox::{$name}());\necho count($mapped) . \":\" . $mapped[0] . \":\" . $mapped[1] . \":\" . $mapped[2];\nforeach ($mapped as $key => $value) { echo \":\" . $key . \"=\" . $value; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_assoc_array_map_int_return() {
     assert_wasm_matches_php(
         "<?php\nfunction map_dynamic_static_assoc_int(int $value): int { return $value * 3; }\nclass DynamicStaticAssocMapIntBox { public static function items(): array { return [\"left\" => 2, \"right\" => 4, \"tail\" => 6]; } }\n$name = \"items\";\n$mapped = array_map(\"map_dynamic_static_assoc_int\", DynamicStaticAssocMapIntBox::{$name}());\necho count($mapped) . \":\" . $mapped[\"left\"] . \":\" . $mapped[\"right\"] . \":\" . $mapped[\"tail\"];\nforeach ($mapped as $key => $value) { echo \":\" . $key . \"=\" . $value; }\necho \"\\n\";\n",
