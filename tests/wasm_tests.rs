@@ -1952,6 +1952,13 @@ fn test_wasm32_web_e2e_matches_php_object_magic_set_missing_property_writes() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_magic_call_missing_method() {
+    assert_wasm_matches_php(
+        "<?php\nclass MagicCallProxy { public function __call(string $method, array $args): void { echo \"called:\" . $method . \":\"; echo implode(\",\", $args); echo \"\\n\"; } }\n$p = new MagicCallProxy();\n$p->doSomething(1, 2, 3);\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_scalar_property_writes() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public int $i = 0; public float $f = 0.0; public bool $b = false; public string $s = \"\"; }\n$o = new Box();\n$o->i = 9;\n$o->f = 2.5;\n$o->b = true;\n$o->s = \"wasm\";\necho $o->i . \",\" . $o->f . \",\" . $o->b . \",\" . $o->s . \"\\n\";\n",

@@ -284,6 +284,35 @@ fn supported_magic_set_method(
     Some((declaring_class, method))
 }
 
+fn magic_call_dispatch_args(
+    class_name: &str,
+    method: &str,
+    args: &[Expr],
+    span: Span,
+    module: &WasmModule,
+) -> Option<Vec<Expr>> {
+    module.object_method_in_hierarchy(class_name, method).is_none().then_some(())?;
+    supported_magic_call_method(class_name, module)?;
+    Some(vec![
+        Expr::new(ExprKind::StringLiteral(method.to_string()), span),
+        Expr::new(ExprKind::ArrayLiteral(args.to_vec()), span),
+    ])
+}
+
+fn supported_magic_call_method(
+    class_name: &str,
+    module: &WasmModule,
+) -> Option<(String, ObjectMethodInfo)> {
+    let (declaring_class, method) = module.object_method_in_hierarchy(class_name, "__call")?;
+    if !module.object_member_is_accessible(&method.owner_class, &method.visibility)
+        || method.param_kinds.as_slice() != [LocalKind::Str, LocalKind::Array]
+        || method.return_kind == ValueKind::Never
+    {
+        return None;
+    }
+    Some((declaring_class, method))
+}
+
 fn discard_expression_result(kind: ValueKind, module: &mut WasmModule) {
     match kind {
         ValueKind::Array => {
@@ -955,7 +984,15 @@ pub(in crate::codegen::wasm) fn emit_method_call_expr(
     module.object_class(&class_name).ok_or_else(|| {
         CompileError::new(expr.span, "wasm32-web method call requires a declared class")
     })?;
-    let (declaring_class, method_info) = module.object_method_in_hierarchy(&class_name, method).ok_or_else(|| {
+    let magic_args;
+    let (dispatch_method, args) =
+        if let Some(args) = magic_call_dispatch_args(&class_name, method, args, expr.span, module) {
+            magic_args = args;
+            ("__call", magic_args.as_slice())
+        } else {
+            (method, args)
+        };
+    let (declaring_class, method_info) = module.object_method_in_hierarchy(&class_name, dispatch_method).ok_or_else(|| {
         CompileError::new(
             expr.span,
             "wasm32-web method call requires a supported public fixed method",

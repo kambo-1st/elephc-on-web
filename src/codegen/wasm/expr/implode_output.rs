@@ -169,13 +169,8 @@ pub(super) fn emit_output_implode_assigned_string_array(
         ));
     }
     if module.array_length(name).is_none() || module.array_value_cell_kinds(name).is_none() {
-        if module
-            .array_runtime_value_cell_kind(name)
-            .is_some_and(|kind| !matches!(kind, ValueCellKind::Array))
-        {
-            emit_output_implode_runtime_value_array(name, &separator, module);
-            return Ok(true);
-        }
+        emit_output_implode_runtime_value_array(name, &separator, module);
+        return Ok(true);
     }
     let Some(len) = module.array_length(name) else {
         return Err(CompileError::new(
