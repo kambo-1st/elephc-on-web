@@ -811,10 +811,11 @@ pub(in crate::codegen::wasm) fn emit_nullsafe_mixed_object_dynamic_property_isse
         ));
     };
     let candidates = mixed_object_dynamic_property_candidates(module);
-    if candidates.is_empty() {
+    let magic_isset = dynamic_object_magic_isset_candidates(expr, None, module)?;
+    if candidates.is_empty() && magic_isset.is_empty() {
         return Err(CompileError::new(
             expr.span,
-            "wasm32-web runtime dynamic nullsafe property isset requires visible fixed property metadata",
+            "wasm32-web runtime dynamic nullsafe property isset requires visible fixed property or __isset metadata",
         ));
     }
     let object_local = module
@@ -855,12 +856,78 @@ pub(in crate::codegen::wasm) fn emit_nullsafe_mixed_object_dynamic_property_isse
         &class_id_local,
         &property_local,
         &candidates,
-        &[],
+        &magic_isset,
         0,
         module,
     )?;
     module.body().close("end");
     Ok(ValueKind::Bool)
+}
+
+pub(in crate::codegen::wasm) fn emit_nullsafe_mixed_object_dynamic_property_empty_expr(
+    expr: &Expr,
+    object: &Expr,
+    property: &Expr,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let Some(cell) = materialize_mixed_value_cell(object, module)? else {
+        return Err(CompileError::new(
+            expr.span,
+            "wasm32-web runtime dynamic nullsafe property empty requires object/null runtime metadata",
+        ));
+    };
+    let candidates = mixed_object_dynamic_property_candidates(module);
+    let magic_empty = dynamic_object_magic_empty_candidates(expr, None, module)?;
+    if candidates.is_empty() && magic_empty.is_empty() {
+        return Err(CompileError::new(
+            expr.span,
+            "wasm32-web runtime dynamic nullsafe property empty requires visible fixed property or magic metadata",
+        ));
+    }
+    let object_local = module
+        .next_label("nullsafe_dynamic_property_empty_object")
+        .trim_start_matches('$')
+        .to_string();
+    let class_id_local = module
+        .next_label("nullsafe_dynamic_property_empty_class_id")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_object_local(object_local.clone());
+    module.declare_i64_local(class_id_local.clone());
+    module.body().line(&format!("local.get ${}", cell));
+    module.body().line("call $__rt_mixed_tag");
+    module.body().line(&format!("i32.const {}", WASM_VALUE_TAG_NULL));
+    module.body().line("i32.eq");
+    module.body().open("if (result i32)");
+    module.body().line("i32.const 1");
+    module.body().line("else");
+    module.body().line(&format!("local.get ${}", cell));
+    module.body().line("call $__rt_mixed_tag");
+    module.body().line(&format!("i32.const {}", WASM_VALUE_TAG_OBJECT));
+    module.body().line("i32.ne");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    module.body().line(&format!("local.get ${}", cell));
+    module.body().line("i32.const 8");
+    module.body().line("i32.add");
+    module.body().line("i32.load");
+    module.body().line(&format!("local.tee ${}", object_local));
+    module.body().line("i64.load");
+    module.body().line(&format!("local.set ${}", class_id_local));
+    let property_local =
+        materialize_runtime_string_expr(property, "nullsafe_dynamic_property_empty_name", module)?;
+    emit_mixed_object_dynamic_property_empty_branch(
+        &object_local,
+        &class_id_local,
+        &property_local,
+        &candidates,
+        &magic_empty,
+        0,
+        module,
+    )?;
+    module.body().close("end");
+    Ok(())
 }
 
 pub(in crate::codegen::wasm) fn emit_dynamic_object_property_empty_expr(

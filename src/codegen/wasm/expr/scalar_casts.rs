@@ -343,6 +343,10 @@ pub(super) fn emit_empty_call(
             emit_dynamic_object_property_empty_expr(arg, object, property, module)?;
             return Ok(ValueKind::Bool);
         }
+        ExprKind::NullsafeDynamicPropertyAccess { object, property } => {
+            emit_nullsafe_mixed_object_dynamic_property_empty_expr(arg, object, property, module)?;
+            return Ok(ValueKind::Bool);
+        }
         ExprKind::NullsafePropertyAccess { object, property }
             if object_expr_is_known_non_null(object, module) =>
         {

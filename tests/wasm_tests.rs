@@ -4289,6 +4289,13 @@ fn test_wasm32_web_e2e_matches_php_nullable_nullsafe_runtime_magic_dynamic_prope
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_nullable_nullsafe_runtime_magic_dynamic_property_predicates() {
+    assert_wasm_matches_php(
+        "<?php\nclass MagicNullsafePredicateBox { public function __isset(string $name): bool { return $name !== \"no\"; } public function __get(string $name): mixed { return $name === \"zero\" ? 0 : \"box\"; } }\nfunction maybe_magic_predicate_box(bool $flag): mixed { if ($flag) { return new MagicNullsafePredicateBox(); } return null; }\nfunction magic_nullsafe_predicate_name(string $name): string { echo \"name:\" . $name . \"\\n\"; return $name; }\n$a = maybe_magic_predicate_box(false);\n$b = maybe_magic_predicate_box(true);\n$i = isset($a?->{magic_nullsafe_predicate_name(\"skip\")}); $e = empty($a?->{magic_nullsafe_predicate_name(\"skip\")}); echo ($i ? 1 : 0) . \":\" . ($e ? 1 : 0) . \"\\n\";\n$i = isset($b?->{magic_nullsafe_predicate_name(\"yes\")}); $e = empty($b?->{magic_nullsafe_predicate_name(\"yes\")}); echo ($i ? 1 : 0) . \":\" . ($e ? 1 : 0) . \"\\n\";\n$i = isset($b?->{magic_nullsafe_predicate_name(\"zero\")}); $e = empty($b?->{magic_nullsafe_predicate_name(\"zero\")}); echo ($i ? 1 : 0) . \":\" . ($e ? 1 : 0) . \"\\n\";\n$i = isset($b?->{magic_nullsafe_predicate_name(\"no\")}); $e = empty($b?->{magic_nullsafe_predicate_name(\"no\")}); echo ($i ? 1 : 0) . \":\" . ($e ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_nullable_nullsafe_runtime_dynamic_property_isset() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public int $n = 7; public mixed $z = null; }\nfunction maybe_box(bool $flag): mixed { if ($flag) { return new Box(); } return null; }\nfunction prop_n(): string { echo \"name-n\\n\"; return \"n\"; }\nfunction prop_z(): string { echo \"name-z\\n\"; return \"z\"; }\nfunction prop_missing(): string { echo \"name-missing\\n\"; return \"missing\"; }\n$a = maybe_box(false);\n$b = maybe_box(true);\necho (isset($a?->{prop_n()}) ? 1 : 0); echo \"\\n\";\necho (isset($b?->{prop_n()}) ? 1 : 0); echo \"\\n\";\necho (isset($b?->{prop_z()}) ? 1 : 0); echo \"\\n\";\necho (isset($b?->{prop_missing()}) ? 1 : 0); echo \"\\n\";\n",
