@@ -38,6 +38,7 @@ pub(super) fn collect_assignment_locals(
     function_array_return_key_values: &HashMap<String, Vec<AssocKeyValue>>,
     function_array_return_param_indices: &HashMap<String, usize>,
     object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
+    trait_use_names: &HashMap<String, Vec<String>>,
     constants: &HashMap<String, ConstantValue>,
     class_constants: &HashMap<String, ConstantValue>,
     array_constants: &HashMap<String, ConstantArrayValue>,
@@ -173,7 +174,9 @@ pub(super) fn collect_assignment_locals(
         array_key_values.insert(name.clone(), keys);
         php_normalized_key_arrays.remove(name);
     }
-    if let Some((values, keys)) = class_uses_metadata_for_assignment(value, object_classes) {
+    if let Some((values, keys)) =
+        class_uses_metadata_for_assignment(value, object_classes, trait_use_names)
+    {
         array_value_kinds.insert(name.clone(), values);
         array_runtime_value_kinds.remove(name);
         array_nested_values.remove(name);
@@ -1926,6 +1929,7 @@ fn class_implements_metadata_for_assignment(
 fn class_uses_metadata_for_assignment(
     value: &Expr,
     object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
+    trait_use_names: &HashMap<String, Vec<String>>,
 ) -> Option<(Vec<ValueCellKind>, Vec<AssocKeyValue>)> {
     let ExprKind::FunctionCall { name, args } = &value.kind else {
         return None;
@@ -1939,9 +1943,12 @@ fn class_uses_metadata_for_assignment(
     }) = args.first() else {
         return None;
     };
-    let class_info = object_classes.get(&function_key(class_name))?;
-    let keys = class_info
-        .used_traits
+    let key = function_key(class_name);
+    let used_traits = object_classes
+        .get(&key)
+        .map(|class_info| class_info.used_traits.as_slice())
+        .or_else(|| trait_use_names.get(&key).map(Vec::as_slice))?;
+    let keys = used_traits
         .iter()
         .cloned()
         .map(AssocKeyValue::Str)
