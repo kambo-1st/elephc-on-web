@@ -3206,6 +3206,13 @@ fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_pad_retu
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_rand_return() {
+    assert_wasm_matches_php(
+        "<?php\nclass DynamicStaticRandBox { public static function items(): array { return [\"red\", \"blue\"]; } }\n$name = \"items\";\n$key = array_rand(DynamicStaticRandBox::{$name}());\n$keys = array_rand(DynamicStaticRandBox::{$name}(), 2);\necho (($key === 0 || $key === 1) ? 1 : 0) . \":\" . count($keys) . \":\" . $keys[0] . \":\" . $keys[1] . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_static_string_dynamic_static_method_first_class_callable() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public static function add(int $n): int { return $n + 10; } }\n$cb = Box::{\"add\"}(...);\necho (is_callable($cb) ? 1 : 0) . \":\" . $cb(5) . \":\" . call_user_func($cb, 7) . \"\\n\";\n",

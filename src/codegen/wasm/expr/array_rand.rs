@@ -46,6 +46,16 @@ pub(super) fn emit_array_rand_call(
             )?;
             return emit_array_rand_from_local(args[0].span, &temp, module);
         }
+        ExprKind::DynamicStaticMethodCall {
+            receiver, method, ..
+        } if dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some() => {
+            let temp = materialize_static_method_array_rand_source(
+                &args[0],
+                "array_rand_dynamic_static_method_source",
+                module,
+            )?;
+            return emit_array_rand_from_local(args[0].span, &temp, module);
+        }
         ExprKind::MethodCall { object, method, .. }
             if method_call_array_return_metadata(object, method, module).is_some() =>
         {
@@ -163,6 +173,20 @@ pub(super) fn emit_array_rand_assign(
             let temp = materialize_static_method_array_rand_source(
                 &args[0],
                 "array_rand_array_static_method_source",
+                module,
+            )?;
+            if module.array_layout(&temp) == ArrayLayout::Assoc {
+                emit_array_rand_full_assoc_keys_from_local(name, args[0].span, &temp, &args[1], module)
+            } else {
+                emit_array_rand_full_index_keys_from_local(name, args[0].span, &temp, &args[1], module)
+            }
+        }
+        ExprKind::DynamicStaticMethodCall {
+            receiver, method, ..
+        } if dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some() => {
+            let temp = materialize_static_method_array_rand_source(
+                &args[0],
+                "array_rand_array_dynamic_static_method_source",
                 module,
             )?;
             if module.array_layout(&temp) == ArrayLayout::Assoc {
