@@ -1879,14 +1879,9 @@ fn class_parents_metadata_for_assignment(
     if !name.eq_ignore_ascii_case("class_parents") {
         return None;
     }
-    let Some(Expr {
-        kind: ExprKind::StringLiteral(class_name),
-        ..
-    }) = args.first() else {
-        return None;
-    };
+    let class_name = class_relation_static_or_new_target_name(args.first()?)?;
     let mut names = Vec::new();
-    let mut current = function_key(class_name);
+    let mut current = function_key(&class_name);
     while let Some(class_info) = object_classes.get(&current) {
         let Some(parent) = &class_info.parent else {
             break;
@@ -1910,13 +1905,8 @@ fn class_implements_metadata_for_assignment(
     if !name.eq_ignore_ascii_case("class_implements") {
         return None;
     }
-    let Some(Expr {
-        kind: ExprKind::StringLiteral(class_name),
-        ..
-    }) = args.first() else {
-        return None;
-    };
-    let class_info = object_classes.get(&function_key(class_name))?;
+    let class_name = class_relation_static_or_new_target_name(args.first()?)?;
+    let class_info = object_classes.get(&function_key(&class_name))?;
     let keys = class_info
         .interfaces
         .iter()
@@ -1937,13 +1927,8 @@ fn class_uses_metadata_for_assignment(
     if !name.eq_ignore_ascii_case("class_uses") {
         return None;
     }
-    let Some(Expr {
-        kind: ExprKind::StringLiteral(class_name),
-        ..
-    }) = args.first() else {
-        return None;
-    };
-    let key = function_key(class_name);
+    let class_name = class_relation_static_or_new_target_name(args.first()?)?;
+    let key = function_key(&class_name);
     let used_traits = object_classes
         .get(&key)
         .map(|class_info| class_info.used_traits.as_slice())
@@ -1954,6 +1939,14 @@ fn class_uses_metadata_for_assignment(
         .map(AssocKeyValue::Str)
         .collect::<Vec<_>>();
     Some((vec![ValueCellKind::Str; keys.len()], keys))
+}
+
+fn class_relation_static_or_new_target_name(target: &Expr) -> Option<String> {
+    match &target.kind {
+        ExprKind::StringLiteral(class_name) => Some(class_name.clone()),
+        ExprKind::NewObject { class_name, .. } => Some(class_name.as_str().to_string()),
+        _ => None,
+    }
 }
 
 fn array_filter_runtime_nested_value_for_assignment(

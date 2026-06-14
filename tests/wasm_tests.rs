@@ -3059,9 +3059,23 @@ fn test_wasm32_web_e2e_matches_php_class_parents_direct_object_foreach() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_class_parents_assigned_object_array() {
+    assert_wasm_matches_php(
+        "<?php\nclass AssignedParentObjectRoot {}\nclass AssignedParentObjectMiddle extends AssignedParentObjectRoot {}\nclass AssignedParentObjectLeaf extends AssignedParentObjectMiddle { public function __construct() { echo \"ctor\\n\"; } }\n$parents = class_parents(new AssignedParentObjectLeaf());\necho count($parents) . \":\";\nforeach ($parents as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_class_implements_assigned_array() {
     assert_wasm_matches_php(
         "<?php\ninterface implements_one {}\ninterface implements_two {}\nclass implements_target implements implements_one, implements_two {}\n$interfaces = class_implements(\"implements_target\");\necho count($interfaces) . \":\";\nforeach ($interfaces as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_implements_assigned_object_array() {
+    assert_wasm_matches_php(
+        "<?php\ninterface AssignedObjectImplementsOne {}\ninterface AssignedObjectImplementsTwo {}\nclass AssignedObjectImplementsTarget implements AssignedObjectImplementsOne, AssignedObjectImplementsTwo { public function __construct() { echo \"ctor\\n\"; } }\n$interfaces = class_implements(new AssignedObjectImplementsTarget());\necho count($interfaces) . \":\";\nforeach ($interfaces as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
     );
 }
 
@@ -3090,6 +3104,13 @@ fn test_wasm32_web_e2e_matches_php_class_uses_direct_trait_foreach() {
 fn test_wasm32_web_e2e_matches_php_class_uses_assigned_trait_array() {
     assert_wasm_matches_php(
         "<?php\ntrait AssignedUsesBaseTrait {}\ntrait AssignedUsesCombinedTrait { use AssignedUsesBaseTrait; }\n$traits = class_uses(\"AssignedUsesCombinedTrait\");\necho count($traits) . \":\";\nforeach ($traits as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_uses_assigned_object_array() {
+    assert_wasm_matches_php(
+        "<?php\ntrait AssignedObjectUsesTrait {}\nclass AssignedObjectUsesTarget { use AssignedObjectUsesTrait; public function __construct() { echo \"ctor\\n\"; } }\n$traits = class_uses(new AssignedObjectUsesTarget());\necho count($traits) . \":\";\nforeach ($traits as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
     );
 }
 
