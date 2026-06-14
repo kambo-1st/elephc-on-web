@@ -327,6 +327,15 @@ pub(super) fn foreach_value_local_kind(
             if args.first().is_some_and(array_slice_method_source_needs_mixed_value) {
                 return LocalKind::Mixed;
             }
+            if let Some(kind) = dynamic_static_method_source_value_local_kind(
+                args.first(),
+                string_static_values,
+                function_array_return_value_kinds,
+                function_array_return_runtime_value_kinds,
+                function_array_return_key_kinds,
+            ) {
+                return kind;
+            }
             array_values_foreach_value_local_kind(
                 args,
                 array_value_kinds,
@@ -454,6 +463,34 @@ pub(super) fn foreach_value_local_kind(
         }
         _ => LocalKind::I64,
     }
+}
+
+fn dynamic_static_method_source_value_local_kind(
+    source: Option<&Expr>,
+    string_static_values: &HashMap<String, String>,
+    function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
+    function_array_return_runtime_value_kinds: &HashMap<String, ValueCellKind>,
+    function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+) -> Option<LocalKind> {
+    let ExprKind::DynamicStaticMethodCall {
+        receiver: StaticReceiver::Named(class_name),
+        method,
+        ..
+    } = &source?.kind else {
+        return None;
+    };
+    let key = dynamic_static_method_call_return_key(class_name.as_str(), method, string_static_values)?;
+    if function_array_return_key_kinds.contains_key(&key) {
+        if let Some(kinds) = function_array_return_value_kinds.get(&key) {
+            return Some(assoc_foreach_value_local_kind(kinds));
+        }
+    }
+    if let Some(kinds) = function_array_return_value_kinds.get(&key) {
+        return Some(foreach_value_cell_local_kind(kinds));
+    }
+    function_array_return_runtime_value_kinds
+        .get(&key)
+        .map(|kind| local_kind_for_value_cell(*kind))
 }
 
 fn homogeneous_new_object_items(items: &[Expr]) -> Option<&str> {

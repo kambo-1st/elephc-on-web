@@ -78,6 +78,11 @@ pub(super) fn foreach_key_local_kind(
             if args.first().is_some_and(array_method_source_needs_mixed_key) {
                 return LocalKind::Mixed;
             }
+            if let Some(key_kinds) =
+                dynamic_static_method_source_key_kinds(args.first(), string_static_values, function_array_return_key_kinds)
+            {
+                return key_local_kind_for_key_kinds(&key_kinds);
+            }
             key_preserving_transform_foreach_key_kinds(
                 args,
                 array_key_kinds,
@@ -183,6 +188,32 @@ pub(super) fn foreach_key_local_kind(
     let Some(key_kinds) = key_kinds else {
         return LocalKind::I64;
     };
+    if key_kinds.is_empty() || key_kinds.iter().all(|kind| *kind == AssocKeyKind::Int) {
+        LocalKind::I64
+    } else if key_kinds.iter().all(|kind| *kind == AssocKeyKind::Str) {
+        LocalKind::Str
+    } else {
+        LocalKind::Mixed
+    }
+}
+
+fn dynamic_static_method_source_key_kinds(
+    source: Option<&Expr>,
+    string_static_values: &HashMap<String, String>,
+    function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+) -> Option<Vec<AssocKeyKind>> {
+    let ExprKind::DynamicStaticMethodCall {
+        receiver: StaticReceiver::Named(class_name),
+        method,
+        ..
+    } = &source?.kind else {
+        return None;
+    };
+    dynamic_static_method_call_return_key(class_name.as_str(), method, string_static_values)
+        .and_then(|key| function_array_return_key_kinds.get(&key).cloned())
+}
+
+fn key_local_kind_for_key_kinds(key_kinds: &[AssocKeyKind]) -> LocalKind {
     if key_kinds.is_empty() || key_kinds.iter().all(|kind| *kind == AssocKeyKind::Int) {
         LocalKind::I64
     } else if key_kinds.iter().all(|kind| *kind == AssocKeyKind::Str) {
