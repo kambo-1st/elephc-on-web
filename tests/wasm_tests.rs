@@ -30938,6 +30938,9 @@ function callable_expr_mixed_items(string $prefix): array {
 function callable_expr_assoc(string $prefix): array {
     return ["keep" => $prefix, "drop" => "no", 7 => "seven"];
 }
+function callable_expr_string_assoc(string $prefix): array {
+    return ["keep" => $prefix, "drop" => "no"];
+}
 function callable_expr_mask(string $prefix): array {
     return ["drop" => true, 7 => true];
 }
@@ -30972,6 +30975,10 @@ function make_callable_expr_mixed_array(): callable {
 function make_callable_expr_assoc(): callable {
     echo "assoc-array\n";
     return callable_expr_assoc(...);
+}
+function make_callable_expr_string_assoc(): callable {
+    echo "string-assoc-array\n";
+    return callable_expr_string_assoc(...);
 }
 function make_callable_expr_mask(): callable {
     echo "mask-array\n";
@@ -31127,23 +31134,27 @@ $directRand = array_rand(make_callable_expr_numbers()("direct-rand"));
 echo (($directRand >= 0 && $directRand < 3) ? "rand-ok" : "rand-bad") . "\n";
 $directRandKeys = array_rand(make_callable_expr_numbers()("direct-rand-keys"), 3);
 echo count($directRandKeys) . ":" . $directRandKeys[0] . ":" . $directRandKeys[2] . "\n";
+$directAssocRandKeys = array_rand(make_callable_expr_string_assoc()("direct-assoc-rand-keys"), 2);
+echo count($directAssocRandKeys) . ":" . $directAssocRandKeys[0] . ":" . $directAssocRandKeys[1] . "\n";
 "#,
     );
 }
 
 #[test]
-fn test_wasm32_web_callable_return_assoc_array_rand_is_rejected() {
-    let source = r#"<?php
-function assoc_items(string $prefix): array {
+fn test_wasm32_web_e2e_matches_php_callable_return_assoc_array_rand() {
+    assert_wasm_matches_php(
+        r#"<?php
+function callable_assoc_rand_items(string $prefix): array {
     return ["keep" => $prefix, "drop" => "no"];
 }
-function make_assoc_callable(): callable {
-    return assoc_items(...);
+function make_assoc_rand_callable(): callable {
+    echo "assoc-rand\n";
+    return callable_assoc_rand_items(...);
 }
-$keys = array_rand(make_assoc_callable()("row"), 2);
-echo count($keys);
-"#;
-    assert_wasm_compile_error(source);
+$keys = array_rand(make_assoc_rand_callable()("rows"), 2);
+echo count($keys) . ":" . $keys[0] . ":" . $keys[1] . "\n";
+"#,
+    );
 }
 
 #[test]
