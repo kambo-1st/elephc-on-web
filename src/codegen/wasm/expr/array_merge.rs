@@ -601,6 +601,9 @@ pub(super) fn assoc_array_merge_needs_materialized_arg(arg: &Expr, module: &Wasm
                 || name.eq_ignore_ascii_case("array_fill_keys")
                 || name.eq_ignore_ascii_case("array_combine")
                 || name.eq_ignore_ascii_case("array_column")
+                || name.eq_ignore_ascii_case("class_parents")
+                || name.eq_ignore_ascii_case("class_implements")
+                || name.eq_ignore_ascii_case("class_uses")
         }
         _ => false,
     }
