@@ -2001,6 +2001,13 @@ fn test_wasm32_web_e2e_matches_php_object_magic_call_string_argument() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_magic_call_nested_string_consumers() {
+    assert_wasm_matches_php(
+        "<?php\nclass MagicCallNestedString { public function __call(string $method, array $args): string { return $method . \":\" . $args[0] . \":\" . $args[1]; } }\n$p = new MagicCallNestedString();\n$value = \"[\" . $p->join(\"ab\", \"cd\") . \"]\";\necho strlen($p->join(\"ab\", \"cd\")) . \":\" . substr($p->join(\"ab\", \"cd\"), 5, 2) . \":\" . $p->join(\"ab\", \"cd\")[0] . \":\" . $value . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_scalar_property_writes() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public int $i = 0; public float $f = 0.0; public bool $b = false; public string $s = \"\"; }\n$o = new Box();\n$o->i = 9;\n$o->f = 2.5;\n$o->b = true;\n$o->s = \"wasm\";\necho $o->i . \",\" . $o->f . \",\" . $o->b . \",\" . $o->s . \"\\n\";\n",
