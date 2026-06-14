@@ -30997,6 +30997,11 @@ foreach (array_slice(make_callable_expr_array()("direct-slice"), 1) as $item) {
 foreach (array_pad(make_callable_expr_array()("direct-pad"), 3, "pad") as $item) {
     echo $item . "\n";
 }
+foreach (array_chunk(make_callable_expr_array()("direct-chunk"), 1) as $chunk) {
+    foreach ($chunk as $item) {
+        echo $item . "\n";
+    }
+}
 "#,
     );
 }

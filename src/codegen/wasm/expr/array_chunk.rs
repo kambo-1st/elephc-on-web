@@ -181,7 +181,9 @@ pub(super) fn emit_indexed_array_chunk_assign(
                 module,
             )
         }
-        ExprKind::FunctionCall { .. } if expression_has_array_type(&args[0], module) => {
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
+            if expression_has_array_type(&args[0], module) =>
+        {
             let temp = materialize_array_map_multi_source(&args[0], "array_chunk_source", module)?;
             let Some(len) = module.array_length(&temp) else {
                 if module.array_layout(&temp) != ArrayLayout::Value {
