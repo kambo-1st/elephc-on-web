@@ -252,6 +252,11 @@ pub(super) fn emit_json_encode_array_value_to_stack(
         {
             materialize_json_method_array_source(first_arg, "json_value_static_method_array_source", module)?
         }
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. }
+            if dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some() =>
+        {
+            materialize_json_method_array_source(first_arg, "json_value_dynamic_static_method_array_source", module)?
+        }
         ExprKind::ArrayAccess { .. } if nested_array_metadata_for_access_expr(first_arg, module).is_some() => {
             materialize_nested_json_source(first_arg, "json_value_nested_array_source", module)?
         }
@@ -277,7 +282,7 @@ pub(super) fn emit_json_encode_array_value_to_stack(
         }
     }
     match (module.array_layout(&name), module.array_length(&name)) {
-        (ArrayLayout::CompactInt, None) => {
+        (ArrayLayout::CompactInt, _) => {
             emit_json_encode_runtime_compact_int_array_value_to_stack(&name, flags, module);
             emit_json_last_error_none(module);
             Ok(true)
@@ -312,7 +317,6 @@ pub(super) fn emit_json_encode_array_value_to_stack(
             emit_json_last_error_none(module);
             Ok(true)
         }
-        _ => Ok(false),
     }
 }
 
