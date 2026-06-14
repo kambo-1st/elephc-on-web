@@ -2187,6 +2187,13 @@ fn object_access_local_kind(
                 .iter()
                 .find(|candidate| candidate.name == *property)
                 .map(|property_info| local_kind_for_object_property(property_info.kind))
+                .or_else(|| {
+                    magic_get_local_kind_for_metadata(
+                        &class_name,
+                        object_classes,
+                        function_return_kinds,
+                    )
+                })
         }
         ExprKind::DynamicPropertyAccess { object, property } => {
             dynamic_object_property_local_kind_for_metadata(
@@ -2200,6 +2207,25 @@ fn object_access_local_kind(
         }
         _ => None,
     }
+}
+
+fn magic_get_local_kind_for_metadata(
+    class_name: &str,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
+    function_return_kinds: &HashMap<String, ValueKind>,
+) -> Option<LocalKind> {
+    let method = object_classes
+        .get(&function_key(class_name))?
+        .methods
+        .iter()
+        .find(|candidate| candidate.name.eq_ignore_ascii_case("__get"))?;
+    if method.visibility != Visibility::Public || method.param_kinds.as_slice() != [LocalKind::Str] {
+        return None;
+    }
+    function_return_kinds
+        .get(&method_call_return_key(class_name, "__get"))
+        .copied()
+        .map(local_kind_for_value)
 }
 
 fn object_dynamic_property_name_for_metadata(

@@ -1933,7 +1933,7 @@ fn test_wasm32_web_e2e_matches_php_object_magic_isset_dynamic_property_name() {
 #[test]
 fn test_wasm32_web_e2e_matches_php_object_magic_get_missing_property_reads() {
     assert_wasm_matches_php(
-        "<?php\nclass MagicReadBag { public function __get(string $name): string { echo \"get:\" . $name . \"\\n\"; return \"[\" . $name . \"]\"; } }\n$o = new MagicReadBag();\necho $o->title . \"\\n\";\necho $o->slug . \"\\n\";\n",
+        "<?php\nclass MagicReadBag { public function __get(string $name): string { echo \"get:\" . $name . \"\\n\"; return \"[\" . $name . \"]\"; } }\n$o = new MagicReadBag();\necho $o->title . \"\\n\";\n$slug = $o->slug;\necho $slug . \"\\n\";\n",
     );
 }
 

@@ -1562,10 +1562,13 @@ pub(in crate::codegen::wasm) fn object_property_value_kind(
     }
     let class_name = object_class_name_for_expr(object, module)?;
     let class_info = module.object_class(&class_name)?;
-    let property_info = class_info
+    let Some(property_info) = class_info
         .properties
         .iter()
-        .find(|candidate| candidate.name == property)?;
+        .find(|candidate| candidate.name == property)
+    else {
+        return supported_magic_get_method(&class_name, module).map(|(_, method)| method.return_kind);
+    };
     Some(match property_info.kind {
         ObjectPropertyKind::Int => ValueKind::Int,
         ObjectPropertyKind::Float => ValueKind::Float,
