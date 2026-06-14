@@ -2145,17 +2145,22 @@ pub(in crate::codegen::wasm) fn emit_object_property_assignment_expr(
             "wasm32-web property assignment expression requires a declared class",
         )
     })?;
-    let property_info = class_info
+    let Some(property_info) = class_info
         .properties
         .iter()
         .find(|candidate| candidate.name == property)
         .cloned()
-        .ok_or_else(|| {
-            CompileError::new(
-                object.span,
-                "wasm32-web property assignment expression requires a supported public fixed property",
-            )
-        })?;
+    else {
+        if let Some(kind) =
+            emit_missing_property_magic_set_expr(object, property, value, module)?
+        {
+            return Ok(kind);
+        }
+        return Err(CompileError::new(
+            object.span,
+            "wasm32-web property assignment expression requires a supported public fixed property",
+        ));
+    };
     if emit_expr(object, module)? != ValueKind::Object {
         return Err(CompileError::new(
             object.span,
@@ -2171,6 +2176,31 @@ pub(in crate::codegen::wasm) fn emit_object_property_assignment_expr(
     emit_store_property_value(&object_local, &property_info, value, module)?;
     module.body().line(&format!("local.get ${}", object_local));
     emit_load_property(&property_info, module).map_err(|err| CompileError::new(expr.span, &err.message))
+}
+
+fn emit_missing_property_magic_set_expr(
+    object: &Expr,
+    property: &str,
+    value: &Expr,
+    module: &mut WasmModule,
+) -> Result<Option<ValueKind>, CompileError> {
+    if object_receiver_needs_runtime_class_id(object, module) {
+        return Ok(None);
+    }
+    let Some(class_name) = object_class_name_for_expr(object, module) else {
+        return Ok(None);
+    };
+    if supported_magic_set_method(&class_name, module).is_none() {
+        return Ok(None);
+    }
+    let property_arg = Expr::new(ExprKind::StringLiteral(property.to_string()), object.span);
+    let kind = emit_method_call_expr(object, object, "__set", &[property_arg, value.clone()], module)?;
+    discard_expression_result(kind, module);
+    if expression_is_stringy(value, module) {
+        emit_string_value_to_stack(value, module)?;
+        return Ok(Some(ValueKind::Str));
+    }
+    emit_expr(value, module).map(Some)
 }
 
 pub(in crate::codegen::wasm) fn emit_dynamic_object_property_assignment_expr(

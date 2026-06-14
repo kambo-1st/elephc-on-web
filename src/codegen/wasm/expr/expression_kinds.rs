@@ -275,20 +275,14 @@ pub(in crate::codegen::wasm) fn expression_is_stringy(expr: &Expr, module: &Wasm
         ExprKind::StaticPropertyAccess { receiver, property } => {
             static_property_value_kind(receiver, property, module) == Some(ValueKind::Str)
         }
-        ExprKind::Assignment { target, .. } => match &target.kind {
-            ExprKind::PropertyAccess { object, property }
-            | ExprKind::NullsafePropertyAccess { object, property } => {
-                object_property_value_kind(object, property, module) == Some(ValueKind::Str)
-            }
-            ExprKind::DynamicPropertyAccess { object, property }
-            | ExprKind::NullsafeDynamicPropertyAccess { object, property } => {
-                object_dynamic_property_value_kind(object, property, module) == Some(ValueKind::Str)
-            }
-            ExprKind::StaticPropertyAccess { receiver, property } => {
-                static_property_value_kind(receiver, property, module) == Some(ValueKind::Str)
-            }
-            _ => false,
-        },
+        ExprKind::Assignment {
+            value,
+            result_target,
+            ..
+        } => result_target
+            .as_deref()
+            .is_some_and(|target| expression_is_stringy(target, module))
+            || expression_is_stringy(value, module),
         ExprKind::ClassConstant { receiver } => module.class_name_for_receiver(receiver).is_some(),
         ExprKind::ScopedConstantAccess { receiver, name } => {
             matches!(

@@ -275,7 +275,10 @@ pub(in crate::codegen::wasm) fn emit_string_assign(
                 module,
             )
         }
-        ExprKind::Ternary { .. } | ExprKind::ShortTernary { .. } | ExprKind::Match { .. }
+        ExprKind::Assignment { .. }
+        | ExprKind::Ternary { .. }
+        | ExprKind::ShortTernary { .. }
+        | ExprKind::Match { .. }
             if expression_is_stringy(value, module) =>
         {
             emit_string_value_to_locals(
@@ -504,6 +507,12 @@ pub(in crate::codegen::wasm) fn emit_string_value_to_stack(
             target: CastType::String,
             expr,
         } => emit_string_cast_value_to_stack(value, expr, module),
+        ExprKind::Assignment { .. } if expression_is_stringy(value, module) => {
+            match emit_expr(value, module)? {
+                ValueKind::Str => Ok(()),
+                _ => unreachable!("stringy assignment expression must produce a string result"),
+            }
+        }
         ExprKind::Ternary {
             condition,
             then_expr,

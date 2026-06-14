@@ -1952,6 +1952,20 @@ fn test_wasm32_web_e2e_matches_php_object_magic_set_missing_property_writes() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_magic_get_and_set_together() {
+    assert_wasm_matches_php(
+        "<?php\nclass MagicGetSetBag { public string $last = \"\"; public function __set(string $name, mixed $value): void { $this->last = $name . \":\" . $value; } public function __get(string $name): string { return $this->last . \"|\" . $name; } }\n$o = new MagicGetSetBag();\n$o->answer = 99;\necho $o->answer . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_object_magic_set_assignment_expression_value() {
+    assert_wasm_matches_php(
+        "<?php\nclass MagicSetExpressionBag { public string $last = \"\"; public function __set(string $name, mixed $value): void { $this->last = $name . \":\" . $value; } }\n$o = new MagicSetExpressionBag();\n$result = ($o->answer = \"ok\");\necho $result . \":\" . $o->last . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_magic_call_missing_method() {
     assert_wasm_matches_php(
         "<?php\nclass MagicCallProxy { public function __call(string $method, array $args): void { echo \"called:\" . $method . \":\"; echo implode(\",\", $args); echo \"\\n\"; } }\n$p = new MagicCallProxy();\n$p->doSomething(1, 2, 3);\n",

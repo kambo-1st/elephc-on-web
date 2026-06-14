@@ -34,6 +34,7 @@ pub(super) fn infer_assignment_local_kind(
         | ExprKind::NullsafeDynamicPropertyAccess { .. }
         | ExprKind::NullsafeMethodCall { .. } => Some(LocalKind::Mixed),
         ExprKind::Assignment {
+            value,
             result_target: Some(result_target),
             ..
         } => infer_assignment_local_kind(
@@ -54,10 +55,29 @@ pub(super) fn infer_assignment_local_kind(
             function_possible_callable_return_targets,
         )
         .or_else(|| {
-            Some(infer_local_kind(
-                result_target,
+            infer_assignment_local_kind(
+                value,
                 locals,
-                &HashMap::new(),
+                array_value_kinds,
+                array_nested_values,
+                array_runtime_nested_values,
+                array_key_kinds,
+                array_key_values,
+                php_normalized_key_arrays,
+                function_array_return_value_kinds,
+                array_runtime_value_kinds,
+                function_array_return_layouts,
+                function_array_return_key_kinds,
+                function_return_kinds,
+                function_callable_return_targets,
+                function_possible_callable_return_targets,
+            )
+        })
+        .or_else(|| {
+            Some(infer_local_kind(
+                value,
+                locals,
+                function_return_kinds,
                 &HashMap::new(),
                 &HashMap::new(),
             ))

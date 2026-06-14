@@ -19,7 +19,8 @@ pub(in crate::codegen::wasm) fn emit_output_expr(
         if matches!(
             &target.kind,
             ExprKind::PropertyAccess { .. } | ExprKind::DynamicPropertyAccess { .. }
-        ) {
+        ) && !expression_is_stringy(expr, module)
+        {
             let kind = emit_expr(expr, module)?;
             return emit_output_loaded_kind(expr, kind, module);
         }
