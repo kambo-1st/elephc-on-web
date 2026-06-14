@@ -30898,11 +30898,23 @@ function callable_expr_join(string $carry, string $value): string {
 function callable_expr_sum(int $carry, int $value): int {
     return $carry + $value;
 }
+function callable_expr_sum_float(float $carry, float $value): float {
+    return $carry + $value;
+}
+function callable_expr_all(bool $carry, bool $value): bool {
+    return $carry && $value;
+}
 function callable_expr_items(string $prefix): array {
     return ["head", "tail"];
 }
 function callable_expr_numbers(string $prefix): array {
     return [2, 4, 6];
+}
+function callable_expr_floats(string $prefix): array {
+    return [1.5, 2.25];
+}
+function callable_expr_flags(string $prefix): array {
+    return [true, true, false];
 }
 function make_callable_expr(bool $flag): callable {
     echo $flag ? "add\n" : "wrap\n";
@@ -30919,6 +30931,14 @@ function make_callable_expr_array(): callable {
 function make_callable_expr_numbers(): callable {
     echo "numbers\n";
     return callable_expr_numbers(...);
+}
+function make_callable_expr_floats(): callable {
+    echo "floats\n";
+    return callable_expr_floats(...);
+}
+function make_callable_expr_flags(): callable {
+    echo "flags\n";
+    return callable_expr_flags(...);
 }
 class CallableExprFactory {
     public static function makeString(): callable {
@@ -31039,6 +31059,8 @@ foreach (array_filter(make_callable_expr_array()("direct-filter-key"), "is_int",
 array_walk(make_callable_expr_array()("direct-walk"), "callable_expr_echo");
 echo array_reduce(make_callable_expr_array()("direct-reduce"), "callable_expr_join", "s") . "\n";
 echo array_reduce(make_callable_expr_numbers()("direct-int-reduce"), "callable_expr_sum", 1) . "\n";
+echo array_reduce(make_callable_expr_floats()("direct-float-reduce"), "callable_expr_sum_float", 0.25) . "\n";
+echo (array_reduce(make_callable_expr_flags()("direct-bool-reduce"), "callable_expr_all", true) ? "yes" : "no") . "\n";
 "#,
     );
 }

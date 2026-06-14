@@ -2634,7 +2634,9 @@ fn emit_array_reduce_float_call(
         {
             emit_array_reduce_assoc_literal_ints_as_floats(&acc, items, args[0].span, callback, module)?;
         }
-        ExprKind::FunctionCall { .. } if expression_has_array_type(&args[0], module) => {
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
+            if expression_has_array_type(&args[0], module) =>
+        {
             emit_array_reduce_float_array_expr(&acc, &args[0], callback, module)?;
         }
         ExprKind::Variable(source)
@@ -2768,7 +2770,9 @@ fn emit_array_reduce_bool_call(
         ExprKind::ArrayLiteralAssoc(items) if array_reduce_bool_callback_assoc_items_are_supported(items, module) => {
             emit_array_reduce_assoc_literal_truthy_cells(&acc, items, args[0].span, callback, module)?;
         }
-        ExprKind::FunctionCall { .. } if expression_has_array_type(&args[0], module) => {
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
+            if expression_has_array_type(&args[0], module) =>
+        {
             emit_array_reduce_bool_array_expr(&acc, &args[0], callback, module)?;
         }
         ExprKind::Variable(source)
