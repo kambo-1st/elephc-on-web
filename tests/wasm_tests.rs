@@ -3151,7 +3151,7 @@ fn test_wasm32_web_e2e_matches_php_runtime_variable_instance_method_name() {
 #[test]
 fn test_wasm32_web_e2e_matches_php_runtime_variable_nullsafe_method_name() {
     assert_wasm_matches_php(
-        "<?php\nclass Box { public function add(int $n): int { return $n + 4; } }\n$n = null;\n$name = \"add\";\n$n?->{$name}(6);\necho \"nullsafe-ok\\n\";\n",
+        "<?php\nclass Box { public function add(int $n): int { return $n + 4; } }\n$o = new Box();\n$n = null;\n$name = \"add\";\n$a = $o?->{$name}(6);\n$b = $n?->{$name}(6);\necho gettype($a) . \":\" . $a . \":\" . gettype($b) . \"\\n\";\n",
     );
 }
 

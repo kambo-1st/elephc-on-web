@@ -214,6 +214,7 @@ pub(in crate::codegen::wasm) fn emit_store_value_cell(
         ExprKind::PropertyAccess { .. }
         | ExprKind::DynamicPropertyAccess { .. }
         | ExprKind::MethodCall { .. }
+        | ExprKind::DynamicMethodCall { .. }
         | ExprKind::StaticMethodCall { .. }
         | ExprKind::ScopedConstantAccess { .. } => {
             let emitted = emit_expr(value, module)?;
@@ -222,6 +223,7 @@ pub(in crate::codegen::wasm) fn emit_store_value_cell(
         ExprKind::NullsafePropertyAccess { object, .. }
         | ExprKind::NullsafeDynamicPropertyAccess { object, .. }
         | ExprKind::NullsafeMethodCall { object, .. }
+        | ExprKind::NullsafeDynamicMethodCall { object, .. }
             if matches!(object.kind, ExprKind::Null) =>
         {
             module.body().line(&format!("local.get {}", cell));
@@ -235,6 +237,10 @@ pub(in crate::codegen::wasm) fn emit_store_value_cell(
         ExprKind::NullsafeMethodCall { .. } => {
             let emitted = emit_expr(value, module)?;
             emit_store_emitted_value_kind(cell, emitted, "value_cell_nullsafe_method", module)
+        }
+        ExprKind::NullsafeDynamicMethodCall { .. } => {
+            let emitted = emit_expr(value, module)?;
+            emit_store_emitted_value_kind(cell, emitted, "value_cell_nullsafe_dynamic_method", module)
         }
         ExprKind::StringLiteral(value) => {
             let (ptr, len) = module.intern_string(value);

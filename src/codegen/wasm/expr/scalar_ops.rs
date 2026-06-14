@@ -522,6 +522,22 @@ pub(in crate::codegen::wasm) fn materialize_mixed_value_cell(
                 _ => unreachable!("mixed method metadata must return a mixed value"),
             }
         }
+        ExprKind::DynamicMethodCall { object, method, args }
+            if dynamic_method_call_return_kind(object, method, module) == Some(ValueKind::Mixed) =>
+        {
+            let local = module
+                .next_label("mixed_dynamic_method_value")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_i32_local(local.clone());
+            match emit_dynamic_method_call_expr(candidate, object, method, args, module)? {
+                ValueKind::Mixed => {
+                    module.body().line(&format!("local.set ${}", local));
+                    Ok(Some(local))
+                }
+                _ => unreachable!("mixed dynamic method metadata must return a mixed value"),
+            }
+        }
         ExprKind::StaticMethodCall { receiver, method, args }
             if static_method_call_return_kind(receiver, method, module) == Some(ValueKind::Mixed) =>
         {
@@ -554,7 +570,7 @@ pub(in crate::codegen::wasm) fn materialize_mixed_value_cell(
             )?;
             Ok(Some(local))
         }
-        ExprKind::NullsafeMethodCall { .. } => {
+        ExprKind::NullsafeMethodCall { .. } | ExprKind::NullsafeDynamicMethodCall { .. } => {
             let local = module
                 .next_label("mixed_nullsafe_method_value")
                 .trim_start_matches('$')
