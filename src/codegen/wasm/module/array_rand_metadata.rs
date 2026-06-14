@@ -132,6 +132,7 @@ pub(super) fn local_kind_for_source(
                 array_value_kinds,
                 array_runtime_value_kinds,
                 function_array_return_key_kinds,
+                None,
             )
             .as_deref()
             .and_then(local_kind_from_key_kinds)

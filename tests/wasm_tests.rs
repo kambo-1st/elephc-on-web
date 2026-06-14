@@ -3311,6 +3311,27 @@ fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_filter_c
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_assoc_array_filter_int_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction keep_dynamic_static_assoc_int(int $value): bool { return $value > 2; }\nclass DynamicStaticAssocFilterIntBox { public static function items(): array { return [\"left\" => 1, \"right\" => 4, \"tail\" => 6]; } }\n$name = \"items\";\n$filtered = array_filter(DynamicStaticAssocFilterIntBox::{$name}(), \"keep_dynamic_static_assoc_int\");\necho count($filtered) . \":\" . $filtered[\"right\"] . \":\" . $filtered[\"tail\"];\nforeach ($filtered as $key => $value) { echo \":\" . $key . \"=\" . $value; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_assoc_array_filter_float_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction keep_dynamic_static_assoc_float(float $value): bool { return $value > 1.5; }\nclass DynamicStaticAssocFilterFloatBox { public static function items(): array { return [\"left\" => 1.25, \"right\" => 2.5, \"tail\" => 3.75]; } }\n$name = \"items\";\n$filtered = array_filter(DynamicStaticAssocFilterFloatBox::{$name}(), \"keep_dynamic_static_assoc_float\");\necho count($filtered) . \":\" . $filtered[\"right\"] . \":\" . $filtered[\"tail\"];\nforeach ($filtered as $key => $value) { echo \":\" . $key . \"=\" . $value; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_assoc_array_filter_bool_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction keep_dynamic_static_assoc_bool(bool $value): bool { return $value; }\nclass DynamicStaticAssocFilterBoolBox { public static function items(): array { return [\"left\" => true, \"middle\" => false, \"right\" => true]; } }\n$name = \"items\";\n$filtered = array_filter(DynamicStaticAssocFilterBoolBox::{$name}(), \"keep_dynamic_static_assoc_bool\");\necho count($filtered) . \":\" . ($filtered[\"left\"] ? 1 : 0) . \":\" . ($filtered[\"right\"] ? 1 : 0);\nforeach ($filtered as $key => $value) { echo \":\" . $key . \"=\" . ($value ? \"T\" : \"F\"); }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_map_return() {
     assert_wasm_matches_php(
         "<?php\nclass DynamicStaticMapBox { public static function items(): array { return [\"a\" => \"red\", \"b\" => \"\", \"c\" => \"blue\"]; } }\n$name = \"items\";\n$mapped = array_map(\"strlen\", DynamicStaticMapBox::{$name}());\necho count($mapped) . \":\" . $mapped[\"a\"] . \":\" . $mapped[\"b\"] . \":\" . $mapped[\"c\"] . \"\\n\";\n",

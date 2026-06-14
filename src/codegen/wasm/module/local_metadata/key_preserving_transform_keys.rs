@@ -67,6 +67,7 @@ pub(super) fn key_preserving_transform_foreach_key_kinds(
                 array_value_kinds,
                 array_runtime_value_kinds,
                 function_array_return_key_kinds,
+                Some(string_static_values),
             )
         }
         ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("array_map") => {

@@ -1193,8 +1193,7 @@ fn materialize_method_array_filter_source(
     module.set_array_value_constants(&temp, metadata.value_constants);
     module.set_array_runtime_value_cell_kind(&temp, metadata.runtime_value_kind);
     module.set_array_nested_value_metadata(&temp, metadata.nested_values);
-    module.set_array_key_kinds(&temp, metadata.key_kinds);
-    module.set_array_key_values(&temp, metadata.key_values);
+    set_method_array_filter_source_key_metadata(&temp, metadata.key_kinds, metadata.key_values, module);
     Ok(temp)
 }
 
@@ -1235,8 +1234,7 @@ fn materialize_static_method_array_filter_source(
     module.set_array_value_constants(&temp, metadata.value_constants);
     module.set_array_runtime_value_cell_kind(&temp, metadata.runtime_value_kind);
     module.set_array_nested_value_metadata(&temp, metadata.nested_values);
-    module.set_array_key_kinds(&temp, metadata.key_kinds);
-    module.set_array_key_values(&temp, metadata.key_values);
+    set_method_array_filter_source_key_metadata(&temp, metadata.key_kinds, metadata.key_values, module);
     Ok(temp)
 }
 
@@ -1277,9 +1275,26 @@ fn materialize_dynamic_static_method_array_filter_source(
     module.set_array_value_constants(&temp, metadata.value_constants);
     module.set_array_runtime_value_cell_kind(&temp, metadata.runtime_value_kind);
     module.set_array_nested_value_metadata(&temp, metadata.nested_values);
-    module.set_array_key_kinds(&temp, metadata.key_kinds);
-    module.set_array_key_values(&temp, metadata.key_values);
+    set_method_array_filter_source_key_metadata(&temp, metadata.key_kinds, metadata.key_values, module);
     Ok(temp)
+}
+
+fn set_method_array_filter_source_key_metadata(
+    name: &str,
+    key_kinds: Option<Vec<AssocKeyKind>>,
+    key_values: Option<Vec<AssocKeyValue>>,
+    module: &mut WasmModule,
+) {
+    let derived_key_kinds = key_values.as_ref().map(|keys| {
+        keys.iter()
+            .map(|key| match key {
+                AssocKeyValue::Int(_) => AssocKeyKind::Int,
+                AssocKeyValue::Str(_) => AssocKeyKind::Str,
+            })
+            .collect()
+    });
+    module.set_array_key_kinds(name, key_kinds.or(derived_key_kinds));
+    module.set_array_key_values(name, key_values);
 }
 
 fn emit_array_filter_staged_assign(

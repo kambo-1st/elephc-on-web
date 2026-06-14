@@ -80,6 +80,7 @@ pub(in crate::codegen::wasm::module) fn array_filter_foreach_key_kinds(
     array_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
     array_runtime_value_kinds: &HashMap<String, ValueCellKind>,
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+    string_static_values: Option<&HashMap<String, String>>,
 ) -> Option<Vec<AssocKeyKind>> {
     let source = args.first()?;
     match &source.kind {
@@ -104,6 +105,13 @@ pub(in crate::codegen::wasm::module) fn array_filter_foreach_key_kinds(
         } => function_array_return_key_kinds
             .get(&static_method_call_return_key(class_name.as_str(), method))
             .cloned(),
+        ExprKind::DynamicStaticMethodCall {
+            receiver: StaticReceiver::Named(class_name),
+            method,
+            ..
+        } => string_static_values
+            .and_then(|values| dynamic_static_method_call_return_key(class_name.as_str(), method, values))
+            .and_then(|key| function_array_return_key_kinds.get(&key).cloned()),
         _ => None,
     }
 }

@@ -42,6 +42,7 @@ pub(super) fn foreach_key_local_kind(
                 array_value_kinds,
                 array_runtime_value_kinds,
                 function_array_return_key_kinds,
+                Some(string_static_values),
             )
         }
         ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("array_map") => {

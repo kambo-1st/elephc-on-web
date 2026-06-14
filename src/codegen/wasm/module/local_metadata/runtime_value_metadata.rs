@@ -148,6 +148,7 @@ pub(super) fn array_keys_mixed_value_kinds_for_assignment(
                     array_value_kinds,
                     array_runtime_value_kinds,
                     function_array_return_key_kinds,
+                    None,
                 )
             }
             ExprKind::FunctionCall { name, .. } => function_array_return_key_kinds

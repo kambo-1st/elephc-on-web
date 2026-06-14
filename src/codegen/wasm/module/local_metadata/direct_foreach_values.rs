@@ -112,6 +112,7 @@ pub(super) fn array_keys_foreach_value_local_kind(
                 array_value_kinds,
                 array_runtime_value_kinds,
                 function_array_return_key_kinds,
+                None,
             )
         }
         ExprKind::FunctionCall { name, args }
