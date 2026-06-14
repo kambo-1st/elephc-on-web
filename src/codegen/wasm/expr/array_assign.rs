@@ -103,6 +103,11 @@ pub(crate) fn emit_array_assign(
             return emit_runtime_pathinfo_array_assign(name, value, args, module);
         }
         ExprKind::FunctionCall { name: function_name, args }
+            if function_name.eq_ignore_ascii_case("class_parents") =>
+        {
+            return emit_class_parents_array_assign(name, value, args, module);
+        }
+        ExprKind::FunctionCall { name: function_name, args }
             if function_name.eq_ignore_ascii_case("explode") =>
         {
             if args.get(1).is_some_and(|arg| static_string_value(arg, module).is_none())
@@ -635,6 +640,76 @@ fn static_assoc_array_key_values(items: &[(Expr, Expr)]) -> Option<Vec<AssocKeyV
             _ => None,
         })
         .collect()
+}
+
+fn emit_class_parents_array_assign(
+    name: &str,
+    call: &Expr,
+    args: &[Expr],
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let ([target] | [target, _]) = args else {
+        return Err(CompileError::new(
+            call.span,
+            "wasm32-web class_parents() expects one or two arguments",
+        ));
+    };
+    let class_name = if let Some(class_name) = static_string_value(target, module) {
+        class_name
+    } else if let Some(class_name) = object_class_name_for_expr(target, module) {
+        if emit_expr(target, module)? != ValueKind::Object {
+            return Err(CompileError::new(
+                target.span,
+                "wasm32-web class_parents() expected an object or static class-string argument",
+            ));
+        }
+        module.body().line("drop");
+        class_name
+    } else {
+        return Err(CompileError::new(
+            target.span,
+            "wasm32-web class_parents() currently requires a known object or static class-string argument",
+        ));
+    };
+    let Some(items) = class_parent_assoc_items(&class_name, target.span, module) else {
+        return Err(CompileError::new(
+            target.span,
+            "wasm32-web class_parents() currently requires a declared class target",
+        ));
+    };
+    emit_assoc_array_items_assign(name, &items, module)
+}
+
+fn class_parent_assoc_items(
+    class_name: &str,
+    span: crate::span::Span,
+    module: &WasmModule,
+) -> Option<Vec<(Expr, Expr)>> {
+    module.object_class(class_name)?;
+    let mut names = Vec::new();
+    let mut current = class_name.to_string();
+    while let Some(class_info) = module.object_class(&current) {
+        let Some(parent_name) = class_info
+            .parent
+            .as_deref()
+            .and_then(|parent| module.object_class(parent))
+            .map(|parent| parent.name.clone())
+        else {
+            break;
+        };
+        names.push(parent_name.clone());
+        current = parent_name;
+    }
+    Some(
+        names
+            .into_iter()
+            .map(|name| {
+                let key = Expr::new(ExprKind::StringLiteral(name.clone()), span);
+                let value = Expr::new(ExprKind::StringLiteral(name), span);
+                (key, value)
+            })
+            .collect(),
+    )
 }
 
 fn emit_array_access_assign(

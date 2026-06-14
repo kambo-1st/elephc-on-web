@@ -3045,6 +3045,20 @@ fn test_wasm32_web_e2e_matches_php_object_inherited_is_subclass_of() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_class_parents_assigned_array() {
+    assert_wasm_matches_php(
+        "<?php\nclass ParentListRoot {}\nclass ParentListMiddle extends ParentListRoot {}\nclass ParentListLeaf extends ParentListMiddle {}\n$parents = class_parents(\"ParentListLeaf\");\necho count($parents) . \":\";\nforeach ($parents as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_parents_direct_object_foreach() {
+    assert_wasm_matches_php(
+        "<?php\nclass ParentObjectRoot {}\nclass ParentObjectMiddle extends ParentObjectRoot {}\nclass ParentObjectLeaf extends ParentObjectMiddle { public function __construct() { echo \"ctor\\n\"; } }\nforeach (class_parents(new ParentObjectLeaf()) as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_is_subclass_of_string_class_mode() {
     assert_wasm_matches_php(
         "<?php\ninterface Named {}\nclass Base {}\nclass Child extends Base implements Named {}\nfunction subclass_name_value(): string { echo \"value\\n\"; return \"Child\"; }\nfunction subclass_name_target(): string { echo \"target\\n\"; return \"Base\"; }\n$class = \"Child\";\n$base = \"Base\";\n$missing = \"Missing\";\necho (is_subclass_of(\"Child\", Base::class) ? 1 : 0); echo \":\";\necho (is_subclass_of($class, Named::class) ? 1 : 0); echo \":\";\necho (is_subclass_of($base, Base::class) ? 1 : 0); echo \":\";\necho (is_subclass_of($missing, Base::class) ? 1 : 0); echo \":\";\necho (is_subclass_of(subclass_name_value(), subclass_name_target()) ? 1 : 0); echo \"\\n\";\n",

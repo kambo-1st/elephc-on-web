@@ -151,6 +151,17 @@ pub(super) fn collect_assignment_locals(
         array_key_kinds,
         array_key_values,
     );
+    if let Some((values, keys)) = class_parents_metadata_for_assignment(value, object_classes) {
+        array_value_kinds.insert(name.clone(), values);
+        array_runtime_value_kinds.remove(name);
+        array_nested_values.remove(name);
+        array_key_kinds.insert(
+            name.clone(),
+            keys.iter().map(assoc_key_kind_for_value).collect(),
+        );
+        array_key_values.insert(name.clone(), keys);
+        php_normalized_key_arrays.remove(name);
+    }
     if let ExprKind::Variable(source) = &value.kind {
         if locals.get(source) == Some(&LocalKind::Array) {
             if let Some(kinds) = array_value_kinds.get(source).cloned() {
@@ -1831,6 +1842,37 @@ fn array_access_has_unknown_nested_assoc_keys(
     metadata.is_some_and(|metadata| {
         metadata.layout == ArrayLayout::Assoc && metadata.key_values.is_none()
     })
+}
+
+fn class_parents_metadata_for_assignment(
+    value: &Expr,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
+) -> Option<(Vec<ValueCellKind>, Vec<AssocKeyValue>)> {
+    let ExprKind::FunctionCall { name, args } = &value.kind else {
+        return None;
+    };
+    if !name.eq_ignore_ascii_case("class_parents") {
+        return None;
+    }
+    let Some(Expr {
+        kind: ExprKind::StringLiteral(class_name),
+        ..
+    }) = args.first() else {
+        return None;
+    };
+    let mut names = Vec::new();
+    let mut current = function_key(class_name);
+    while let Some(class_info) = object_classes.get(&current) {
+        let Some(parent) = &class_info.parent else {
+            break;
+        };
+        let Some(parent_info) = object_classes.get(parent) else {
+            break;
+        };
+        names.push(AssocKeyValue::Str(parent_info.name.clone()));
+        current = parent.clone();
+    }
+    Some((vec![ValueCellKind::Str; names.len()], names))
 }
 
 fn array_filter_runtime_nested_value_for_assignment(

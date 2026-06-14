@@ -512,6 +512,7 @@ fn is_materializable_foreach_array_call(name: &str) -> bool {
             | "explode"
             | "str_split"
             | "pathinfo"
+            | "class_parents"
     )
 }
 

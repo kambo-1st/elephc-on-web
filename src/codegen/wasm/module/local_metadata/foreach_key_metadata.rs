@@ -100,6 +100,9 @@ pub(super) fn foreach_key_local_kind(
         ExprKind::FunctionCall { name, .. } if name.eq_ignore_ascii_case("pathinfo") => {
             Some(vec![AssocKeyKind::Str])
         }
+        ExprKind::FunctionCall { name, .. } if name.eq_ignore_ascii_case("class_parents") => {
+            Some(vec![AssocKeyKind::Str])
+        }
         ExprKind::FunctionCall { name, args }
             if matches!(name.to_ascii_lowercase().as_str(), "array_diff" | "array_intersect") =>
         {
