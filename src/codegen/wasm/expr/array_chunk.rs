@@ -282,6 +282,57 @@ pub(super) fn emit_indexed_array_chunk_assign(
                 module,
             )
         }
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. }
+            if dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some() =>
+        {
+            let temp =
+                materialize_array_map_multi_source(&args[0], "array_chunk_dynamic_static_source", module)?;
+            let Some(len) = module.array_length(&temp) else {
+                if module.array_layout(&temp) != ArrayLayout::Value {
+                    return Err(CompileError::new(
+                        args[0].span,
+                        "wasm32-web array_chunk() requires a known indexed array length",
+                    ));
+                }
+                return emit_dynamic_array_chunk_assign(
+                    name,
+                    expr,
+                    &[
+                        Expr::new(ExprKind::Variable(temp), args[0].span),
+                        args[1].clone(),
+                    ],
+                    module,
+                );
+            };
+            let source_value_kinds = module.array_value_cell_kinds(&temp).map(|kinds| kinds.to_vec());
+            let source_nested_metadata = module
+                .array_nested_value_metadata_items(&temp)
+                .map(|metadata| metadata.to_vec());
+            let source_key_values = module.array_key_values(&temp).map(|keys| keys.to_vec());
+            if preserve_keys {
+                validate_array_chunk_preserve_key_known_source(
+                    args[0].span,
+                    module.array_layout(&temp),
+                    source_value_kinds.as_deref(),
+                    source_nested_metadata.as_deref(),
+                    source_key_values.as_deref(),
+                    module.array_object_classes(&temp),
+                )?;
+            }
+            let source_ptr = preserve_array_ptr(&temp, "array_chunk", module);
+            emit_known_array_chunk_assign(
+                name,
+                &source_ptr,
+                module.array_layout(&temp),
+                len,
+                chunk_size,
+                source_value_kinds,
+                source_nested_metadata,
+                source_key_values,
+                preserve_keys,
+                module,
+            )
+        }
         ExprKind::StaticMethodCall { .. } if expression_has_array_type(&args[0], module) => {
             let temp = materialize_array_map_multi_source(&args[0], "array_chunk_enum_cases", module)?;
             let Some(len) = module.array_length(&temp) else {
