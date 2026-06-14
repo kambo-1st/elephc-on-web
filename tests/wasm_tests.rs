@@ -3199,6 +3199,13 @@ fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_merge_re
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_pad_return() {
+    assert_wasm_matches_php(
+        "<?php\nclass DynamicStaticPadBox { public static function items(): array { return [\"a\" => \"red\", \"b\" => \"blue\"]; } }\n$name = \"items\";\n$padded = array_pad(DynamicStaticPadBox::{$name}(), 4, \"green\");\necho count($padded) . \":\" . $padded[\"a\"] . \":\" . $padded[3] . \":\";\nforeach (array_pad(DynamicStaticPadBox::{$name}(), -3, \"left\") as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_static_string_dynamic_static_method_first_class_callable() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public static function add(int $n): int { return $n + 10; } }\n$cb = Box::{\"add\"}(...);\necho (is_callable($cb) ? 1 : 0) . \":\" . $cb(5) . \":\" . call_user_func($cb, 7) . \"\\n\";\n",

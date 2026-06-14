@@ -148,7 +148,7 @@ pub(super) fn foreach_key_local_kind(
             if args.first().is_some_and(array_method_source_needs_mixed_key) {
                 return LocalKind::Mixed;
             }
-            key_preserving_transform_foreach_key_kinds(
+            array_pad_foreach_key_kinds(
                 args,
                 array_key_kinds,
                 array_value_kinds,
@@ -244,6 +244,39 @@ pub(super) fn dynamic_static_method_call_return_key(
     Some(static_method_call_return_key(class_name, &method))
 }
 
+fn array_pad_foreach_key_kinds(
+    args: &[Expr],
+    array_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+    array_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
+    array_runtime_value_kinds: &HashMap<String, ValueCellKind>,
+    string_static_values: &HashMap<String, String>,
+    function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
+    function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+) -> Option<Vec<AssocKeyKind>> {
+    let source = args.first()?;
+    let target_len = static_or_const_int_value_for_locals(args.get(1)?)?;
+    let mut key_kinds = key_preserving_transform_foreach_key_kinds(
+        std::slice::from_ref(source),
+        array_key_kinds,
+        array_value_kinds,
+        array_runtime_value_kinds,
+        string_static_values,
+        function_array_return_value_kinds,
+        function_array_return_key_kinds,
+    )?;
+    let target_abs = usize::try_from(target_len.abs()).ok()?;
+    let pad_count = target_abs.saturating_sub(key_kinds.len());
+    if target_len < 0 {
+        let mut padded = Vec::with_capacity(key_kinds.len() + pad_count);
+        padded.extend(std::iter::repeat(AssocKeyKind::Int).take(pad_count));
+        padded.extend(key_kinds);
+        key_kinds = padded;
+    } else {
+        key_kinds.extend(std::iter::repeat(AssocKeyKind::Int).take(pad_count));
+    }
+    Some(key_kinds)
+}
+
 fn array_constant_key_kinds(
     name: &str,
     array_constants: &HashMap<String, ConstantArrayValue>,
@@ -263,6 +296,7 @@ fn array_method_source_needs_mixed_key(source: &Expr) -> bool {
             | ExprKind::NullsafePropertyAccess { .. }
             | ExprKind::DynamicPropertyAccess { .. }
             | ExprKind::NullsafeDynamicPropertyAccess { .. }
+            | ExprKind::DynamicStaticMethodCall { .. }
     )
 }
 
