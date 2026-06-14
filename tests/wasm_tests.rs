@@ -2883,6 +2883,20 @@ fn test_wasm32_web_e2e_matches_php_interface_typed_dynamic_property_predicates()
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_parent_typed_magic_dynamic_property_predicates() {
+    assert_wasm_matches_php(
+        "<?php\nclass MagicBaseThing {}\nclass MagicBoxThing extends MagicBaseThing { public function __isset(string $name): bool { return $name !== \"no\"; } public function __get(string $name): mixed { return $name === \"zero\" ? 0 : \"box\"; } }\nclass MagicCubeThing extends MagicBaseThing { public function __isset(string $name): bool { return $name === \"yes\"; } public function __get(string $name): mixed { return \"cube\"; } }\nfunction prop_name(string $name): string { return $name; }\nfunction check_magic(MagicBaseThing $thing, string $name): string { $copy = $thing; return (isset($copy->{prop_name($name)}) ? 1 : 0) . \":\" . (empty($copy->{prop_name($name)}) ? 1 : 0); }\necho check_magic(new MagicBoxThing(), \"yes\") . \",\" . check_magic(new MagicBoxThing(), \"zero\") . \",\" . check_magic(new MagicBoxThing(), \"no\") . \",\" . check_magic(new MagicCubeThing(), \"yes\") . \",\" . check_magic(new MagicCubeThing(), \"zero\") . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_interface_typed_magic_dynamic_property_predicates() {
+    assert_wasm_matches_php(
+        "<?php\ninterface MagicNamedThing {}\nclass MagicNamedBox implements MagicNamedThing { public function __isset(string $name): bool { return $name !== \"no\"; } public function __get(string $name): mixed { return $name === \"zero\" ? 0 : \"box\"; } }\nclass MagicNamedCube implements MagicNamedThing { public function __isset(string $name): bool { return $name === \"yes\"; } public function __get(string $name): mixed { return \"cube\"; } }\nfunction magic_prop_name(string $name): string { return $name; }\nfunction check_magic_named(MagicNamedThing $thing, string $name): string { $copy = $thing; return (isset($copy->{magic_prop_name($name)}) ? 1 : 0) . \":\" . (empty($copy->{magic_prop_name($name)}) ? 1 : 0); }\necho check_magic_named(new MagicNamedBox(), \"yes\") . \",\" . check_magic_named(new MagicNamedBox(), \"zero\") . \",\" . check_magic_named(new MagicNamedBox(), \"no\") . \",\" . check_magic_named(new MagicNamedCube(), \"yes\") . \",\" . check_magic_named(new MagicNamedCube(), \"zero\") . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_interface_typed_dynamic_property_string_value() {
     assert_wasm_matches_php(
         "<?php\ninterface NamedThing {}\nclass Box implements NamedThing { public string $name = \"box\"; }\nclass Cube implements NamedThing { public string $name = \"cube\"; }\nfunction decorate(string $value): string { return \"[\" . $value . \"]\"; }\nfunction label(NamedThing $thing): string { $copy = $thing; $prop = \"name\"; return decorate($copy->{$prop}); }\necho label(new Box()) . \",\" . label(new Cube()) . \"\\n\";\n",
