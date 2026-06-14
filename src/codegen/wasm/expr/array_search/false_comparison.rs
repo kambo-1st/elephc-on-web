@@ -147,6 +147,32 @@ pub(in crate::codegen::wasm::expr) fn emit_array_search_false_comparison_bool(
         }
         return Ok(true);
     };
+    if key_kinds.iter().all(|kind| *kind == AssocKeyKind::Str) && strict {
+        let result = module.next_label("array_search_static_string_key_false_result");
+        module.declare_i64_local(result.trim_start_matches('$').to_string());
+        emit_assoc_array_search_packed_key(call, var, needle, module)?;
+        module.body().line(&format!("local.set {}", result));
+        module.body().line(&format!("local.get {}", result));
+        module.body().line("i64.const 0");
+        module.body().line("i64.ge_s");
+        if !strict_not_eq {
+            module.body().line("i32.eqz");
+        }
+        return Ok(true);
+    }
+    if assoc_key_kinds_are_mixed(key_kinds) && strict && mixed_key_search_needle_is_supported(needle, module) {
+        let result = module.next_label("array_search_mixed_key_false_result");
+        module.declare_i64_local(result.trim_start_matches('$').to_string());
+        emit_assoc_array_search_mixed_key_index(call, var, needle, module)?;
+        module.body().line(&format!("local.set {}", result));
+        module.body().line(&format!("local.get {}", result));
+        module.body().line("i64.const 0");
+        module.body().line("i64.ge_s");
+        if !strict_not_eq {
+            module.body().line("i32.eqz");
+        }
+        return Ok(true);
+    }
     if !key_kinds.iter().all(|kind| *kind == AssocKeyKind::Int)
         || !assoc_array_has_negative_int_key(var, module)
         || !negative_key_array_search_needle_is_supported(needle, module)

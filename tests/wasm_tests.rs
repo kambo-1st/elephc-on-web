@@ -31110,6 +31110,9 @@ echo array_search(4, make_callable_expr_numbers()("direct-search-output"), true)
 echo "\n";
 echo array_search("no", make_callable_expr_assoc()("direct-assoc-search-output"), true);
 echo "\n";
+$directAssocSearch = array_search("seven", make_callable_expr_assoc()("direct-assoc-search"), true);
+echo gettype($directAssocSearch) . ":" . $directAssocSearch . "\n";
+echo (array_search("missing", make_callable_expr_assoc()("direct-assoc-search-miss"), true) === false ? "assoc-search-miss" : "assoc-search-bad") . "\n";
 $mixedIntReduce = array_reduce(make_callable_expr_mixed_array()("direct-mixed-int-reduce"), "callable_expr_mixed_to_int", 0);
 echo ":" . $mixedIntReduce . "\n";
 echo (array_reduce(make_callable_expr_mixed_array()("direct-mixed-bool-reduce"), "callable_expr_mixed_to_bool", false) ? ":T" : ":F") . "\n";
