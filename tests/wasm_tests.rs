@@ -3360,6 +3360,27 @@ fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_reduce_b
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_assoc_array_reduce_int_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction sum_dynamic_static_assoc_ints(int $carry, int $value): int { return $carry + $value; }\nclass DynamicStaticAssocReduceIntBox { public static function items(): array { return [\"left\" => 2, \"right\" => 4]; } }\n$name = \"items\";\necho array_reduce(DynamicStaticAssocReduceIntBox::{$name}(), \"sum_dynamic_static_assoc_ints\", 1) . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_assoc_array_reduce_float_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction sum_dynamic_static_assoc_floats(float $carry, float $value): float { return $carry + $value; }\nclass DynamicStaticAssocReduceFloatBox { public static function items(): array { return [\"left\" => 1.25, \"right\" => 2.5]; } }\n$name = \"items\";\necho array_reduce(DynamicStaticAssocReduceFloatBox::{$name}(), \"sum_dynamic_static_assoc_floats\", 0.25) . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_assoc_array_reduce_bool_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction all_dynamic_static_assoc_bools(bool $carry, bool $value): bool { return $carry && $value; }\nclass DynamicStaticAssocReduceBoolBox { public static function items(): array { return [\"left\" => true, \"right\" => false]; } }\n$name = \"items\";\necho (array_reduce(DynamicStaticAssocReduceBoolBox::{$name}(), \"all_dynamic_static_assoc_bools\", true) ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_walk_return() {
     assert_wasm_matches_php(
         "<?php\nfunction show_dynamic_static_walk(string $value): void { echo $value . \"|\"; }\nclass DynamicStaticWalkBox { public static function items(): array { return [\"a\" => \"red\", \"b\" => \"blue\"]; } }\n$name = \"items\";\necho (array_walk(DynamicStaticWalkBox::{$name}(), \"show_dynamic_static_walk\") ? 1 : 0) . \"\\n\";\n",
