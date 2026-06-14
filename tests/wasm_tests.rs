@@ -1966,6 +1966,13 @@ fn test_wasm32_web_e2e_matches_php_object_magic_set_assignment_expression_value(
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_magic_set_scalar_assignment_expression_values() {
+    assert_wasm_matches_php(
+        "<?php\nclass MagicSetScalarExpressionBag { public string $last = \"\"; public function __set(string $name, mixed $value): void { $this->last = $name . \":\" . $value; } }\n$o = new MagicSetScalarExpressionBag();\n$int = ($o->count = 7);\n$float = ($o->ratio = 2.5);\n$bool = ($o->flag = true);\necho $int . \":\" . $float . \":\" . ($bool ? \"yes\" : \"no\") . \":\" . $o->last . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_magic_call_missing_method() {
     assert_wasm_matches_php(
         "<?php\nclass MagicCallProxy { public function __call(string $method, array $args): void { echo \"called:\" . $method . \":\"; echo implode(\",\", $args); echo \"\\n\"; } }\n$p = new MagicCallProxy();\n$p->doSomething(1, 2, 3);\n",
