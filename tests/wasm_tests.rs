@@ -3129,6 +3129,13 @@ fn test_wasm32_web_e2e_matches_php_class_parents_direct_function_call_reduce_wal
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_class_parents_direct_function_call_set_ops() {
+    assert_wasm_matches_php(
+        "<?php\nclass SetOpParentCallRoot {}\nclass SetOpParentCallMiddle extends SetOpParentCallRoot {}\nclass SetOpParentCallLeaf extends SetOpParentCallMiddle {}\nfunction set_op_parent_call_class(): string { echo \"target\\n\"; return SetOpParentCallLeaf::class; }\nforeach (array_diff(class_parents(set_op_parent_call_class()), [SetOpParentCallRoot::class]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_intersect(class_parents(set_op_parent_call_class()), [SetOpParentCallMiddle::class]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_diff_key(class_parents(set_op_parent_call_class()), [SetOpParentCallRoot::class => true]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_intersect_key(class_parents(set_op_parent_call_class()), [SetOpParentCallMiddle::class => true]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_class_implements_assigned_array() {
     assert_wasm_matches_php(
         "<?php\ninterface implements_one {}\ninterface implements_two {}\nclass implements_target implements implements_one, implements_two {}\n$interfaces = class_implements(\"implements_target\");\necho count($interfaces) . \":\";\nforeach ($interfaces as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
@@ -3202,6 +3209,13 @@ fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_callbac
 fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_reduce_walk() {
     assert_wasm_matches_php(
         "<?php\nfunction reduce_implements_call(string $carry, string $value): string { return $carry . \"/\" . $value; }\nfunction walk_implements_call(string $value, string $key): void { echo $key . \"=\" . $value . \";\"; }\ninterface ReduceWalkCallImplementsOne {}\ninterface ReduceWalkCallImplementsTwo {}\nclass ReduceWalkCallImplementsTarget implements ReduceWalkCallImplementsOne, ReduceWalkCallImplementsTwo {}\nfunction reduce_walk_implements_call_class(): string { echo \"target\\n\"; return ReduceWalkCallImplementsTarget::class; }\necho array_reduce(class_implements(reduce_walk_implements_call_class()), \"reduce_implements_call\", \"s\") . \"\\n\";\necho (array_walk(class_implements(reduce_walk_implements_call_class()), \"walk_implements_call\") ? \"ok\" : \"no\") . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_set_ops() {
+    assert_wasm_matches_php(
+        "<?php\ninterface SetOpCallImplementsOne {}\ninterface SetOpCallImplementsTwo {}\nclass SetOpCallImplementsTarget implements SetOpCallImplementsOne, SetOpCallImplementsTwo {}\nfunction set_op_implements_call_class(): string { echo \"target\\n\"; return SetOpCallImplementsTarget::class; }\nforeach (array_diff(class_implements(set_op_implements_call_class()), [SetOpCallImplementsOne::class]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_intersect(class_implements(set_op_implements_call_class()), [SetOpCallImplementsTwo::class]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_diff_key(class_implements(set_op_implements_call_class()), [SetOpCallImplementsOne::class => true]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_intersect_key(class_implements(set_op_implements_call_class()), [SetOpCallImplementsTwo::class => true]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
     );
 }
 
@@ -3300,6 +3314,13 @@ fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_callbacks() {
 fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_reduce_walk() {
     assert_wasm_matches_php(
         "<?php\nfunction reduce_uses_call(string $carry, string $value): string { return $carry . \"/\" . $value; }\nfunction walk_uses_call(string $value, string $key): void { echo $key . \"=\" . $value . \";\"; }\ntrait ReduceWalkCallUsesTrait {}\nclass ReduceWalkCallUsesTarget { use ReduceWalkCallUsesTrait; }\nfunction reduce_walk_uses_call_class(): string { echo \"target\\n\"; return ReduceWalkCallUsesTarget::class; }\necho array_reduce(class_uses(reduce_walk_uses_call_class()), \"reduce_uses_call\", \"s\") . \"\\n\";\necho (array_walk(class_uses(reduce_walk_uses_call_class()), \"walk_uses_call\") ? \"ok\" : \"no\") . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_set_ops() {
+    assert_wasm_matches_php(
+        "<?php\ntrait SetOpCallUsesTrait {}\ntrait SetOpCallUsesOtherTrait {}\nclass SetOpCallUsesTarget { use SetOpCallUsesTrait; use SetOpCallUsesOtherTrait; }\nfunction set_op_uses_call_class(): string { echo \"target\\n\"; return SetOpCallUsesTarget::class; }\nforeach (array_diff(class_uses(set_op_uses_call_class()), [SetOpCallUsesTrait::class]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_intersect(class_uses(set_op_uses_call_class()), [SetOpCallUsesOtherTrait::class]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_diff_key(class_uses(set_op_uses_call_class()), [SetOpCallUsesTrait::class => true]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_intersect_key(class_uses(set_op_uses_call_class()), [SetOpCallUsesOtherTrait::class => true]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
     );
 }
 
