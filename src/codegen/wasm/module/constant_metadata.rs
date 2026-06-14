@@ -26,6 +26,14 @@ pub(super) fn collect_decl_names(program: &Program, kind: DeclKind) -> HashSet<S
     names
 }
 
+pub(super) fn collect_decl_display_names(program: &Program, kind: DeclKind) -> HashMap<String, String> {
+    let mut names = HashMap::new();
+    for stmt in program {
+        collect_stmt_decl_display_names(stmt, &kind, &mut names);
+    }
+    names
+}
+
 pub(super) fn collect_interface_parents(program: &Program) -> HashMap<String, Vec<String>> {
     let mut parents = HashMap::new();
     for stmt in program {
@@ -94,6 +102,33 @@ fn collect_stmt_decl_names(stmt: &Stmt, kind: &DeclKind, names: &mut HashSet<Str
         StmtKind::Synthetic(stmts) | StmtKind::NamespaceBlock { body: stmts, .. } => {
             for stmt in stmts {
                 collect_stmt_decl_names(stmt, kind, names);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn collect_stmt_decl_display_names(
+    stmt: &Stmt,
+    kind: &DeclKind,
+    names: &mut HashMap<String, String>,
+) {
+    match &stmt.kind {
+        StmtKind::ClassDecl { name, .. } if matches!(kind, DeclKind::Class) => {
+            names.insert(function_key(name), name.as_str().to_string());
+        }
+        StmtKind::InterfaceDecl { name, .. } if matches!(kind, DeclKind::Interface) => {
+            names.insert(function_key(name), name.as_str().to_string());
+        }
+        StmtKind::TraitDecl { name, .. } if matches!(kind, DeclKind::Trait) => {
+            names.insert(function_key(name), name.as_str().to_string());
+        }
+        StmtKind::EnumDecl { name, .. } if matches!(kind, DeclKind::Enum) => {
+            names.insert(function_key(name), name.clone());
+        }
+        StmtKind::Synthetic(stmts) | StmtKind::NamespaceBlock { body: stmts, .. } => {
+            for stmt in stmts {
+                collect_stmt_decl_display_names(stmt, kind, names);
             }
         }
         _ => {}

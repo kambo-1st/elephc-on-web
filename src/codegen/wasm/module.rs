@@ -188,6 +188,7 @@ pub(super) struct WasmModule {
     class_names: HashSet<String>,
     object_classes: HashMap<String, object_metadata::ObjectClassInfo>,
     interface_names: HashSet<String>,
+    interface_display_names: HashMap<String, String>,
     interface_parents: HashMap<String, Vec<String>>,
     trait_names: HashSet<String>,
     enum_names: HashSet<String>,
@@ -463,6 +464,7 @@ impl WasmModule {
             class_names: collect_decl_names(program, DeclKind::Class),
             object_classes,
             interface_names: collect_decl_names(program, DeclKind::Interface),
+            interface_display_names: collect_decl_display_names(program, DeclKind::Interface),
             interface_parents: collect_interface_parents(program),
             trait_names: collect_decl_names(program, DeclKind::Trait),
             enum_names: collect_decl_names(program, DeclKind::Enum),
@@ -734,6 +736,55 @@ impl WasmModule {
             }
         }
         false
+    }
+
+    pub(super) fn implemented_interface_names_for_class(&self, class_name: &str) -> Option<Vec<String>> {
+        self.object_class(class_name)?;
+        let mut names = Vec::new();
+        let mut seen = HashSet::new();
+        let mut current = Some(function_key(class_name));
+        while let Some(class_key) = current {
+            let class_info = self.object_class(&class_key)?;
+            for interface in &class_info.interfaces {
+                self.collect_interface_relation_names(interface, &mut seen, &mut names);
+            }
+            current = class_info.parent.clone();
+        }
+        Some(names)
+    }
+
+    pub(super) fn parent_interface_names_for_interface(&self, interface_name: &str) -> Option<Vec<String>> {
+        let key = function_key(interface_name);
+        if !self.interface_names.contains(&key) {
+            return None;
+        }
+        let mut names = Vec::new();
+        let mut seen = HashSet::new();
+        for parent in self.interface_parents.get(&key).into_iter().flatten() {
+            self.collect_interface_relation_names(parent, &mut seen, &mut names);
+        }
+        Some(names)
+    }
+
+    fn collect_interface_relation_names(
+        &self,
+        interface: &str,
+        seen: &mut HashSet<String>,
+        names: &mut Vec<String>,
+    ) {
+        let key = function_key(interface);
+        if !seen.insert(key.clone()) {
+            return;
+        }
+        names.push(
+            self.interface_display_names
+                .get(&key)
+                .cloned()
+                .unwrap_or(key.clone()),
+        );
+        for parent in self.interface_parents.get(&key).into_iter().flatten() {
+            self.collect_interface_relation_names(parent, seen, names);
+        }
     }
 
     pub(super) fn object_methods(&self) -> Vec<(String, object_metadata::ObjectMethodInfo)> {
