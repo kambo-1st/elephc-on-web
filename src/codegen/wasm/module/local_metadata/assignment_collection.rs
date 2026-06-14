@@ -432,6 +432,7 @@ pub(super) fn collect_assignment_locals(
                     array_runtime_value_kinds,
                     function_array_return_value_kinds,
                     function_array_return_key_kinds,
+                    Some(string_static_values),
                 )
             {
                 array_key_kinds.insert(name.clone(), keys);

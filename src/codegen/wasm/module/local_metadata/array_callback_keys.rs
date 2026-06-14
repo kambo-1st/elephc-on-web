@@ -18,6 +18,7 @@ pub(super) fn array_map_foreach_key_kinds(
     array_runtime_value_kinds: &HashMap<String, ValueCellKind>,
     function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+    string_static_values: Option<&HashMap<String, String>>,
 ) -> Option<Vec<AssocKeyKind>> {
     if matches!(args.first().map(|arg| &arg.kind), Some(ExprKind::Null)) && args.len() > 2 {
         return array_map_null_index_key_kinds(
@@ -49,6 +50,13 @@ pub(super) fn array_map_foreach_key_kinds(
         } => function_array_return_key_kinds
             .get(&static_method_call_return_key(class_name.as_str(), method))
             .cloned(),
+        ExprKind::DynamicStaticMethodCall {
+            receiver: StaticReceiver::Named(class_name),
+            method,
+            ..
+        } => string_static_values
+            .and_then(|values| dynamic_static_method_call_return_key(class_name.as_str(), method, values))
+            .and_then(|key| function_array_return_key_kinds.get(&key).cloned()),
         _ => None,
     }
 }

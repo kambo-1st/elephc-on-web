@@ -588,6 +588,7 @@ enum ArrayMapCallbackShape {
     StrToBool,
     StrToStr,
     BoolToBool,
+    FloatToFloat,
     FloatToBool,
     NullToBool,
     NumericToBool,

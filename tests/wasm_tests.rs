@@ -3339,6 +3339,27 @@ fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_map_retu
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_assoc_array_map_int_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction map_dynamic_static_assoc_int(int $value): int { return $value * 3; }\nclass DynamicStaticAssocMapIntBox { public static function items(): array { return [\"left\" => 2, \"right\" => 4, \"tail\" => 6]; } }\n$name = \"items\";\n$mapped = array_map(\"map_dynamic_static_assoc_int\", DynamicStaticAssocMapIntBox::{$name}());\necho count($mapped) . \":\" . $mapped[\"left\"] . \":\" . $mapped[\"right\"] . \":\" . $mapped[\"tail\"];\nforeach ($mapped as $key => $value) { echo \":\" . $key . \"=\" . $value; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_assoc_array_map_float_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction map_dynamic_static_assoc_float(float $value): float { return $value + 0.5; }\nclass DynamicStaticAssocMapFloatBox { public static function items(): array { return [\"left\" => 1.25, \"right\" => 2.5, \"tail\" => 3.75]; } }\n$name = \"items\";\n$mapped = array_map(\"map_dynamic_static_assoc_float\", DynamicStaticAssocMapFloatBox::{$name}());\necho count($mapped) . \":\" . $mapped[\"left\"] . \":\" . $mapped[\"right\"] . \":\" . $mapped[\"tail\"];\nforeach ($mapped as $key => $value) { echo \":\" . $key . \"=\" . $value; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_assoc_array_map_bool_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction map_dynamic_static_assoc_bool(bool $value): bool { return !$value; }\nclass DynamicStaticAssocMapBoolBox { public static function items(): array { return [\"left\" => true, \"middle\" => false, \"right\" => true]; } }\n$name = \"items\";\n$mapped = array_map(\"map_dynamic_static_assoc_bool\", DynamicStaticAssocMapBoolBox::{$name}());\necho count($mapped) . \":\" . ($mapped[\"left\"] ? 1 : 0) . \":\" . ($mapped[\"middle\"] ? 1 : 0) . \":\" . ($mapped[\"right\"] ? 1 : 0);\nforeach ($mapped as $key => $value) { echo \":\" . $key . \"=\" . ($value ? \"T\" : \"F\"); }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_map_null_return() {
     assert_wasm_matches_php(
         "<?php\nclass DynamicStaticMapNullBox { public static function items(): array { return [\"red\", \"blue\"]; } }\n$name = \"items\";\n$rows = array_map(null, DynamicStaticMapNullBox::{$name}(), [10, 20, 30]);\necho count($rows) . \":\" . $rows[0][0] . \":\" . $rows[0][1] . \":\" . gettype($rows[2][0]) . \":\" . $rows[2][1] . \"\\n\";\n",

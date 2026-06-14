@@ -85,6 +85,7 @@ fn emit_array_map_assoc_local_assign_with_receiver(
                 ArrayMapCallbackShape::StrToStr
                 | ArrayMapCallbackShape::ObjectToStr
                 | ArrayMapCallbackShape::ObjectToTypeStr => ValueCellKind::Str,
+                ArrayMapCallbackShape::FloatToFloat => ValueCellKind::Float,
                 ArrayMapCallbackShape::BoolToBool
                 | ArrayMapCallbackShape::FloatToBool
                 | ArrayMapCallbackShape::NullToBool
@@ -351,6 +352,16 @@ fn emit_array_map_assoc_local_assign_with_receiver(
                     );
                 }
                 module.body().line("call $__rt_value_store_bool");
+            }
+            ArrayMapCallbackShape::FloatToFloat => {
+                module.body().line(&format!("local.get {}", target_cell));
+                emit_array_map_optional_receiver_arg(receiver, module);
+                module.body().line(&format!("local.get {}", source_cell));
+                module.body().line("call $__rt_value_cell_payload_f64");
+                module
+                    .body()
+                    .line(&format!("call ${}", wasm_function_name(callback)));
+                module.body().line("call $__rt_value_store_float");
             }
             ArrayMapCallbackShape::FloatToBool if !array_filter_type_predicate_callback(callback) => {
                 module.body().line(&format!("local.get {}", target_cell));
@@ -1057,6 +1068,16 @@ fn emit_array_map_runtime_assoc_local_assign_with_receiver(
                 );
             }
             module.body().line("call $__rt_value_store_bool");
+        }
+        ArrayMapCallbackShape::FloatToFloat => {
+            module.body().line(&format!("local.get {}", target_cell));
+            emit_array_map_optional_receiver_arg(receiver, module);
+            module.body().line(&format!("local.get {}", source_cell));
+            module.body().line("call $__rt_value_cell_payload_f64");
+            module
+                .body()
+                .line(&format!("call ${}", wasm_function_name(callback)));
+            module.body().line("call $__rt_value_store_float");
         }
         ArrayMapCallbackShape::FloatToBool if !array_filter_type_predicate_callback(callback) => {
             module.body().line(&format!("local.get {}", target_cell));

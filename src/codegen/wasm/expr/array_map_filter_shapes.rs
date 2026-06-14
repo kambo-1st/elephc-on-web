@@ -172,6 +172,7 @@ pub(super) fn array_map_callback_shape(
         ([LocalKind::Str], Some(ValueKind::Bool)) => Ok(ArrayMapCallbackShape::StrToBool),
         ([LocalKind::Str], Some(ValueKind::Str)) => Ok(ArrayMapCallbackShape::StrToStr),
         ([LocalKind::I32], Some(ValueKind::Bool)) => Ok(ArrayMapCallbackShape::BoolToBool),
+        ([LocalKind::F64], Some(ValueKind::Float)) => Ok(ArrayMapCallbackShape::FloatToFloat),
         ([LocalKind::F64], Some(ValueKind::Bool)) => Ok(ArrayMapCallbackShape::FloatToBool),
         ([LocalKind::Str, LocalKind::Str], Some(ValueKind::Str)) => Ok(ArrayMapCallbackShape::StrStrToStr),
         ([LocalKind::Str, LocalKind::Str, LocalKind::Str], Some(ValueKind::Str)) => {
@@ -949,6 +950,7 @@ pub(super) fn array_map_assoc_items_match_shape(
                     | (ArrayMapCallbackShape::StrToBool, ValueCellKind::Str)
                     | (ArrayMapCallbackShape::StrToStr, ValueCellKind::Str)
                     | (ArrayMapCallbackShape::BoolToBool, ValueCellKind::Bool)
+                    | (ArrayMapCallbackShape::FloatToFloat, ValueCellKind::Float)
                     | (ArrayMapCallbackShape::FloatToBool, ValueCellKind::Float)
                     | (ArrayMapCallbackShape::NullToBool, ValueCellKind::Null)
                     | (ArrayMapCallbackShape::NumericToBool, ValueCellKind::Int)
@@ -987,6 +989,7 @@ pub(super) fn array_map_assoc_local_matches_shape(
                         | (ArrayMapCallbackShape::StrToBool, ValueCellKind::Str)
                         | (ArrayMapCallbackShape::StrToStr, ValueCellKind::Str)
                         | (ArrayMapCallbackShape::BoolToBool, ValueCellKind::Bool)
+                        | (ArrayMapCallbackShape::FloatToFloat, ValueCellKind::Float)
                         | (ArrayMapCallbackShape::FloatToBool, ValueCellKind::Float)
                         | (ArrayMapCallbackShape::NullToBool, ValueCellKind::Null)
                         | (ArrayMapCallbackShape::NumericToBool, ValueCellKind::Int)
@@ -1018,6 +1021,7 @@ pub(super) fn array_map_runtime_assoc_local_matches_shape(
                 | (ArrayMapCallbackShape::StrToBool, ValueCellKind::Str)
                 | (ArrayMapCallbackShape::StrToStr, ValueCellKind::Str)
                 | (ArrayMapCallbackShape::BoolToBool, ValueCellKind::Bool)
+                | (ArrayMapCallbackShape::FloatToFloat, ValueCellKind::Float)
                 | (ArrayMapCallbackShape::FloatToBool, ValueCellKind::Float)
                 | (ArrayMapCallbackShape::NullToBool, ValueCellKind::Null)
                 | (ArrayMapCallbackShape::NumericToBool, ValueCellKind::Int)
@@ -1031,6 +1035,7 @@ pub(super) fn array_map_runtime_assoc_local_matches_shape(
 pub(super) fn array_map_result_value_cell_kind(shape: ArrayMapCallbackShape) -> ValueCellKind {
     match shape {
         ArrayMapCallbackShape::IntToInt | ArrayMapCallbackShape::StrToInt => ValueCellKind::Int,
+        ArrayMapCallbackShape::FloatToFloat => ValueCellKind::Float,
         ArrayMapCallbackShape::StrToStr
         | ArrayMapCallbackShape::ObjectToStr
         | ArrayMapCallbackShape::ObjectToTypeStr => ValueCellKind::Str,

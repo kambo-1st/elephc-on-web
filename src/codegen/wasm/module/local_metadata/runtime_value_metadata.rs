@@ -139,6 +139,7 @@ pub(super) fn array_keys_mixed_value_kinds_for_assignment(
                     array_runtime_value_kinds,
                     function_array_return_value_kinds,
                     function_array_return_key_kinds,
+                    None,
                 )
             }
             ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("array_filter") => {
