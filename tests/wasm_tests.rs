@@ -2897,6 +2897,20 @@ fn test_wasm32_web_e2e_matches_php_interface_typed_magic_dynamic_property_predic
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_parent_typed_magic_dynamic_property_reads() {
+    assert_wasm_matches_php(
+        "<?php\nclass MagicReadBaseThing {}\nclass MagicReadBoxThing extends MagicReadBaseThing { public function __get(string $name): string { return \"box:\" . $name; } }\nclass MagicReadCubeThing extends MagicReadBaseThing { public function __get(string $name): string { return \"cube:\" . $name; } }\nfunction read_prop_name(string $name): string { return $name; }\nfunction read_magic(MagicReadBaseThing $thing, string $name): string { $copy = $thing; return $copy->{read_prop_name($name)}; }\necho read_magic(new MagicReadBoxThing(), \"yes\") . \",\" . read_magic(new MagicReadCubeThing(), \"zero\") . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_interface_typed_magic_dynamic_property_reads() {
+    assert_wasm_matches_php(
+        "<?php\ninterface MagicReadNamedThing {}\nclass MagicReadNamedBox implements MagicReadNamedThing { public function __get(string $name): string { return \"box:\" . $name; } }\nclass MagicReadNamedCube implements MagicReadNamedThing { public function __get(string $name): string { return \"cube:\" . $name; } }\nfunction read_named_prop_name(string $name): string { return $name; }\nfunction read_magic_named(MagicReadNamedThing $thing, string $name): string { $copy = $thing; return $copy->{read_named_prop_name($name)}; }\necho read_magic_named(new MagicReadNamedBox(), \"yes\") . \",\" . read_magic_named(new MagicReadNamedCube(), \"zero\") . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_interface_typed_dynamic_property_string_value() {
     assert_wasm_matches_php(
         "<?php\ninterface NamedThing {}\nclass Box implements NamedThing { public string $name = \"box\"; }\nclass Cube implements NamedThing { public string $name = \"cube\"; }\nfunction decorate(string $value): string { return \"[\" . $value . \"]\"; }\nfunction label(NamedThing $thing): string { $copy = $thing; $prop = \"name\"; return decorate($copy->{$prop}); }\necho label(new Box()) . \",\" . label(new Cube()) . \"\\n\";\n",
@@ -4264,6 +4278,13 @@ fn test_wasm32_web_e2e_matches_php_nullable_nullsafe_object_string_property_acce
 fn test_wasm32_web_e2e_matches_php_nullable_nullsafe_runtime_dynamic_property_access() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public int $n = 7; public string $s = \"web\"; public mixed $z = null; }\nfunction maybe_box(bool $flag): mixed { if ($flag) { return new Box(); } return null; }\nfunction prop_n(): string { echo \"name-n\\n\"; return \"n\"; }\nfunction prop_s(): string { echo \"name-s\\n\"; return \"s\"; }\nfunction prop_z(): string { echo \"name-z\\n\"; return \"z\"; }\nfunction prop_missing(): string { echo \"name-missing\\n\"; return \"missing\"; }\n$a = maybe_box(false);\n$b = maybe_box(true);\n$x = $a?->{prop_n()};\n$y = $b?->{prop_s()};\n$m = $b?->{prop_missing()};\necho gettype($x) . \":\" . empty($x) . \":\" . $x . \"\\n\";\necho gettype($b?->{prop_n()});\necho \":\";\necho (empty($b?->{prop_z()}) ? 1 : 0);\necho \"\\n\";\necho gettype($y) . \":\" . empty($y) . \":\" . $y . \":\" . strlen($y) . \"\\n\";\necho gettype($m) . \":\" . empty($m) . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_nullable_nullsafe_runtime_magic_dynamic_property_access() {
+    assert_wasm_matches_php(
+        "<?php\nclass MagicNullsafeDynamicBox { public function __get(string $name): string { return \"box:\" . $name; } }\nfunction maybe_magic_box(bool $flag): mixed { if ($flag) { return new MagicNullsafeDynamicBox(); } return null; }\nfunction magic_nullsafe_name(string $name): string { echo \"name:\" . $name . \"\\n\"; return $name; }\n$a = maybe_magic_box(false);\n$b = maybe_magic_box(true);\n$x = $a?->{magic_nullsafe_name(\"skip\")};\n$y = $b?->{magic_nullsafe_name(\"slug\")};\necho gettype($x) . \":\" . empty($x) . \":\" . $x . \"\\n\";\necho gettype($y) . \":\" . empty($y) . \":\" . $y . \":\" . strlen($y) . \"\\n\";\n",
     );
 }
 

@@ -475,12 +475,19 @@ fn emit_runtime_dynamic_object_property_access_by_class_expr(
     module: &mut WasmModule,
 ) -> Result<ValueKind, CompileError> {
     let receiver_type = dynamic_object_receiver_declared_type(object, module);
-    let candidates = dynamic_object_property_candidates(expr, receiver_type.as_deref(), module)?;
+    let candidates = dynamic_object_property_predicate_candidates(receiver_type.as_deref(), module);
+    let magic_get = dynamic_object_magic_get_candidates(expr, receiver_type.as_deref(), module)?;
+    if candidates.is_empty() && magic_get.is_empty() {
+        return Err(CompileError::new(
+            expr.span,
+            "wasm32-web runtime dynamic property reads require visible fixed property or __get metadata",
+        ));
+    }
     let properties = candidates
         .iter()
         .map(|(_, property_info)| property_info.clone())
         .collect::<Vec<_>>();
-    let Some(kind) = consistent_property_kind(&properties) else {
+    let Some(kind) = consistent_dynamic_property_read_kind(&properties, &magic_get) else {
         return Err(CompileError::new(
             expr.span,
             "wasm32-web runtime dynamic property reads require consistent property metadata",
@@ -512,10 +519,11 @@ fn emit_runtime_dynamic_object_property_access_by_class_expr(
         &property_local,
         kind,
         &candidates,
+        &magic_get,
         0,
         module,
     )?;
-    Ok(value_kind_for_object_property_kind(kind))
+    Ok(kind)
 }
 
 pub(in crate::codegen::wasm) fn emit_nullsafe_mixed_object_property_access_expr(
@@ -545,7 +553,14 @@ pub(in crate::codegen::wasm) fn emit_nullsafe_mixed_object_dynamic_property_acce
             "wasm32-web runtime dynamic nullsafe property reads require object/null runtime metadata",
         ));
     };
-    let candidates = mixed_object_dynamic_property_candidates(expr, module)?;
+    let candidates = mixed_object_dynamic_property_candidates(module);
+    let magic_get = dynamic_object_magic_get_candidates(expr, None, module)?;
+    if candidates.is_empty() && magic_get.is_empty() {
+        return Err(CompileError::new(
+            expr.span,
+            "wasm32-web runtime dynamic nullsafe property reads require visible fixed property or __get metadata",
+        ));
+    }
     let result = module
         .next_label("nullsafe_dynamic_property_result")
         .trim_start_matches('$')
@@ -592,6 +607,7 @@ pub(in crate::codegen::wasm) fn emit_nullsafe_mixed_object_dynamic_property_acce
         &class_id_local,
         &property_local,
         &candidates,
+        &magic_get,
         0,
         module,
     )?;
@@ -794,7 +810,13 @@ pub(in crate::codegen::wasm) fn emit_nullsafe_mixed_object_dynamic_property_isse
             "wasm32-web runtime dynamic nullsafe property isset requires object/null runtime metadata",
         ));
     };
-    let candidates = mixed_object_dynamic_property_candidates(expr, module)?;
+    let candidates = mixed_object_dynamic_property_candidates(module);
+    if candidates.is_empty() {
+        return Err(CompileError::new(
+            expr.span,
+            "wasm32-web runtime dynamic nullsafe property isset requires visible fixed property metadata",
+        ));
+    }
     let object_local = module
         .next_label("nullsafe_dynamic_property_isset_object")
         .trim_start_matches('$')
@@ -1820,12 +1842,14 @@ pub(in crate::codegen::wasm) fn object_dynamic_property_value_kind(
             .ok()
             .map(|(kind, _)| value_kind_for_object_property_kind(kind));
         }
-        let candidates = dynamic_object_property_candidates(object, receiver_type.as_deref(), module).ok()?;
+        let candidates = dynamic_object_property_predicate_candidates(receiver_type.as_deref(), module);
+        let magic_get =
+            dynamic_object_magic_get_candidates(object, receiver_type.as_deref(), module).ok()?;
         let properties = candidates
             .into_iter()
             .map(|(_, property_info)| property_info)
             .collect::<Vec<_>>();
-        return consistent_property_kind(&properties).map(value_kind_for_object_property_kind);
+        return consistent_dynamic_property_read_kind(&properties, &magic_get);
     }
     if let Some(property_name) = static_object_property_name(property, module) {
         return object_property_value_kind(object, &property_name, module);
@@ -3814,28 +3838,52 @@ fn dynamic_object_magic_empty_candidates(
     Ok(candidates)
 }
 
-fn mixed_object_dynamic_property_candidates(
+fn dynamic_object_magic_get_candidates(
     expr: &Expr,
+    receiver_type: Option<&str>,
     module: &WasmModule,
-) -> Result<Vec<(u64, ObjectPropertyInfo)>, CompileError> {
+) -> Result<Vec<(u64, ObjectMethodInfo)>, CompileError> {
     let mut candidates = Vec::new();
     for (class_id, class_name) in module.object_class_names_by_id() {
-        let Some(class_info) = module.object_class(&class_name) else {
+        if !candidate_class_matches_declared_receiver(&class_name, receiver_type, module) {
+            continue;
+        }
+        let Some((declaring_class, method)) = supported_magic_get_method(&class_name, module) else {
             continue;
         };
-        for property_info in class_info.properties.iter() {
-            if module.object_member_is_accessible(&property_info.owner_class, &property_info.visibility) {
-                candidates.push((class_id, property_info.clone()));
-            }
+        if !declaring_class.eq_ignore_ascii_case(&class_name)
+            && method_body_uses_this_property(&method.body)
+            && !inherited_property_layout_available(&class_name, &declaring_class, module)
+        {
+            return Err(CompileError::new(
+                expr.span,
+                "wasm32-web inherited __get methods that read parent properties require inherited object layout metadata",
+            ));
         }
-    }
-    if candidates.is_empty() {
-        return Err(CompileError::new(
-            expr.span,
-            "wasm32-web runtime dynamic nullsafe property reads require visible fixed property metadata",
-        ));
+        candidates.push((class_id, method));
     }
     Ok(candidates)
+}
+
+fn mixed_object_dynamic_property_candidates(module: &WasmModule) -> Vec<(u64, ObjectPropertyInfo)> {
+    dynamic_object_property_predicate_candidates(None, module)
+}
+
+fn consistent_dynamic_property_read_kind(
+    properties: &[ObjectPropertyInfo],
+    magic_get: &[(u64, ObjectMethodInfo)],
+) -> Option<ValueKind> {
+    let mut expected = consistent_property_kind(properties).map(value_kind_for_object_property_kind);
+    if expected.is_none() && !properties.is_empty() {
+        return None;
+    }
+    for (_, method) in magic_get {
+        if expected.is_some_and(|kind| kind != method.return_kind) {
+            return None;
+        }
+        expected = Some(method.return_kind);
+    }
+    expected
 }
 
 fn mixed_object_no_arg_method_candidates(
@@ -4046,12 +4094,20 @@ fn emit_mixed_object_dynamic_property_branch(
     class_id_local: &str,
     property_local: &str,
     candidates: &[(u64, ObjectPropertyInfo)],
+    magic_get: &[(u64, ObjectMethodInfo)],
     index: usize,
     module: &mut WasmModule,
 ) -> Result<(), CompileError> {
     if index == candidates.len() {
-        module.body().line(&format!("local.get ${}", result));
-        module.body().line("call $__rt_value_store_null");
+        emit_mixed_object_dynamic_magic_get_branch(
+            result,
+            object_local,
+            class_id_local,
+            property_local,
+            magic_get,
+            0,
+            module,
+        )?;
         return Ok(());
     }
     let (class_id, property_info) = &candidates[index];
@@ -4071,6 +4127,52 @@ fn emit_mixed_object_dynamic_property_branch(
     )?;
     module.body().line("else");
     emit_mixed_object_dynamic_property_branch(
+        result,
+        object_local,
+        class_id_local,
+        property_local,
+        candidates,
+        magic_get,
+        index + 1,
+        module,
+    )?;
+    module.body().close("end");
+    Ok(())
+}
+
+fn emit_mixed_object_dynamic_magic_get_branch(
+    result: &str,
+    object_local: &str,
+    class_id_local: &str,
+    property_local: &str,
+    candidates: &[(u64, ObjectMethodInfo)],
+    index: usize,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    if index == candidates.len() {
+        module.body().line(&format!("local.get ${}", result));
+        module.body().line("call $__rt_value_store_null");
+        return Ok(());
+    }
+    let (class_id, method) = &candidates[index];
+    module.body().line(&format!("local.get ${}", class_id_local));
+    module.body().line(&format!("i64.const {}", class_id));
+    module.body().line("i64.eq");
+    module.body().open("if");
+    module.body().line(&format!("local.get ${}", object_local));
+    module.body().line(&format!("local.get ${}_ptr", property_local));
+    module.body().line(&format!("local.get ${}_len", property_local));
+    module
+        .body()
+        .line(&format!("call ${}", wasm_function_name(&method.symbol)));
+    emit_store_emitted_value_kind(
+        &format!("${}", result),
+        method.return_kind,
+        "nullsafe_dynamic_magic_property",
+        module,
+    )?;
+    module.body().line("else");
+    emit_mixed_object_dynamic_magic_get_branch(
         result,
         object_local,
         class_id_local,
@@ -4985,13 +5087,22 @@ fn emit_dynamic_object_runtime_property_read_branch(
     object_local: &str,
     class_id_local: &str,
     property_local: &str,
-    kind: ObjectPropertyKind,
+    kind: ValueKind,
     candidates: &[(u64, ObjectPropertyInfo)],
+    magic_get: &[(u64, ObjectMethodInfo)],
     index: usize,
     module: &mut WasmModule,
 ) -> Result<(), CompileError> {
     if index == candidates.len() {
-        module.body().line("unreachable");
+        emit_dynamic_object_magic_get_branch(
+            object_local,
+            class_id_local,
+            property_local,
+            kind,
+            magic_get,
+            0,
+            module,
+        );
         return Ok(());
     }
     let (class_id, property_info) = &candidates[index];
@@ -5002,7 +5113,7 @@ fn emit_dynamic_object_runtime_property_read_branch(
     module.body().line("i32.and");
     module
         .body()
-        .open(&format!("if {}", wasm_result_for_object_property_kind(kind)));
+        .open(&format!("if {}", wasm_result_for_value_kind(kind)));
     module.body().line(&format!("local.get ${}", object_local));
     emit_load_property(property_info, module)?;
     module.body().line("else");
@@ -5012,11 +5123,51 @@ fn emit_dynamic_object_runtime_property_read_branch(
         property_local,
         kind,
         candidates,
+        magic_get,
         index + 1,
         module,
     )?;
     module.body().close("end");
     Ok(())
+}
+
+fn emit_dynamic_object_magic_get_branch(
+    object_local: &str,
+    class_id_local: &str,
+    property_local: &str,
+    kind: ValueKind,
+    candidates: &[(u64, ObjectMethodInfo)],
+    index: usize,
+    module: &mut WasmModule,
+) {
+    if index == candidates.len() {
+        module.body().line("unreachable");
+        return;
+    }
+    let (class_id, method) = &candidates[index];
+    module.body().line(&format!("local.get ${}", class_id_local));
+    module.body().line(&format!("i64.const {}", class_id));
+    module.body().line("i64.eq");
+    module
+        .body()
+        .open(&format!("if {}", wasm_result_for_value_kind(kind)));
+    module.body().line(&format!("local.get ${}", object_local));
+    module.body().line(&format!("local.get ${}_ptr", property_local));
+    module.body().line(&format!("local.get ${}_len", property_local));
+    module
+        .body()
+        .line(&format!("call ${}", wasm_function_name(&method.symbol)));
+    module.body().line("else");
+    emit_dynamic_object_magic_get_branch(
+        object_local,
+        class_id_local,
+        property_local,
+        kind,
+        candidates,
+        index + 1,
+        module,
+    );
+    module.body().close("end");
 }
 
 fn emit_runtime_dynamic_property_isset_branch(
