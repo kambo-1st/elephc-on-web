@@ -3094,6 +3094,13 @@ fn test_wasm32_web_e2e_matches_php_class_parents_direct_function_call_count() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_class_parents_direct_function_call_key_value_transforms() {
+    assert_wasm_matches_php(
+        "<?php\nclass TransformParentCallRoot {}\nclass TransformParentCallMiddle extends TransformParentCallRoot {}\nclass TransformParentCallLeaf extends TransformParentCallMiddle {}\nfunction transform_parent_call_class(): string { echo \"target\\n\"; return TransformParentCallLeaf::class; }\nforeach (array_values(class_parents(transform_parent_call_class())) as $value) { echo $value . \";\"; }\necho \"\\n\";\nforeach (array_keys(class_parents(transform_parent_call_class())) as $key) { echo $key . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_class_implements_assigned_array() {
     assert_wasm_matches_php(
         "<?php\ninterface implements_one {}\ninterface implements_two {}\nclass implements_target implements implements_one, implements_two {}\n$interfaces = class_implements(\"implements_target\");\necho count($interfaces) . \":\";\nforeach ($interfaces as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
@@ -3132,6 +3139,13 @@ fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_foreach
 fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_count() {
     assert_wasm_matches_php(
         "<?php\ninterface CountCallImplementsOne {}\ninterface CountCallImplementsTwo {}\nclass CountCallImplementsTarget implements CountCallImplementsOne, CountCallImplementsTwo {}\nfunction count_implements_call_class(): string { echo \"target\\n\"; return CountCallImplementsTarget::class; }\necho count(class_implements(count_implements_call_class())) . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_key_value_transforms() {
+    assert_wasm_matches_php(
+        "<?php\ninterface TransformCallImplementsOne {}\ninterface TransformCallImplementsTwo {}\nclass TransformCallImplementsTarget implements TransformCallImplementsOne, TransformCallImplementsTwo {}\nfunction transform_implements_call_class(): string { echo \"target\\n\"; return TransformCallImplementsTarget::class; }\nforeach (array_values(class_implements(transform_implements_call_class())) as $value) { echo $value . \";\"; }\necho \"\\n\";\nforeach (array_keys(class_implements(transform_implements_call_class())) as $key) { echo $key . \";\"; }\necho \"\\n\";\n",
     );
 }
 
@@ -3195,6 +3209,13 @@ fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_foreach() {
 fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_count() {
     assert_wasm_matches_php(
         "<?php\ntrait CountCallUsesTrait {}\nclass CountCallUsesTarget { use CountCallUsesTrait; }\nfunction count_uses_call_class(): string { echo \"target\\n\"; return CountCallUsesTarget::class; }\necho count(class_uses(count_uses_call_class())) . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_key_value_transforms() {
+    assert_wasm_matches_php(
+        "<?php\ntrait TransformCallUsesTrait {}\nclass TransformCallUsesTarget { use TransformCallUsesTrait; }\nfunction transform_uses_call_class(): string { echo \"target\\n\"; return TransformCallUsesTarget::class; }\nforeach (array_values(class_uses(transform_uses_call_class())) as $value) { echo $value . \";\"; }\necho \"\\n\";\nforeach (array_keys(class_uses(transform_uses_call_class())) as $key) { echo $key . \";\"; }\necho \"\\n\";\n",
     );
 }
 

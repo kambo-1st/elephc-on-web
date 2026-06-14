@@ -26,6 +26,12 @@ pub(super) fn array_values_foreach_value_local_kind(
         return LocalKind::I64;
     };
     if let ExprKind::FunctionCall { name, args } = &source.kind {
+        if matches!(
+            name.to_ascii_lowercase().as_str(),
+            "class_parents" | "class_implements" | "class_uses"
+        ) {
+            return LocalKind::Str;
+        }
         if name.eq_ignore_ascii_case("array_map") {
             return array_map_foreach_value_local_kind(
                 args,
@@ -174,6 +180,14 @@ pub(super) fn array_values_foreach_value_local_kind(
                         array_runtime_value_kinds,
                     )
                 })
+        }
+        ExprKind::FunctionCall { name, .. }
+            if matches!(
+                name.to_ascii_lowercase().as_str(),
+                "class_parents" | "class_implements" | "class_uses"
+            ) =>
+        {
+            Some(vec![ValueCellKind::Str])
         }
         _ => None,
     };

@@ -125,6 +125,14 @@ pub(super) fn array_keys_foreach_value_local_kind(
                 array_runtime_value_kinds,
             )
         }
+        ExprKind::FunctionCall { name, .. }
+            if matches!(
+                name.to_ascii_lowercase().as_str(),
+                "class_parents" | "class_implements" | "class_uses"
+            ) =>
+        {
+            Some(vec![AssocKeyKind::Str])
+        }
         ExprKind::FunctionCall { name, .. } => function_array_return_key_kinds
             .get(&function_key(name))
             .cloned(),
