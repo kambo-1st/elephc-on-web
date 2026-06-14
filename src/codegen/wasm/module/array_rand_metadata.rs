@@ -140,7 +140,12 @@ fn callable_expr_source_key(
             if let ExprKind::NewObject { class_name, .. } = &object.kind {
                 method_call_return_key(class_name.as_str(), method)
             } else {
-                return None;
+                unique_callable_return_method_key(
+                    method,
+                    function_callable_return_targets,
+                    function_possible_callable_return_targets,
+                    function_return_kinds,
+                )?
             }
         }
         _ => return None,
@@ -166,6 +171,46 @@ fn callable_expr_source_key(
             return None;
         }
         selected = Some(key);
+    }
+    selected
+}
+
+fn unique_callable_return_method_key(
+    method: &str,
+    function_callable_return_targets: &HashMap<String, String>,
+    function_possible_callable_return_targets: &HashMap<String, Vec<String>>,
+    function_return_kinds: &HashMap<String, super::ValueKind>,
+) -> Option<String> {
+    let suffix = format!("->{}", function_key(method));
+    let mut selected = None;
+    let mut selected_targets = None;
+    for key in function_callable_return_targets
+        .keys()
+        .chain(function_possible_callable_return_targets.keys())
+        .filter(|key| key.ends_with(&suffix))
+    {
+        let targets = function_possible_callable_return_targets
+            .get(key)
+            .cloned()
+            .or_else(|| {
+                function_callable_return_targets
+                    .get(key)
+                    .map(|target| vec![target.clone()])
+            })?;
+        if !targets
+            .iter()
+            .all(|target| function_return_kinds.get(&function_key(target)) == Some(&super::ValueKind::Array))
+        {
+            return None;
+        }
+        if selected_targets
+            .as_ref()
+            .is_some_and(|existing: &Vec<String>| existing != &targets)
+        {
+            return None;
+        }
+        selected = Some(key.clone());
+        selected_targets = Some(targets);
     }
     selected
 }

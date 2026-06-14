@@ -31180,6 +31180,9 @@ $staticKey = array_rand((AssocRandFactory::staticFactory())("static"));
 echo gettype($staticKey) . "\n";
 $methodKey = array_rand(((new AssocRandFactory())->instanceFactory())("method"));
 echo gettype($methodKey) . "\n";
+$factory = new AssocRandFactory();
+$localMethodKey = array_rand(($factory->instanceFactory())("local-method"));
+echo gettype($localMethodKey) . "\n";
 "#,
     );
 }
