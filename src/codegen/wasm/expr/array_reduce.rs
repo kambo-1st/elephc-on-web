@@ -2513,6 +2513,25 @@ fn emit_array_reduce_string_call(
                 module,
             )?;
         }
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. }
+            if dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some() =>
+        {
+            let temp = materialize_dynamic_static_method_array_reduce_source(
+                &args[0],
+                receiver,
+                method,
+                "array_reduce_dynamic_static_method_source",
+                module,
+            )?;
+            emit_array_reduce_string_staged_local(
+                &acc_ptr,
+                &acc_len,
+                &temp,
+                args[0].span,
+                callback,
+                module,
+            )?;
+        }
         ExprKind::Variable(source)
             if module.local_kind(source) == Some(LocalKind::Array)
                 && module.array_layout(source) == ArrayLayout::Value
@@ -3025,6 +3044,22 @@ fn materialize_static_method_array_reduce_source(
         CompileError::new(
             source.span,
             "wasm32-web array_reduce() requires static method array return metadata",
+        )
+    })?;
+    materialize_array_reduce_source_with_metadata(source, label, metadata, module)
+}
+
+fn materialize_dynamic_static_method_array_reduce_source(
+    source: &Expr,
+    receiver: &StaticReceiver,
+    method: &Expr,
+    label: &str,
+    module: &mut WasmModule,
+) -> Result<String, CompileError> {
+    let metadata = dynamic_static_method_call_array_return_metadata(receiver, method, module).ok_or_else(|| {
+        CompileError::new(
+            source.span,
+            "wasm32-web array_reduce() requires dynamic static method array return metadata",
         )
     })?;
     materialize_array_reduce_source_with_metadata(source, label, metadata, module)
