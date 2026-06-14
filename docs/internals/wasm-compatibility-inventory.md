@@ -223,7 +223,7 @@ reads, direct by-value `foreach`, and `array_values()`/`array_keys()`/default
 `array_reverse()` plus preserve-key `array_reverse(..., true)` transforms when
 every runtime class candidate returns the same int-array literal length.
 Literal value-cell arrays can store refcounted object cells directly and support
-`count()`, static-index `gettype()`/`get_class()`, public property reads, and
+`count()`, static-index `gettype()`/`get_class()`/`get_parent_class()`, public property reads, and
 fixed method calls through PHP-oracle coverage; callable/resource value-cell
 stores remain explicit `CompileError` cases until their ownership runtimes exist.
 Value-cell and associative array returns now propagate method array-return
