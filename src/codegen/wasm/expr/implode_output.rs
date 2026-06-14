@@ -148,6 +148,17 @@ pub(super) fn emit_output_implode_assigned_string_array(
             emit_array_assign(&temp, array, module)?;
             temp.as_str()
         }
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. }
+            if dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some() =>
+        {
+            temp = module
+                .next_label("output_implode_dynamic_static_method_array")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_array_local(temp.clone());
+            emit_array_assign(&temp, array, module)?;
+            temp.as_str()
+        }
         ExprKind::ArrayAccess { .. } if nested_array_metadata_for_access_expr(array, module).is_some() => {
             temp = materialize_nested_output_implode_source(array, module)?;
             temp.as_str()

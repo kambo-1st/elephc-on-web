@@ -134,6 +134,17 @@ pub(super) fn emit_implode_string_builtin_value_to_stack(
             emit_array_assign(&temp, array, module)?;
             temp.as_str()
         }
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. }
+            if dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some() =>
+        {
+            temp = module
+                .next_label("implode_dynamic_static_method_array")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_array_local(temp.clone());
+            emit_array_assign(&temp, array, module)?;
+            temp.as_str()
+        }
         ExprKind::ArrayAccess { .. } if nested_array_metadata_for_access_expr(array, module).is_some() => {
             temp = materialize_nested_implode_source(array, module)?;
             temp.as_str()
