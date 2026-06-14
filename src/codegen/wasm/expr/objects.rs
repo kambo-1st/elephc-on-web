@@ -4328,7 +4328,11 @@ pub(in crate::codegen::wasm) fn object_expr_is_known_non_null(
     match &expr.kind {
         ExprKind::NewObject { .. } | ExprKind::NewScopedObject { .. } => true,
         ExprKind::This => module.local_kind("this") == Some(LocalKind::Object),
-        ExprKind::Variable(name) => module.local_kind(name) == Some(LocalKind::Object),
+        ExprKind::Variable(name) => {
+            module.local_kind(name) == Some(LocalKind::Object)
+                && module.object_class_for_local(name).is_some()
+                && module.declared_object_type_for_local(name).is_none()
+        }
         ExprKind::FunctionCall { name, .. } => {
             module.function_return_kind(name) == Some(ValueKind::Object)
                 && !module.function_return_is_nullable(name)

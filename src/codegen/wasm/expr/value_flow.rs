@@ -340,6 +340,14 @@ pub(in crate::codegen::wasm) fn emit_mixed_arg_assign(
             return Ok(());
         }
     }
+    if expression_is_stringy(expr, module) {
+        emit_alloc_mixed_cell(local, module);
+        module.body().line(&format!("local.get ${}", local));
+        emit_string_value_to_stack(expr, module)?;
+        module.body().line("call $__rt_value_store_string");
+        module.set_mixed_value_cell_kind(local, Some(ValueCellKind::Str));
+        return Ok(());
+    }
     emit_alloc_mixed_cell(local, module);
     emit_store_value_cell(&format!("${}", local), expr, module)?;
     let kind = value_cell_kind_for_expr(expr, module);
