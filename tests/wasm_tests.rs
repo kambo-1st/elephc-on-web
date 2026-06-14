@@ -31002,6 +31002,12 @@ foreach (array_chunk(make_callable_expr_array()("direct-chunk"), 1) as $chunk) {
         echo $item . "\n";
     }
 }
+foreach (array_diff(["head", "tail", "extra"], make_callable_expr_array()("mask-diff")) as $item) {
+    echo $item . "\n";
+}
+foreach (array_intersect(["head", "tail", "extra"], make_callable_expr_array()("mask-intersect")) as $item) {
+    echo $item . "\n";
+}
 "#,
     );
 }

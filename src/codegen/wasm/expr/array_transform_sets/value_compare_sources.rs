@@ -110,7 +110,9 @@ pub(in crate::codegen::wasm::expr) fn prepare_value_string_compare_sources(
                 module.body().line(&format!("local.set {}", len));
                 compare_sets.push(ValueStringCompareSource::RuntimeCompactInt { ptr, len });
             }
-            ExprKind::FunctionCall { .. } if expression_has_array_type(arg, module) => {
+            ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
+                if expression_has_array_type(arg, module) =>
+            {
                 let source = materialize_array_map_multi_source(arg, "value_array_set_compare", module)?;
                 match module.array_layout(&source) {
                     ArrayLayout::Value => {
