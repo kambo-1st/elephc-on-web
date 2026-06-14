@@ -3072,6 +3072,13 @@ fn test_wasm32_web_e2e_matches_php_object_method_mixed_string_direct_consumers()
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_method_mixed_scalar_direct_consumers() {
+    assert_wasm_matches_php(
+        "<?php\nclass MixedScalarMethodBox { public function number(): mixed { return 4; } public function ratio(): mixed { return 2.5; } public function flag(): mixed { return true; } public function missing(): mixed { return null; } }\n$o = new MixedScalarMethodBox();\necho gettype($o->number()) . \":\" . ($o->number() + 3) . \":\" . intval($o->ratio()) . \":\" . (empty($o->flag()) ? 1 : 0) . \":\" . gettype($o->missing()) . \":\" . (empty($o->missing()) ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_static_dynamic_method_calls() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public function add(int $a, int $b): int { return $a + $b; } public function label(string $s): string { return \"box-\" . $s; } }\n$o = new Box();\n$v = $o->{\"add\"}(2, 3);\n$s = $o->{\"label\"}(\"web\");\necho $v . \":\" . strlen($s) . \":\" . $s . \"\\n\";\n",
@@ -3733,6 +3740,13 @@ fn test_wasm32_web_e2e_matches_php_object_static_method_mixed_string_expression_
 fn test_wasm32_web_e2e_matches_php_object_static_method_mixed_string_direct_consumers() {
     assert_wasm_matches_php(
         "<?php\nclass StaticMixedStringMethodDirectBox { public static function label(string $name): mixed { return \"box:\" . $name; } }\necho strlen(StaticMixedStringMethodDirectBox::label(\"web\")) . \":\" . StaticMixedStringMethodDirectBox::label(\"web\")[0] . \":\" . strtoupper(StaticMixedStringMethodDirectBox::label(\"web\")[4]) . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_object_static_method_mixed_scalar_direct_consumers() {
+    assert_wasm_matches_php(
+        "<?php\nclass StaticMixedScalarMethodBox { public static function number(): mixed { return 4; } public static function ratio(): mixed { return 2.5; } public static function flag(): mixed { return true; } public static function missing(): mixed { return null; } }\necho gettype(StaticMixedScalarMethodBox::number()) . \":\" . (StaticMixedScalarMethodBox::number() + 3) . \":\" . intval(StaticMixedScalarMethodBox::ratio()) . \":\" . (empty(StaticMixedScalarMethodBox::flag()) ? 1 : 0) . \":\" . gettype(StaticMixedScalarMethodBox::missing()) . \":\" . (empty(StaticMixedScalarMethodBox::missing()) ? 1 : 0) . \"\\n\";\n",
     );
 }
 
