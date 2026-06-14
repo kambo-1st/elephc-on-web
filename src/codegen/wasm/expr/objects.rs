@@ -3088,6 +3088,12 @@ pub(in crate::codegen::wasm) fn emit_get_parent_class_value_to_stack(
     args: &[Expr],
     module: &mut WasmModule,
 ) -> Result<(), CompileError> {
+    if let [target] = args {
+        if let Some(cell) = materialize_mixed_value_cell(target, module)? {
+            emit_get_parent_class_from_mixed_cell(&cell, target.span, module)?;
+            return Ok(());
+        }
+    }
     let class_name = match args {
         [] => module.current_class().map(str::to_string).ok_or_else(|| {
             CompileError::new(
@@ -3160,6 +3166,40 @@ pub(in crate::codegen::wasm) fn emit_get_parent_class_value_to_stack(
     let (ptr, len) = module.intern_string(&parent_name);
     module.body().line(&format!("i32.const {}", ptr));
     module.body().line(&format!("i32.const {}", len));
+    Ok(())
+}
+
+fn emit_get_parent_class_from_mixed_cell(
+    cell: &str,
+    span: crate::span::Span,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let classes = module.object_class_names_by_id();
+    if classes.is_empty() {
+        return Err(CompileError::new(
+            span,
+            "wasm32-web get_parent_class() from mixed object cells requires object class metadata",
+        ));
+    }
+    let class_id_local = module
+        .next_label("mixed_object_parent_class_id")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_i64_local(class_id_local.clone());
+    module.body().line(&format!("local.get ${}", cell));
+    module.body().line("i32.load");
+    module.body().line(&format!("i32.const {}", WASM_VALUE_TAG_OBJECT));
+    module.body().line("i32.ne");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    module.body().line(&format!("local.get ${}", cell));
+    module.body().line("i32.const 8");
+    module.body().line("i32.add");
+    module.body().line("i32.load");
+    module.body().line("i64.load");
+    module.body().line(&format!("local.set ${}", class_id_local));
+    emit_get_parent_class_name_from_class_id(&class_id_local, &classes, module);
     Ok(())
 }
 
