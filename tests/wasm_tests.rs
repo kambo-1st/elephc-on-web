@@ -1945,6 +1945,13 @@ fn test_wasm32_web_e2e_matches_php_object_magic_get_dynamic_property_name() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_magic_set_missing_property_writes() {
+    assert_wasm_matches_php(
+        "<?php\nclass MagicWriteBag { public string $last = \"\"; public function __set(string $name, mixed $value): void { echo \"set:\" . $name . \"\\n\"; $this->last = $name . \":\" . $value; } }\n$o = new MagicWriteBag();\n$o->title = \"wasm\";\necho $o->last . \"\\n\";\n$o->count = 7;\necho $o->last . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_scalar_property_writes() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public int $i = 0; public float $f = 0.0; public bool $b = false; public string $s = \"\"; }\n$o = new Box();\n$o->i = 9;\n$o->f = 2.5;\n$o->b = true;\n$o->s = \"wasm\";\necho $o->i . \",\" . $o->f . \",\" . $o->b . \",\" . $o->s . \"\\n\";\n",

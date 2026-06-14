@@ -250,6 +250,51 @@ fn supported_magic_get_method(
     Some((declaring_class, method))
 }
 
+fn emit_missing_property_magic_set(
+    object: &Expr,
+    property: &str,
+    value: &Expr,
+    module: &mut WasmModule,
+) -> Result<bool, CompileError> {
+    if object_receiver_needs_runtime_class_id(object, module) {
+        return Ok(false);
+    }
+    let Some(class_name) = object_class_name_for_expr(object, module) else {
+        return Ok(false);
+    };
+    if supported_magic_set_method(&class_name, module).is_none() {
+        return Ok(false);
+    }
+    let property_arg = Expr::new(ExprKind::StringLiteral(property.to_string()), object.span);
+    let kind = emit_method_call_expr(object, object, "__set", &[property_arg, value.clone()], module)?;
+    discard_expression_result(kind, module);
+    Ok(true)
+}
+
+fn supported_magic_set_method(
+    class_name: &str,
+    module: &WasmModule,
+) -> Option<(String, ObjectMethodInfo)> {
+    let (declaring_class, method) = module.object_method_in_hierarchy(class_name, "__set")?;
+    if !module.object_member_is_accessible(&method.owner_class, &method.visibility)
+        || method.param_kinds.as_slice() != [LocalKind::Str, LocalKind::Mixed]
+    {
+        return None;
+    }
+    Some((declaring_class, method))
+}
+
+fn discard_expression_result(kind: ValueKind, module: &mut WasmModule) {
+    match kind {
+        ValueKind::Array => {
+            module.body().line("drop");
+            module.body().line("drop");
+        }
+        ValueKind::Null | ValueKind::Never => {}
+        _ => module.body().line("drop"),
+    }
+}
+
 pub(in crate::codegen::wasm) fn emit_nullable_exact_object_property_access(
     expr: &Expr,
     object: &Expr,
@@ -1867,17 +1912,21 @@ pub(in crate::codegen::wasm) fn emit_object_property_assign(
     let class_info = module.object_class(&class_name).cloned().ok_or_else(|| {
         CompileError::new(object.span, "wasm32-web property write requires a declared class")
     })?;
-    let property_info = class_info
+    let property_info = if let Some(property_info) = class_info
         .properties
         .iter()
         .find(|candidate| candidate.name == property)
         .cloned()
-        .ok_or_else(|| {
-            CompileError::new(
-                object.span,
-                "wasm32-web property write requires a supported public fixed property",
-            )
-        })?;
+    {
+        property_info
+    } else if emit_missing_property_magic_set(object, property, value, module)? {
+        return Ok(());
+    } else {
+        return Err(CompileError::new(
+            object.span,
+            "wasm32-web property write requires a supported public fixed property",
+        ));
+    };
     if emit_expr(object, module)? != ValueKind::Object {
         return Err(CompileError::new(
             object.span,
