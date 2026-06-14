@@ -570,7 +570,9 @@ pub(in crate::codegen::wasm) fn emit_array_map_assign(
             let temp = materialize_static_method_array_map_source(&args[1], receiver, method, module)?;
             emit_array_map_staged_assign(name, &temp, args[1].span, &callback, shape, module)
         }
-        ExprKind::FunctionCall { .. } if expression_has_array_type(&args[1], module) => {
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
+            if expression_has_array_type(&args[1], module) =>
+        {
             emit_array_map_array_expr_assign(name, &args[1], args[1].span, &callback, shape, module)
         }
         ExprKind::StaticMethodCall {

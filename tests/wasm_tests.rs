@@ -31014,6 +31014,9 @@ foreach (array_filter(make_callable_expr_array()("direct-filter-default")) as $i
 foreach (array_filter(make_callable_expr_array()("direct-filter-callback"), "strlen") as $item) {
     echo $item . "\n";
 }
+foreach (array_map("strlen", make_callable_expr_array()("direct-map-callback")) as $item) {
+    echo $item . "\n";
+}
 "#,
     );
 }
