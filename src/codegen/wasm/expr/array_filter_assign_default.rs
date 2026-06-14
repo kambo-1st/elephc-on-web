@@ -68,7 +68,9 @@ pub(super) fn emit_array_filter_default_assign(
             let temp = materialize_static_method_array_filter_default_source(source, receiver, method, module)?;
             emit_array_filter_default_staged_assign(name, &temp, source_expr_span, module)
         }
-        ExprKind::FunctionCall { .. } if expression_has_array_type(source, module) => {
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
+            if expression_has_array_type(source, module) =>
+        {
             emit_array_filter_default_array_expr_assign(name, source, source_expr_span, module)
         }
         ExprKind::StaticMethodCall {

@@ -31008,6 +31008,9 @@ foreach (array_diff(["head", "tail", "extra"], make_callable_expr_array()("mask-
 foreach (array_intersect(["head", "tail", "extra"], make_callable_expr_array()("mask-intersect")) as $item) {
     echo $item . "\n";
 }
+foreach (array_filter(make_callable_expr_array()("direct-filter-default")) as $item) {
+    echo $item . "\n";
+}
 "#,
     );
 }
