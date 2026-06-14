@@ -3318,6 +3318,20 @@ fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_map_retu
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_map_null_return() {
+    assert_wasm_matches_php(
+        "<?php\nclass DynamicStaticMapNullBox { public static function items(): array { return [\"red\", \"blue\"]; } }\n$name = \"items\";\n$rows = array_map(null, DynamicStaticMapNullBox::{$name}(), [10, 20, 30]);\necho count($rows) . \":\" . $rows[0][0] . \":\" . $rows[0][1] . \":\" . gettype($rows[2][0]) . \":\" . $rows[2][1] . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_assoc_array_map_null_return() {
+    assert_wasm_matches_php(
+        "<?php\nclass DynamicStaticAssocMapNullBox { public static function items(): array { return [\"a\" => \"red\", \"b\" => \"blue\"]; } }\n$name = \"items\";\n$rows = array_map(null, DynamicStaticAssocMapNullBox::{$name}(), [10, 20]);\necho count($rows) . \":\" . $rows[0][0] . \":\" . $rows[0][1] . \":\" . $rows[1][0] . \":\" . $rows[1][1] . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_reduce_return() {
     assert_wasm_matches_php(
         "<?php\nfunction join_dynamic_static_piece(string $carry, string $value): string { return $carry . \"/\" . $value; }\nclass DynamicStaticReduceBox { public static function items(): array { return [\"a\" => \"red\", \"b\" => \"blue\"]; } }\n$name = \"items\";\necho array_reduce(DynamicStaticReduceBox::{$name}(), \"join_dynamic_static_piece\", \"s\") . \"\\n\";\n",
