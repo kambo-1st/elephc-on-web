@@ -165,6 +165,17 @@ pub(super) fn emit_numeric_array_fold_call(
             emit_array_assign(&temp, &args[0], module)?;
             emit_numeric_array_fold_from_local(expr, name, &temp, product, module)
         }
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. }
+            if dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some() =>
+        {
+            let temp = module
+                .next_label("array_fold_dynamic_static_method_source")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_array_local(temp.clone());
+            emit_array_assign(&temp, &args[0], module)?;
+            emit_numeric_array_fold_from_local(expr, name, &temp, product, module)
+        }
         ExprKind::ArrayAccess { .. } if nested_array_metadata_for_access_expr(&args[0], module).is_some() => {
             let temp = materialize_nested_array_fold_source(&args[0], name, module)?;
             emit_numeric_array_fold_from_local(expr, name, &temp, product, module)

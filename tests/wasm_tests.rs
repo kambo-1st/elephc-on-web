@@ -3192,6 +3192,13 @@ fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_return()
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_numeric_folds_return() {
+    assert_wasm_matches_php(
+        "<?php\nclass DynamicStaticFoldBox { public static function nums(): array { return [\"a\" => 2, \"b\" => 3, \"c\" => 4]; } }\n$name = \"nums\";\necho array_sum(DynamicStaticFoldBox::{$name}()) . \":\" . array_product(DynamicStaticFoldBox::{$name}()) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_slice_return() {
     assert_wasm_matches_php(
         "<?php\nclass DynamicStaticSliceBox { public static function items(): array { return [\"a\" => \"red\", \"b\" => \"blue\", \"c\" => \"green\"]; } }\n$name = \"items\";\n$slice = array_slice(DynamicStaticSliceBox::{$name}(), 1, 2, true);\necho count($slice) . \":\" . $slice[\"b\"] . \":\";\nforeach (array_slice(DynamicStaticSliceBox::{$name}(), 1, 1, true) as $key => $value) { echo $key . \"=\" . $value; }\necho \"\\n\";\n",
