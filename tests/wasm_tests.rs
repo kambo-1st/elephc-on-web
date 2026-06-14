@@ -3101,6 +3101,13 @@ fn test_wasm32_web_e2e_matches_php_class_parents_direct_function_call_key_value_
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_class_parents_direct_function_call_key_preserving_transforms() {
+    assert_wasm_matches_php(
+        "<?php\nclass PreserveParentCallRoot {}\nclass PreserveParentCallMiddle extends PreserveParentCallRoot {}\nclass PreserveParentCallLeaf extends PreserveParentCallMiddle {}\nfunction preserve_parent_call_class(): string { echo \"target\\n\"; return PreserveParentCallLeaf::class; }\nforeach (array_reverse(class_parents(preserve_parent_call_class())) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_unique(class_parents(preserve_parent_call_class())) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_class_implements_assigned_array() {
     assert_wasm_matches_php(
         "<?php\ninterface implements_one {}\ninterface implements_two {}\nclass implements_target implements implements_one, implements_two {}\n$interfaces = class_implements(\"implements_target\");\necho count($interfaces) . \":\";\nforeach ($interfaces as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
@@ -3146,6 +3153,13 @@ fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_count()
 fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_key_value_transforms() {
     assert_wasm_matches_php(
         "<?php\ninterface TransformCallImplementsOne {}\ninterface TransformCallImplementsTwo {}\nclass TransformCallImplementsTarget implements TransformCallImplementsOne, TransformCallImplementsTwo {}\nfunction transform_implements_call_class(): string { echo \"target\\n\"; return TransformCallImplementsTarget::class; }\nforeach (array_values(class_implements(transform_implements_call_class())) as $value) { echo $value . \";\"; }\necho \"\\n\";\nforeach (array_keys(class_implements(transform_implements_call_class())) as $key) { echo $key . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_key_preserving_transforms() {
+    assert_wasm_matches_php(
+        "<?php\ninterface PreserveCallImplementsOne {}\ninterface PreserveCallImplementsTwo {}\nclass PreserveCallImplementsTarget implements PreserveCallImplementsOne, PreserveCallImplementsTwo {}\nfunction preserve_implements_call_class(): string { echo \"target\\n\"; return PreserveCallImplementsTarget::class; }\nforeach (array_reverse(class_implements(preserve_implements_call_class())) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_unique(class_implements(preserve_implements_call_class())) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
     );
 }
 
@@ -3216,6 +3230,13 @@ fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_count() {
 fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_key_value_transforms() {
     assert_wasm_matches_php(
         "<?php\ntrait TransformCallUsesTrait {}\nclass TransformCallUsesTarget { use TransformCallUsesTrait; }\nfunction transform_uses_call_class(): string { echo \"target\\n\"; return TransformCallUsesTarget::class; }\nforeach (array_values(class_uses(transform_uses_call_class())) as $value) { echo $value . \";\"; }\necho \"\\n\";\nforeach (array_keys(class_uses(transform_uses_call_class())) as $key) { echo $key . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_key_preserving_transforms() {
+    assert_wasm_matches_php(
+        "<?php\ntrait PreserveCallUsesTrait {}\nclass PreserveCallUsesTarget { use PreserveCallUsesTrait; }\nfunction preserve_uses_call_class(): string { echo \"target\\n\"; return PreserveCallUsesTarget::class; }\nforeach (array_reverse(class_uses(preserve_uses_call_class())) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_unique(class_uses(preserve_uses_call_class())) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
     );
 }
 

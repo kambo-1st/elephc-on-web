@@ -22,6 +22,14 @@ fn array_reverse_foreach_key_kinds(
         ExprKind::ArrayLiteral(_) => None,
         ExprKind::ArrayLiteralAssoc(items) => static_assoc_key_kinds_for_items(items),
         ExprKind::Variable(name) => array_key_kinds.get(name).cloned(),
+        ExprKind::FunctionCall { name, .. }
+            if matches!(
+                name.to_ascii_lowercase().as_str(),
+                "class_parents" | "class_implements" | "class_uses"
+            ) =>
+        {
+            Some(vec![AssocKeyKind::Str])
+        }
         ExprKind::FunctionCall { name, .. } => function_array_return_key_kinds
             .get(&function_key(name))
             .cloned(),
