@@ -229,7 +229,9 @@ pub(super) fn emit_indexed_array_pad_assign(
                 module,
             )
         }
-        ExprKind::FunctionCall { .. } if expression_has_array_type(&args[0], module) => {
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
+            if expression_has_array_type(&args[0], module) =>
+        {
             let temp = materialize_array_map_multi_source(&args[0], "array_pad_source", module)?;
             let source_layout = module.array_layout(&temp);
             if source_layout == ArrayLayout::Assoc && !assoc_array_has_only_int_keys(&temp, module) {
