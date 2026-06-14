@@ -1003,6 +1003,11 @@ fn known_array_len_for_count(expr: &Expr, module: &WasmModule) -> Option<i64> {
             .and_then(|metadata| metadata.len)
             .map(|len| len as i64)
             .or_else(|| static_enum_cases_len(expr, module).map(|len| len as i64)),
+        ExprKind::DynamicStaticMethodCall {
+            receiver, method, ..
+        } => dynamic_static_method_call_array_return_metadata(receiver, method, module)
+            .and_then(|metadata| metadata.len)
+            .map(|len| len as i64),
         ExprKind::MethodCall { object, method, .. }
         | ExprKind::NullsafeMethodCall { object, method, .. } => {
             method_call_array_return_metadata(object, method, module)
