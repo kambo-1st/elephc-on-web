@@ -3388,6 +3388,27 @@ fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_walk_boo
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_assoc_array_walk_int_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction show_dynamic_static_assoc_walk_int(int $value, string $key): void { echo $key . \"=\" . ($value + 1) . \"|\"; }\nclass DynamicStaticAssocWalkIntBox { public static function items(): array { return [\"left\" => 2, \"right\" => 4]; } }\n$name = \"items\";\necho (array_walk(DynamicStaticAssocWalkIntBox::{$name}(), \"show_dynamic_static_assoc_walk_int\") ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_assoc_array_walk_float_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction show_dynamic_static_assoc_walk_float(float $value, string $key): void { echo $key . \"=\" . ($value + 0.5) . \"|\"; }\nclass DynamicStaticAssocWalkFloatBox { public static function items(): array { return [\"left\" => 1.25, \"right\" => 2.5]; } }\n$name = \"items\";\necho (array_walk(DynamicStaticAssocWalkFloatBox::{$name}(), \"show_dynamic_static_assoc_walk_float\") ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_assoc_array_walk_bool_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction show_dynamic_static_assoc_walk_bool(bool $value, string $key): void { echo $key . \"=\" . ($value ? \"T\" : \"F\") . \"|\"; }\nclass DynamicStaticAssocWalkBoolBox { public static function items(): array { return [\"left\" => true, \"right\" => false]; } }\n$name = \"items\";\necho (array_walk(DynamicStaticAssocWalkBoolBox::{$name}(), \"show_dynamic_static_assoc_walk_bool\") ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_static_string_dynamic_static_method_first_class_callable() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public static function add(int $n): int { return $n + 10; } }\n$cb = Box::{\"add\"}(...);\necho (is_callable($cb) ? 1 : 0) . \":\" . $cb(5) . \":\" . call_user_func($cb, 7) . \"\\n\";\n",
