@@ -42,6 +42,14 @@ pub(super) fn collect_interface_parents(program: &Program) -> HashMap<String, Ve
     parents
 }
 
+pub(super) fn collect_trait_use_names(program: &Program) -> HashMap<String, Vec<String>> {
+    let mut uses = HashMap::new();
+    for stmt in program {
+        collect_stmt_trait_use_names(stmt, &mut uses);
+    }
+    uses
+}
+
 pub(super) fn collect_enum_cases(program: &Program) -> HashMap<String, Vec<EnumCaseMetadata>> {
     let mut cases = HashMap::new();
     for stmt in program {
@@ -149,6 +157,35 @@ fn collect_stmt_interface_parents(stmt: &Stmt, parents: &mut HashMap<String, Vec
         StmtKind::Synthetic(stmts) | StmtKind::NamespaceBlock { body: stmts, .. } => {
             for stmt in stmts {
                 collect_stmt_interface_parents(stmt, parents);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn collect_stmt_trait_use_names(stmt: &Stmt, uses: &mut HashMap<String, Vec<String>>) {
+    match &stmt.kind {
+        StmtKind::TraitDecl {
+            name,
+            trait_uses,
+            ..
+        } => {
+            uses.insert(
+                function_key(name),
+                trait_uses
+                    .iter()
+                    .flat_map(|use_decl| {
+                        use_decl
+                            .trait_names
+                            .iter()
+                            .map(|name| name.as_str().to_string())
+                    })
+                    .collect(),
+            );
+        }
+        StmtKind::Synthetic(stmts) | StmtKind::NamespaceBlock { body: stmts, .. } => {
+            for stmt in stmts {
+                collect_stmt_trait_use_names(stmt, uses);
             }
         }
         _ => {}

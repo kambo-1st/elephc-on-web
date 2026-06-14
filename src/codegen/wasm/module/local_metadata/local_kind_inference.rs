@@ -38,7 +38,7 @@ pub(in crate::codegen::wasm::module) fn infer_local_kind(
             if matches!(
                 name.to_ascii_lowercase().as_str(),
                 "explode" | "str_split" | "array_fill" | "array_fill_keys" | "array_combine"
-                    | "array_column" | "class_parents" | "class_implements"
+                    | "array_column" | "class_parents" | "class_implements" | "class_uses"
             ) =>
         {
             LocalKind::Array
@@ -375,6 +375,9 @@ pub(in crate::codegen::wasm::module) fn infer_local_kind(
             LocalKind::Array
         }
         ExprKind::FunctionCall { name, .. } if name.eq_ignore_ascii_case("class_implements") => {
+            LocalKind::Array
+        }
+        ExprKind::FunctionCall { name, .. } if name.eq_ignore_ascii_case("class_uses") => {
             LocalKind::Array
         }
         ExprKind::FunctionCall { name, .. }

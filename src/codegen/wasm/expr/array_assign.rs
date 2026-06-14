@@ -113,6 +113,11 @@ pub(crate) fn emit_array_assign(
             return emit_class_implements_array_assign(name, value, args, module);
         }
         ExprKind::FunctionCall { name: function_name, args }
+            if function_name.eq_ignore_ascii_case("class_uses") =>
+        {
+            return emit_class_uses_array_assign(name, value, args, module);
+        }
+        ExprKind::FunctionCall { name: function_name, args }
             if function_name.eq_ignore_ascii_case("explode") =>
         {
             if args.get(1).is_some_and(|arg| static_string_value(arg, module).is_none())
@@ -774,6 +779,52 @@ fn assoc_string_set_items(names: Vec<String>, span: crate::span::Span) -> Vec<(E
             (key, value)
         })
         .collect()
+}
+
+fn emit_class_uses_array_assign(
+    name: &str,
+    call: &Expr,
+    args: &[Expr],
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let ([target] | [target, _]) = args else {
+        return Err(CompileError::new(
+            call.span,
+            "wasm32-web class_uses() expects one or two arguments",
+        ));
+    };
+    let names = if let Some(class_name) = static_string_value(target, module) {
+        module
+            .used_trait_names_for_class_or_trait(&class_name)
+            .ok_or_else(|| {
+                CompileError::new(
+                    target.span,
+                    "wasm32-web class_uses() currently requires a declared class or trait target",
+                )
+            })?
+    } else if let Some(class_name) = object_class_name_for_expr(target, module) {
+        if emit_expr(target, module)? != ValueKind::Object {
+            return Err(CompileError::new(
+                target.span,
+                "wasm32-web class_uses() expected an object or static class/trait-string argument",
+            ));
+        }
+        module.body().line("drop");
+        module
+            .used_trait_names_for_class_or_trait(&class_name)
+            .ok_or_else(|| {
+                CompileError::new(
+                    target.span,
+                    "wasm32-web class_uses() currently requires a declared class target",
+                )
+            })?
+    } else {
+        return Err(CompileError::new(
+            target.span,
+            "wasm32-web class_uses() currently requires a known object or static class/trait-string argument",
+        ));
+    };
+    emit_assoc_array_items_assign(name, &assoc_string_set_items(names, target.span), module)
 }
 
 fn emit_array_access_assign(

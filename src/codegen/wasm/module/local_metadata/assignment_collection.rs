@@ -173,6 +173,17 @@ pub(super) fn collect_assignment_locals(
         array_key_values.insert(name.clone(), keys);
         php_normalized_key_arrays.remove(name);
     }
+    if let Some((values, keys)) = class_uses_metadata_for_assignment(value, object_classes) {
+        array_value_kinds.insert(name.clone(), values);
+        array_runtime_value_kinds.remove(name);
+        array_nested_values.remove(name);
+        array_key_kinds.insert(
+            name.clone(),
+            keys.iter().map(assoc_key_kind_for_value).collect(),
+        );
+        array_key_values.insert(name.clone(), keys);
+        php_normalized_key_arrays.remove(name);
+    }
     if let ExprKind::Variable(source) = &value.kind {
         if locals.get(source) == Some(&LocalKind::Array) {
             if let Some(kinds) = array_value_kinds.get(source).cloned() {
@@ -1905,6 +1916,32 @@ fn class_implements_metadata_for_assignment(
     let class_info = object_classes.get(&function_key(class_name))?;
     let keys = class_info
         .interfaces
+        .iter()
+        .cloned()
+        .map(AssocKeyValue::Str)
+        .collect::<Vec<_>>();
+    Some((vec![ValueCellKind::Str; keys.len()], keys))
+}
+
+fn class_uses_metadata_for_assignment(
+    value: &Expr,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
+) -> Option<(Vec<ValueCellKind>, Vec<AssocKeyValue>)> {
+    let ExprKind::FunctionCall { name, args } = &value.kind else {
+        return None;
+    };
+    if !name.eq_ignore_ascii_case("class_uses") {
+        return None;
+    }
+    let Some(Expr {
+        kind: ExprKind::StringLiteral(class_name),
+        ..
+    }) = args.first() else {
+        return None;
+    };
+    let class_info = object_classes.get(&function_key(class_name))?;
+    let keys = class_info
+        .used_traits
         .iter()
         .cloned()
         .map(AssocKeyValue::Str)

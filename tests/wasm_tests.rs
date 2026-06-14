@@ -3073,6 +3073,20 @@ fn test_wasm32_web_e2e_matches_php_class_implements_direct_interface_foreach() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_class_uses_assigned_array() {
+    assert_wasm_matches_php(
+        "<?php\ntrait UsesSharedTrait {}\ntrait UsesLocalTrait { use UsesSharedTrait; }\nclass UsesParent { use UsesSharedTrait; }\nclass UsesChild extends UsesParent { use UsesLocalTrait; }\n$traits = class_uses(\"UsesChild\");\necho count($traits) . \":\";\nforeach ($traits as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_uses_direct_trait_foreach() {
+    assert_wasm_matches_php(
+        "<?php\ntrait UsesBaseTrait {}\ntrait UsesCombinedTrait { use UsesBaseTrait; }\nforeach (class_uses(\"UsesCombinedTrait\") as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_is_subclass_of_string_class_mode() {
     assert_wasm_matches_php(
         "<?php\ninterface Named {}\nclass Base {}\nclass Child extends Base implements Named {}\nfunction subclass_name_value(): string { echo \"value\\n\"; return \"Child\"; }\nfunction subclass_name_target(): string { echo \"target\\n\"; return \"Base\"; }\n$class = \"Child\";\n$base = \"Base\";\n$missing = \"Missing\";\necho (is_subclass_of(\"Child\", Base::class) ? 1 : 0); echo \":\";\necho (is_subclass_of($class, Named::class) ? 1 : 0); echo \":\";\necho (is_subclass_of($base, Base::class) ? 1 : 0); echo \":\";\necho (is_subclass_of($missing, Base::class) ? 1 : 0); echo \":\";\necho (is_subclass_of(subclass_name_value(), subclass_name_target()) ? 1 : 0); echo \"\\n\";\n",

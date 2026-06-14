@@ -191,6 +191,7 @@ pub(super) struct WasmModule {
     interface_display_names: HashMap<String, String>,
     interface_parents: HashMap<String, Vec<String>>,
     trait_names: HashSet<String>,
+    trait_use_names: HashMap<String, Vec<String>>,
     enum_names: HashSet<String>,
     enum_cases: HashMap<String, Vec<EnumCaseMetadata>>,
     class_constants: HashMap<String, ConstantValue>,
@@ -467,6 +468,7 @@ impl WasmModule {
             interface_display_names: collect_decl_display_names(program, DeclKind::Interface),
             interface_parents: collect_interface_parents(program),
             trait_names: collect_decl_names(program, DeclKind::Trait),
+            trait_use_names: collect_trait_use_names(program),
             enum_names: collect_decl_names(program, DeclKind::Enum),
             enum_cases: collect_enum_cases(program),
             class_constants,
@@ -785,6 +787,17 @@ impl WasmModule {
         for parent in self.interface_parents.get(&key).into_iter().flatten() {
             self.collect_interface_relation_names(parent, seen, names);
         }
+    }
+
+    pub(super) fn used_trait_names_for_class_or_trait(&self, name: &str) -> Option<Vec<String>> {
+        if let Some(class_info) = self.object_class(name) {
+            return Some(class_info.used_traits.clone());
+        }
+        let key = function_key(name);
+        if !self.trait_names.contains(&key) {
+            return None;
+        }
+        Some(self.trait_use_names.get(&key).cloned().unwrap_or_default())
     }
 
     pub(super) fn object_methods(&self) -> Vec<(String, object_metadata::ObjectMethodInfo)> {

@@ -30,6 +30,7 @@ pub(in crate::codegen::wasm) struct ObjectClassInfo {
     pub(in crate::codegen::wasm) class_id: u64,
     pub(in crate::codegen::wasm) parent: Option<String>,
     pub(in crate::codegen::wasm) interfaces: Vec<String>,
+    pub(in crate::codegen::wasm) used_traits: Vec<String>,
     pub(in crate::codegen::wasm) has_constructor: bool,
     pub(in crate::codegen::wasm) properties: Vec<ObjectPropertyInfo>,
     pub(in crate::codegen::wasm) static_properties: Vec<ObjectStaticPropertyInfo>,
@@ -179,6 +180,15 @@ pub(super) fn collect_object_classes(program: &Program) -> HashMap<String, Objec
                     .iter()
                     .map(|name| name.as_str().to_ascii_lowercase())
                     .collect(),
+                used_traits: trait_uses
+                    .iter()
+                    .flat_map(|use_decl| {
+                        use_decl
+                            .trait_names
+                            .iter()
+                            .map(|name| name.as_str().to_string())
+                    })
+                    .collect(),
                 has_constructor,
                 properties: wasm_properties,
                 static_properties: wasm_static_properties,
@@ -220,6 +230,7 @@ pub(super) fn collect_object_classes(program: &Program) -> HashMap<String, Objec
                 class_id: next_class_id,
                 parent: None,
                 interfaces: Vec::new(),
+                used_traits: Vec::new(),
                 has_constructor: false,
                 properties,
                 static_properties: Vec::new(),

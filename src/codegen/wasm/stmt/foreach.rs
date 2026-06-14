@@ -514,6 +514,7 @@ fn is_materializable_foreach_array_call(name: &str) -> bool {
             | "pathinfo"
             | "class_parents"
             | "class_implements"
+            | "class_uses"
     )
 }
 
