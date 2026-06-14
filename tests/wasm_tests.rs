@@ -30904,6 +30904,22 @@ function callable_expr_sum_float(float $carry, float $value): float {
 function callable_expr_all(bool $carry, bool $value): bool {
     return $carry && $value;
 }
+function callable_expr_mixed_to_int(mixed $carry, mixed $value): int {
+    echo gettype($value) . ",";
+    return 5;
+}
+function callable_expr_mixed_to_bool(mixed $carry, mixed $value): bool {
+    echo gettype($carry) . ":" . gettype($value) . ",";
+    return true;
+}
+function callable_expr_mixed_to_float(mixed $carry, mixed $value): float {
+    echo gettype($carry) . ":" . gettype($value) . ",";
+    return 2.5;
+}
+function callable_expr_mixed_to_string(mixed $carry, mixed $value): string {
+    echo gettype($carry) . ":" . gettype($value) . ",";
+    return "mix";
+}
 function callable_expr_items(string $prefix): array {
     return ["head", "tail"];
 }
@@ -30915,6 +30931,9 @@ function callable_expr_floats(string $prefix): array {
 }
 function callable_expr_flags(string $prefix): array {
     return [true, true, false];
+}
+function callable_expr_mixed_items(string $prefix): array {
+    return [3, "vv", true];
 }
 function make_callable_expr(bool $flag): callable {
     echo $flag ? "add\n" : "wrap\n";
@@ -30939,6 +30958,10 @@ function make_callable_expr_floats(): callable {
 function make_callable_expr_flags(): callable {
     echo "flags\n";
     return callable_expr_flags(...);
+}
+function make_callable_expr_mixed_array(): callable {
+    echo "mixed-array\n";
+    return callable_expr_mixed_items(...);
 }
 class CallableExprFactory {
     public static function makeString(): callable {
@@ -31061,6 +31084,12 @@ echo array_reduce(make_callable_expr_array()("direct-reduce"), "callable_expr_jo
 echo array_reduce(make_callable_expr_numbers()("direct-int-reduce"), "callable_expr_sum", 1) . "\n";
 echo array_reduce(make_callable_expr_floats()("direct-float-reduce"), "callable_expr_sum_float", 0.25) . "\n";
 echo (array_reduce(make_callable_expr_flags()("direct-bool-reduce"), "callable_expr_all", true) ? "yes" : "no") . "\n";
+$mixedIntReduce = array_reduce(make_callable_expr_mixed_array()("direct-mixed-int-reduce"), "callable_expr_mixed_to_int", 0);
+echo ":" . $mixedIntReduce . "\n";
+echo (array_reduce(make_callable_expr_mixed_array()("direct-mixed-bool-reduce"), "callable_expr_mixed_to_bool", false) ? ":T" : ":F") . "\n";
+echo array_reduce(make_callable_expr_mixed_array()("direct-mixed-float-reduce"), "callable_expr_mixed_to_float", 0.0) . "\n";
+$mixedStringReduce = array_reduce(make_callable_expr_mixed_array()("direct-mixed-string-reduce"), "callable_expr_mixed_to_string", "");
+echo ":" . $mixedStringReduce . "\n";
 "#,
     );
 }

@@ -1817,7 +1817,10 @@ fn emit_array_reduce_mixed_to_int_call(
     module.body().line(&format!("local.set ${}", acc));
 
     match &args[0].kind {
-        ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_) | ExprKind::FunctionCall { .. }
+        ExprKind::ArrayLiteral(_)
+        | ExprKind::ArrayLiteralAssoc(_)
+        | ExprKind::FunctionCall { .. }
+        | ExprKind::ExprCall { .. }
             if expression_has_array_type(&args[0], module)
                 || matches!(args[0].kind, ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_)) =>
         {
@@ -1931,7 +1934,10 @@ fn emit_array_reduce_mixed_to_bool_call(
     module.body().line(&format!("local.set ${}", acc));
 
     match &args[0].kind {
-        ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_) | ExprKind::FunctionCall { .. }
+        ExprKind::ArrayLiteral(_)
+        | ExprKind::ArrayLiteralAssoc(_)
+        | ExprKind::FunctionCall { .. }
+        | ExprKind::ExprCall { .. }
             if expression_has_array_type(&args[0], module)
                 || matches!(args[0].kind, ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_)) =>
         {
@@ -2044,7 +2050,10 @@ fn emit_array_reduce_mixed_to_float_call(
     module.body().line(&format!("local.set ${}", acc));
 
     match &args[0].kind {
-        ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_) | ExprKind::FunctionCall { .. }
+        ExprKind::ArrayLiteral(_)
+        | ExprKind::ArrayLiteralAssoc(_)
+        | ExprKind::FunctionCall { .. }
+        | ExprKind::ExprCall { .. }
             if expression_has_array_type(&args[0], module)
                 || matches!(args[0].kind, ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_)) =>
         {
@@ -2163,7 +2172,10 @@ fn emit_array_reduce_mixed_to_string_call(
     module.body().line(&format!("local.set ${}", acc_ptr));
 
     match &args[0].kind {
-        ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_) | ExprKind::FunctionCall { .. }
+        ExprKind::ArrayLiteral(_)
+        | ExprKind::ArrayLiteralAssoc(_)
+        | ExprKind::FunctionCall { .. }
+        | ExprKind::ExprCall { .. }
             if expression_has_array_type(&args[0], module)
                 || matches!(args[0].kind, ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_)) =>
         {
