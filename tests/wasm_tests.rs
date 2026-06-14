@@ -31106,6 +31106,10 @@ echo (array_key_exists("keep", make_callable_expr_assoc()("direct-key-exists")) 
 $directSearch = array_search(6, make_callable_expr_numbers()("direct-search"), true);
 echo "search=" . $directSearch . "\n";
 echo (array_search(9, make_callable_expr_numbers()("direct-search-miss"), true) === false ? "search-miss" : "search-bad") . "\n";
+echo array_search(4, make_callable_expr_numbers()("direct-search-output"), true);
+echo "\n";
+echo array_search("no", make_callable_expr_assoc()("direct-assoc-search-output"), true);
+echo "\n";
 $mixedIntReduce = array_reduce(make_callable_expr_mixed_array()("direct-mixed-int-reduce"), "callable_expr_mixed_to_int", 0);
 echo ":" . $mixedIntReduce . "\n";
 echo (array_reduce(make_callable_expr_mixed_array()("direct-mixed-bool-reduce"), "callable_expr_mixed_to_bool", false) ? ":T" : ":F") . "\n";

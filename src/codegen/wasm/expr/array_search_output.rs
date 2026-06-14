@@ -251,7 +251,22 @@ fn emit_output_array_search_string_key(
             }
             temp.as_str()
         }
-        _ if expression_has_array_type(haystack, module) && !expression_is_arrayy(haystack, module) => {
+        ExprKind::ExprCall { callee, .. }
+            if callable_expr_array_return_metadata(callee, module)
+                .is_some_and(|metadata| metadata.layout == ArrayLayout::Assoc) =>
+        {
+            temp = module
+                .next_label("array_search_string_key_direct")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_array_local(temp.clone());
+            emit_array_assign(&temp, haystack, module)?;
+            temp.as_str()
+        }
+        _ if expression_has_array_type(haystack, module)
+            && !expression_is_arrayy(haystack, module)
+            && !matches!(haystack.kind, ExprKind::ExprCall { .. }) =>
+        {
             temp = module
                 .next_label("array_search_string_key_direct")
                 .trim_start_matches('$')
