@@ -3234,6 +3234,13 @@ fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_filter_d
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_filter_callback_return() {
+    assert_wasm_matches_php(
+        "<?php\nclass DynamicStaticCallbackFilterBox { public static function items(): array { return [\"a\" => \"red\", \"b\" => \"\", \"c\" => \"blue\"]; } }\n$name = \"items\";\n$filtered = array_filter(DynamicStaticCallbackFilterBox::{$name}(), \"strlen\");\necho count($filtered) . \":\" . $filtered[\"a\"] . \":\" . $filtered[\"c\"] . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_map_return() {
     assert_wasm_matches_php(
         "<?php\nclass DynamicStaticMapBox { public static function items(): array { return [\"a\" => \"red\", \"b\" => \"\", \"c\" => \"blue\"]; } }\n$name = \"items\";\n$mapped = array_map(\"strlen\", DynamicStaticMapBox::{$name}());\necho count($mapped) . \":\" . $mapped[\"a\"] . \":\" . $mapped[\"b\"] . \":\" . $mapped[\"c\"] . \"\\n\";\n",
