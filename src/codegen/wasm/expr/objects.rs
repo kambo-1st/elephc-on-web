@@ -1205,7 +1205,10 @@ pub(in crate::codegen::wasm) fn method_call_return_kind(
     module: &WasmModule,
 ) -> Option<ValueKind> {
     if let Some(class_name) = object_class_name_for_expr(object, module) {
-        return Some(module.object_method_in_hierarchy(&class_name, method)?.1.return_kind);
+        if let Some((_, method_info)) = module.object_method_in_hierarchy(&class_name, method) {
+            return Some(method_info.return_kind);
+        }
+        return supported_magic_call_method(&class_name, module).map(|(_, method)| method.return_kind);
     }
     if dynamic_object_receiver_candidate(object, module) {
         let receiver_type = dynamic_object_receiver_declared_type(object, module);

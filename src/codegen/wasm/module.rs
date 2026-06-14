@@ -310,6 +310,7 @@ impl WasmModule {
             &function_defaults,
             &function_array_return_value_kinds,
             &function_array_return_param_indices,
+            &object_classes,
         );
         let function_array_param_runtime_nested_values =
             collect_function_array_param_runtime_nested_values(

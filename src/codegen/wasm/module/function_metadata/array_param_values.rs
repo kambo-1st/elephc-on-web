@@ -17,6 +17,7 @@ pub(in crate::codegen::wasm::module) fn collect_function_array_param_value_kinds
     function_defaults: &HashMap<String, Vec<Option<Expr>>>,
     function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
     function_array_return_param_indices: &HashMap<String, usize>,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
 ) -> HashMap<String, Vec<Option<Vec<ValueCellKind>>>> {
     let mut states = HashMap::new();
     let max_passes = program.len().saturating_add(function_params.len()).saturating_add(2);
@@ -37,11 +38,302 @@ pub(in crate::codegen::wasm::module) fn collect_function_array_param_value_kinds
                 function_array_return_param_indices,
             );
         }
+        collect_magic_call_array_param_value_kinds(
+            program,
+            &mut states,
+            function_param_kinds,
+            object_classes,
+        );
         if states == before {
             break;
         }
     }
     finalize_param_metadata(states)
+}
+
+fn collect_magic_call_array_param_value_kinds(
+    program: &Program,
+    states: &mut HashMap<String, Vec<ParamMetadata<Vec<ValueCellKind>>>>,
+    function_param_kinds: &HashMap<String, Vec<LocalKind>>,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
+) {
+    let mut locals = HashMap::new();
+    collect_magic_call_array_param_value_kinds_in_stmts(
+        program,
+        states,
+        function_param_kinds,
+        object_classes,
+        &mut locals,
+    );
+}
+
+fn collect_magic_call_array_param_value_kinds_in_stmts(
+    stmts: &[Stmt],
+    states: &mut HashMap<String, Vec<ParamMetadata<Vec<ValueCellKind>>>>,
+    function_param_kinds: &HashMap<String, Vec<LocalKind>>,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
+    locals: &mut HashMap<String, String>,
+) {
+    for stmt in stmts {
+        collect_magic_call_array_param_value_kinds_in_stmt(
+            stmt,
+            states,
+            function_param_kinds,
+            object_classes,
+            locals,
+        );
+    }
+}
+
+fn collect_magic_call_array_param_value_kinds_in_stmt(
+    stmt: &Stmt,
+    states: &mut HashMap<String, Vec<ParamMetadata<Vec<ValueCellKind>>>>,
+    function_param_kinds: &HashMap<String, Vec<LocalKind>>,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
+    locals: &mut HashMap<String, String>,
+) {
+    match &stmt.kind {
+        StmtKind::Assign { name, value } | StmtKind::TypedAssign { name, value, .. } => {
+            collect_magic_call_array_param_value_kinds_in_expr(
+                value,
+                states,
+                function_param_kinds,
+                object_classes,
+                locals,
+            );
+            if let Some(class_name) = object_class_name_for_magic_metadata_expr(value, locals) {
+                locals.insert(name.clone(), class_name);
+            } else {
+                locals.remove(name);
+            }
+        }
+        StmtKind::ExprStmt(expr)
+        | StmtKind::Return(Some(expr))
+        | StmtKind::Echo(expr)
+        | StmtKind::Throw(expr)
+        | StmtKind::ListUnpack { value: expr, .. } => {
+            collect_magic_call_array_param_value_kinds_in_expr(
+                expr,
+                states,
+                function_param_kinds,
+                object_classes,
+                locals,
+            );
+        }
+        StmtKind::If { condition, then_body, elseif_clauses, else_body } => {
+            collect_magic_call_array_param_value_kinds_in_expr(
+                condition,
+                states,
+                function_param_kinds,
+                object_classes,
+                locals,
+            );
+            let mut then_locals = locals.clone();
+            collect_magic_call_array_param_value_kinds_in_stmts(
+                then_body,
+                states,
+                function_param_kinds,
+                object_classes,
+                &mut then_locals,
+            );
+            for (condition, body) in elseif_clauses {
+                collect_magic_call_array_param_value_kinds_in_expr(
+                    condition,
+                    states,
+                    function_param_kinds,
+                    object_classes,
+                    locals,
+                );
+                let mut branch_locals = locals.clone();
+                collect_magic_call_array_param_value_kinds_in_stmts(
+                    body,
+                    states,
+                    function_param_kinds,
+                    object_classes,
+                    &mut branch_locals,
+                );
+            }
+            if let Some(body) = else_body {
+                let mut else_locals = locals.clone();
+                collect_magic_call_array_param_value_kinds_in_stmts(
+                    body,
+                    states,
+                    function_param_kinds,
+                    object_classes,
+                    &mut else_locals,
+                );
+            }
+        }
+        StmtKind::FunctionDecl { body, .. }
+        | StmtKind::NamespaceBlock { body, .. }
+        | StmtKind::IncludeOnceGuard { body, .. }
+        | StmtKind::Synthetic(body) => {
+            let mut scoped_locals = HashMap::new();
+            collect_magic_call_array_param_value_kinds_in_stmts(
+                body,
+                states,
+                function_param_kinds,
+                object_classes,
+                &mut scoped_locals,
+            );
+        }
+        _ => {}
+    }
+}
+
+fn collect_magic_call_array_param_value_kinds_in_expr(
+    expr: &Expr,
+    states: &mut HashMap<String, Vec<ParamMetadata<Vec<ValueCellKind>>>>,
+    function_param_kinds: &HashMap<String, Vec<LocalKind>>,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
+    locals: &HashMap<String, String>,
+) {
+    match &expr.kind {
+        ExprKind::MethodCall { object, method, args } => {
+            collect_magic_call_array_param_value_kinds_in_expr(
+                object,
+                states,
+                function_param_kinds,
+                object_classes,
+                locals,
+            );
+            for arg in args {
+                collect_magic_call_array_param_value_kinds_in_expr(
+                    arg,
+                    states,
+                    function_param_kinds,
+                    object_classes,
+                    locals,
+                );
+            }
+            let Some(class_name) = object_class_name_for_magic_metadata_expr(object, locals) else {
+                return;
+            };
+            if object_method_in_hierarchy(&class_name, method, object_classes).is_some() {
+                return;
+            }
+            let Some(method_info) = supported_magic_call_method(&class_name, object_classes) else {
+                return;
+            };
+            let key = function_key(&method_info.symbol);
+            let Some(param_kinds) = function_param_kinds.get(&key) else {
+                return;
+            };
+            if param_kinds.get(2) != Some(&LocalKind::Array) {
+                return;
+            }
+            merge_param_metadata(
+                states,
+                &key,
+                2,
+                param_kinds.len(),
+                static_value_cell_kinds_for_items(args),
+            );
+        }
+        ExprKind::BinaryOp { left, right, .. }
+        | ExprKind::ArrayAccess { array: left, index: right }
+        | ExprKind::NullCoalesce { value: left, default: right } => {
+            collect_magic_call_array_param_value_kinds_in_expr(
+                left,
+                states,
+                function_param_kinds,
+                object_classes,
+                locals,
+            );
+            collect_magic_call_array_param_value_kinds_in_expr(
+                right,
+                states,
+                function_param_kinds,
+                object_classes,
+                locals,
+            );
+        }
+        ExprKind::FunctionCall { args, .. }
+        | ExprKind::NewObject { args, .. }
+        | ExprKind::StaticMethodCall { args, .. }
+        | ExprKind::ClosureCall { args, .. } => {
+            for arg in args {
+                collect_magic_call_array_param_value_kinds_in_expr(
+                    arg,
+                    states,
+                    function_param_kinds,
+                    object_classes,
+                    locals,
+                );
+            }
+        }
+        ExprKind::Cast { expr, .. }
+        | ExprKind::Print(expr)
+        | ExprKind::Negate(expr)
+        | ExprKind::Not(expr)
+        | ExprKind::BitNot(expr)
+        | ExprKind::Spread(expr) => {
+            collect_magic_call_array_param_value_kinds_in_expr(
+                expr,
+                states,
+                function_param_kinds,
+                object_classes,
+                locals,
+            );
+        }
+        ExprKind::ArrayLiteral(items) => {
+            for item in items {
+                collect_magic_call_array_param_value_kinds_in_expr(
+                    item,
+                    states,
+                    function_param_kinds,
+                    object_classes,
+                    locals,
+                );
+            }
+        }
+        _ => {}
+    }
+}
+
+fn object_class_name_for_magic_metadata_expr(
+    expr: &Expr,
+    locals: &HashMap<String, String>,
+) -> Option<String> {
+    match &expr.kind {
+        ExprKind::NewObject { class_name, .. } => Some(class_name.as_str().to_string()),
+        ExprKind::Variable(name) => locals.get(name).cloned(),
+        _ => None,
+    }
+}
+
+fn supported_magic_call_method<'a>(
+    class_name: &str,
+    object_classes: &'a HashMap<String, object_metadata::ObjectClassInfo>,
+) -> Option<&'a object_metadata::ObjectMethodInfo> {
+    let method = object_method_in_hierarchy(class_name, "__call", object_classes)?;
+    if method.visibility != Visibility::Public
+        || method.param_kinds.as_slice() != [LocalKind::Str, LocalKind::Array]
+        || method.return_kind == ValueKind::Never
+    {
+        return None;
+    }
+    Some(method)
+}
+
+fn object_method_in_hierarchy<'a>(
+    class_name: &str,
+    method_name: &str,
+    object_classes: &'a HashMap<String, object_metadata::ObjectClassInfo>,
+) -> Option<&'a object_metadata::ObjectMethodInfo> {
+    let mut current = Some(function_key(class_name));
+    while let Some(class_key) = current {
+        let class_info = object_classes.get(&class_key)?;
+        if let Some(method) = class_info
+            .methods
+            .iter()
+            .find(|method| method.name.eq_ignore_ascii_case(method_name))
+        {
+            return Some(method);
+        }
+        current = class_info.parent.clone();
+    }
+    None
 }
 
 fn collect_array_param_value_kind_calls_in_stmt(
