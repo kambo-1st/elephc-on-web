@@ -160,6 +160,26 @@ pub(super) fn emit_array_filter_mode_assign(
                 module,
             )
         }
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. }
+            if dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some() =>
+        {
+            let temp = module
+                .next_label("array_filter_key_dynamic_static_method_source")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_array_local(temp.clone());
+            emit_array_assign(&temp, &args[0], module)?;
+            emit_array_filter_mode_staged_source(
+                name,
+                &temp,
+                args[0].span,
+                mode,
+                &callback,
+                both_callback,
+                key_callback_shape,
+                module,
+            )
+        }
         ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
             if expression_has_array_type(&args[0], module) =>
         {

@@ -2534,6 +2534,13 @@ fn test_wasm32_web_e2e_matches_php_static_method_array_return_filter_modes() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_filter_modes_return() {
+    assert_wasm_matches_php(
+        "<?php\nfunction keep_dynamic_static_key(string $key): bool { return $key !== \"skip\"; }\nfunction keep_dynamic_static_value_key(string $value, string $key): bool { return $key !== \"skip\" && $value !== \"\"; }\nclass DynamicStaticModeBag { public static function words(): array { return [\"left\" => \"aa\", \"skip\" => \"bb\", \"right\" => \"\"]; } }\n$name = \"words\";\n$keys = array_filter(DynamicStaticModeBag::{$name}(), \"keep_dynamic_static_key\", ARRAY_FILTER_USE_KEY);\n$both = array_filter(DynamicStaticModeBag::{$name}(), \"keep_dynamic_static_value_key\", ARRAY_FILTER_USE_BOTH);\necho count($keys) . \":\" . $keys[\"left\"] . \":\" . $keys[\"right\"] . \":\" . count($both) . \":\" . $both[\"left\"] . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_method_array_return_map_strlen() {
     assert_wasm_matches_php(
         "<?php\nclass Bag { public function words(): array { return [\"left\" => \"aa\", \"empty\" => \"\", \"right\" => \"bbb\"]; } }\n$bag = new Bag();\n$lengths = array_map(\"strlen\", $bag->words());\necho count($lengths) . \":\" . $lengths[\"left\"] . \":\" . $lengths[\"empty\"] . \":\" . $lengths[\"right\"] . \"\\n\";\n",
