@@ -1938,6 +1938,13 @@ fn test_wasm32_web_e2e_matches_php_object_magic_get_missing_property_reads() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_magic_get_dynamic_property_name() {
+    assert_wasm_matches_php(
+        "<?php\nclass DynamicMagicReadBag { public function __get(string $name): string { echo \"dynamic-get:\" . $name . \"\\n\"; return \"{\" . $name . \"}\"; } }\n$o = new DynamicMagicReadBag();\n$name = \"slug\";\n$value = $o->{$name};\necho $value . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_scalar_property_writes() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public int $i = 0; public float $f = 0.0; public bool $b = false; public string $s = \"\"; }\n$o = new Box();\n$o->i = 9;\n$o->f = 2.5;\n$o->b = true;\n$o->s = \"wasm\";\necho $o->i . \",\" . $o->f . \",\" . $o->b . \",\" . $o->s . \"\\n\";\n",

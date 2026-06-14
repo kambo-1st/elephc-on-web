@@ -361,6 +361,10 @@ fn emit_runtime_dynamic_property_access_expr(
         properties.push(property_info.clone());
     }
     let Some(kind) = expected_kind else {
+        if let Some((_, method)) = supported_magic_get_method(&class_name, module) {
+            return emit_method_call_expr(expr, object, "__get", std::slice::from_ref(property), module)
+                .map(|_| method.return_kind);
+        }
         return Err(CompileError::new(
             expr.span,
             "wasm32-web runtime dynamic property reads require visible fixed property metadata",

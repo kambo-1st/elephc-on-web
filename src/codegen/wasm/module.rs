@@ -2196,13 +2196,33 @@ fn object_access_local_kind(
                 })
         }
         ExprKind::DynamicPropertyAccess { object, property } => {
+            let property_name =
+                object_dynamic_property_name_for_metadata(property, string_static_values);
+            if let Some(class_name) = object_class_name_for_metadata_expr(
+                object,
+                object_classes,
+                enum_cases,
+                function_return_object_classes,
+                object_local_classes,
+                current_class,
+            ) {
+                if let Some(kind) = dynamic_object_property_local_kind_for_class_metadata(
+                    &class_name,
+                    property_name.as_deref(),
+                    object_classes,
+                    function_return_kinds,
+                ) {
+                    return Some(kind);
+                }
+            }
             dynamic_object_property_local_kind_for_metadata(
                 object,
-                object_dynamic_property_name_for_metadata(property, string_static_values).as_deref(),
+                property_name.as_deref(),
                 object_classes,
                 interface_names,
                 interface_parents,
                 object_local_declared_types,
+                function_return_kinds,
             )
         }
         _ => None,
@@ -2246,6 +2266,7 @@ fn dynamic_object_property_local_kind_for_metadata(
     interface_names: &HashSet<String>,
     interface_parents: &HashMap<String, Vec<String>>,
     object_local_declared_types: &HashMap<String, String>,
+    function_return_kinds: &HashMap<String, ValueKind>,
 ) -> Option<LocalKind> {
     let receiver_type = object_declared_type_for_metadata_expr(object, object_local_declared_types)?;
     let mut kind = None;
@@ -2271,7 +2292,55 @@ fn dynamic_object_property_local_kind_for_metadata(
             found = true;
         }
     }
-    found.then(|| local_kind_for_object_property(kind.expect("found property must set kind")))
+    if found {
+        return Some(local_kind_for_object_property(
+            kind.expect("found property must set kind"),
+        ));
+    }
+    if object_classes
+        .values()
+        .any(|class_info| metadata_class_matches_declared_receiver(
+            &class_info.name,
+            &receiver_type,
+            object_classes,
+            interface_names,
+            interface_parents,
+        ))
+    {
+        return magic_get_local_kind_for_metadata(
+            &receiver_type,
+            object_classes,
+            function_return_kinds,
+        );
+    }
+    None
+}
+
+fn dynamic_object_property_local_kind_for_class_metadata(
+    class_name: &str,
+    property: Option<&str>,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
+    function_return_kinds: &HashMap<String, ValueKind>,
+) -> Option<LocalKind> {
+    let class_info = object_classes.get(&function_key(class_name))?;
+    let mut kind = None;
+    let mut found = false;
+    for property_info in &class_info.properties {
+        if property.is_some_and(|name| !property_info.name.eq_ignore_ascii_case(name)) {
+            continue;
+        }
+        if kind.is_some_and(|existing| existing != property_info.kind) {
+            return None;
+        }
+        kind = Some(property_info.kind);
+        found = true;
+    }
+    if found {
+        return Some(local_kind_for_object_property(
+            kind.expect("found property must set kind"),
+        ));
+    }
+    magic_get_local_kind_for_metadata(class_name, object_classes, function_return_kinds)
 }
 
 fn object_declared_type_for_metadata_expr(
