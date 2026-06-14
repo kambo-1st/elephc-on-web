@@ -128,6 +128,13 @@ pub(super) fn infer_assignment_fallback_local_kind(
             return kind;
         }
     }
+    if let ExprKind::MethodCall { method, .. } = &expr.kind {
+        if let Some(kind) =
+            magic_call_fallback_local_kind(method, function_return_kinds, object_classes)
+        {
+            return kind;
+        }
+    }
     if let ExprKind::ClosureCall { var, .. } = &expr.kind {
         if let Some(target) = callable_targets
             .get(var)
@@ -142,6 +149,39 @@ pub(super) fn infer_assignment_fallback_local_kind(
         return unknown_receiver_method_local_kind("__invoke", function_return_kinds);
     }
     infer_local_kind(expr, locals, function_return_kinds, constants, class_constants)
+}
+
+fn magic_call_fallback_local_kind(
+    method: &str,
+    function_return_kinds: &HashMap<String, ValueKind>,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
+) -> Option<LocalKind> {
+    if object_classes.values().any(|class_info| {
+        class_info
+            .methods
+            .iter()
+            .any(|candidate| candidate.name.eq_ignore_ascii_case(method))
+    }) {
+        return None;
+    }
+    let mut kind = None;
+    for class_info in object_classes.values() {
+        let Some(method_info) = class_info
+            .methods
+            .iter()
+            .find(|candidate| candidate.name.eq_ignore_ascii_case("__call"))
+        else {
+            continue;
+        };
+        let key = method_call_return_key(&class_info.name, &method_info.name);
+        let return_kind = function_return_kinds.get(&key).copied()?;
+        let local_kind = local_kind_for_value(return_kind);
+        if kind.is_some_and(|existing| existing != local_kind) {
+            return None;
+        }
+        kind = Some(local_kind);
+    }
+    kind
 }
 
 fn infer_assignment_branch_local_kind(
