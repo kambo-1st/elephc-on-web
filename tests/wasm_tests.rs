@@ -30977,6 +30977,11 @@ foreach (array_values(make_callable_expr_array()("direct-values")) as $item) {
 foreach (array_reverse(($factory->makeInstanceArray())("direct-reverse")) as $item) {
     echo $item . "\n";
 }
+foreach (array_unique(make_callable_expr_array()("direct-unique")) as $item) {
+    echo $item . "\n";
+}
+$directFlip = array_flip(($factory->makeInstanceArray())("direct-flip"));
+echo count($directFlip) . ":" . $directFlip["head"] . ":" . $directFlip["tail"] . "\n";
 "#,
     );
 }

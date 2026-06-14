@@ -1043,7 +1043,7 @@ pub(in crate::codegen::wasm::expr) fn emit_indexed_array_transform_assign(
                 }
             }
         }
-        ExprKind::FunctionCall { .. }
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
             if function_name.eq_ignore_ascii_case("array_unique")
                 && expression_has_array_type(&args[0], module) =>
         {
@@ -1054,7 +1054,7 @@ pub(in crate::codegen::wasm::expr) fn emit_indexed_array_transform_assign(
                 ArrayLayout::CompactInt => emit_known_indexed_int_array_unique_assign(name, &temp, args, module),
             }
         }
-        ExprKind::FunctionCall { .. }
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
             if function_name.eq_ignore_ascii_case("array_flip")
                 && expression_has_array_type(&args[0], module) =>
         {
