@@ -30935,6 +30935,12 @@ function callable_expr_flags(string $prefix): array {
 function callable_expr_mixed_items(string $prefix): array {
     return [3, "vv", true];
 }
+function callable_expr_assoc(string $prefix): array {
+    return ["keep" => $prefix, "drop" => "no", 7 => "seven"];
+}
+function callable_expr_mask(string $prefix): array {
+    return ["drop" => true, 7 => true];
+}
 function make_callable_expr(bool $flag): callable {
     echo $flag ? "add\n" : "wrap\n";
     return $flag ? callable_expr_add(...) : callable_expr_add(...);
@@ -30962,6 +30968,14 @@ function make_callable_expr_flags(): callable {
 function make_callable_expr_mixed_array(): callable {
     echo "mixed-array\n";
     return callable_expr_mixed_items(...);
+}
+function make_callable_expr_assoc(): callable {
+    echo "assoc-array\n";
+    return callable_expr_assoc(...);
+}
+function make_callable_expr_mask(): callable {
+    echo "mask-array\n";
+    return callable_expr_mask(...);
 }
 class CallableExprFactory {
     public static function makeString(): callable {
@@ -31090,6 +31104,10 @@ echo (array_reduce(make_callable_expr_mixed_array()("direct-mixed-bool-reduce"),
 echo array_reduce(make_callable_expr_mixed_array()("direct-mixed-float-reduce"), "callable_expr_mixed_to_float", 0.0) . "\n";
 $mixedStringReduce = array_reduce(make_callable_expr_mixed_array()("direct-mixed-string-reduce"), "callable_expr_mixed_to_string", "");
 echo ":" . $mixedStringReduce . "\n";
+$directDiffKey = array_diff_key(make_callable_expr_assoc()("direct-diff-key"), make_callable_expr_mask()("direct-diff-mask"));
+echo count($directDiffKey) . ":" . $directDiffKey["keep"] . ":" . (array_key_exists("drop", $directDiffKey) ? 1 : 0) . "\n";
+$directIntersectKey = array_intersect_key(make_callable_expr_assoc()("direct-intersect-key"), make_callable_expr_mask()("direct-intersect-mask"));
+echo count($directIntersectKey) . ":" . $directIntersectKey["drop"] . ":" . $directIntersectKey[7] . "\n";
 "#,
     );
 }

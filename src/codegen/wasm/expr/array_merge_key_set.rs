@@ -78,7 +78,11 @@ pub(super) fn assoc_key_set_needs_runtime_compare(args: &[Expr], module: &WasmMo
         matches!(
             &arg.kind,
             ExprKind::Variable(source) if module.local_kind(source) == Some(LocalKind::Array)
-        ) || matches!(&arg.kind, ExprKind::FunctionCall { .. } if expression_has_array_type(arg, module))
+        ) || matches!(
+            &arg.kind,
+            ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
+                if expression_has_array_type(arg, module)
+        )
     })
 }
 
@@ -374,7 +378,9 @@ pub(super) fn prepare_assoc_key_compare_sources(
                 module.body().line(&format!("local.set {}", len));
                 compare_sets.push(AssocKeyCompareSource::Runtime { ptr, len });
             }
-            ExprKind::FunctionCall { .. } if expression_has_array_type(arg, module) => {
+            ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
+                if expression_has_array_type(arg, module) =>
+            {
                 let temp = materialize_array_map_multi_source(arg, "assoc_key_set_compare", module)?;
                 if module.array_layout(&temp) == ArrayLayout::Assoc {
                     let ptr = preserve_array_ptr(&temp, function_name, module);
