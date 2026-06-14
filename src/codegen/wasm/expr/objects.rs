@@ -642,6 +642,88 @@ pub(in crate::codegen::wasm) fn emit_object_property_isset_expr(
     Ok(ValueKind::Bool)
 }
 
+pub(in crate::codegen::wasm) fn emit_object_property_empty_expr(
+    expr: &Expr,
+    object: &Expr,
+    property: &str,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    if object_receiver_needs_runtime_class_id(object, module)
+        || object_class_name_for_expr(object, module).is_none()
+    {
+        return Err(CompileError::new(
+            expr.span,
+            "wasm32-web object property empty requires a statically known object class",
+        ));
+    }
+    let class_name = object_class_name_for_expr(object, module).expect("checked above");
+    let class_info = module.object_class(&class_name).cloned().ok_or_else(|| {
+        CompileError::new(
+            expr.span,
+            "wasm32-web object property empty requires a declared class",
+        )
+    })?;
+    let property_info = class_info
+        .properties
+        .iter()
+        .find(|candidate| {
+            candidate.name == property
+                && module.object_member_is_accessible(&candidate.owner_class, &candidate.visibility)
+        })
+        .cloned();
+    if let Some(property_info) = property_info {
+        if emit_expr(object, module)? != ValueKind::Object {
+            return Err(CompileError::new(
+                object.span,
+                "wasm32-web object property empty expected an object receiver",
+            ));
+        }
+        emit_load_property(&property_info, module)?;
+        emit_loaded_property_empty(property_info.kind, module);
+        return Ok(());
+    }
+    if supported_magic_isset_method(&class_name, module).is_none() {
+        if emit_expr(object, module)? != ValueKind::Object {
+            return Err(CompileError::new(
+                object.span,
+                "wasm32-web object property empty expected an object receiver",
+            ));
+        }
+        module.body().line("drop");
+        module.body().line("i32.const 1");
+        return Ok(());
+    }
+    let object_local = module
+        .next_label("object_property_empty_object")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_object_local(object_local.clone());
+    module.set_object_class_for_local(&object_local, Some(class_name));
+    if emit_expr(object, module)? != ValueKind::Object {
+        return Err(CompileError::new(
+            object.span,
+            "wasm32-web object property empty expected an object receiver",
+        ));
+    }
+    module.body().line(&format!("local.set ${}", object_local));
+    let local_object = Expr::new(ExprKind::Variable(object_local), object.span);
+    emit_object_property_isset_expr(expr, &local_object, property, module)?;
+    module.body().open("if (result i32)");
+    let property_access = Expr::new(
+        ExprKind::PropertyAccess {
+            object: Box::new(local_object),
+            property: property.to_string(),
+        },
+        expr.span,
+    );
+    emit_condition(&property_access, module)?;
+    module.body().line("i32.eqz");
+    module.body().line("else");
+    module.body().line("i32.const 1");
+    module.body().close("end");
+    Ok(())
+}
+
 fn emit_missing_property_magic_isset_expr(
     expr: &Expr,
     object: &Expr,

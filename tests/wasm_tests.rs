@@ -1966,6 +1966,20 @@ fn test_wasm32_web_e2e_matches_php_object_magic_get_mixed_string_expression_inde
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_magic_get_mixed_scalar_direct_consumers() {
+    assert_wasm_matches_php(
+        "<?php\nclass MagicGetMixedIntDirect { public function __get(string $name): mixed { return 4; } }\nclass MagicGetMixedFloatDirect { public function __get(string $name): mixed { return 2.5; } }\nclass MagicGetMixedBoolDirect { public function __get(string $name): mixed { return true; } }\nclass MagicGetMixedNullDirect { public function __get(string $name): mixed { return null; } }\n$i = new MagicGetMixedIntDirect();\n$f = new MagicGetMixedFloatDirect();\n$b = new MagicGetMixedBoolDirect();\n$n = new MagicGetMixedNullDirect();\necho gettype($i->number) . \":\" . ($i->number + 3) . \":\" . intval($f->ratio) . \":\" . (empty($b->flag) ? 1 : 0) . \":\" . gettype($n->missing) . \":\" . (empty($n->missing) ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_object_magic_get_empty_uses_isset_semantics() {
+    assert_wasm_matches_php(
+        "<?php\nclass MagicGetNoIsset { public function __get(string $name): mixed { return true; } }\nclass MagicGetWithIsset { public function __isset(string $name): bool { return $name !== \"no\"; } public function __get(string $name): mixed { return $name === \"falsey\" ? false : true; } }\n$a = new MagicGetNoIsset();\n$b = new MagicGetWithIsset();\necho (empty($a->yes) ? 1 : 0) . \":\" . (empty($b->yes) ? 1 : 0) . \":\" . (empty($b->falsey) ? 1 : 0) . \":\" . (empty($b->no) ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_magic_set_missing_property_writes() {
     assert_wasm_matches_php(
         "<?php\nclass MagicWriteBag { public string $last = \"\"; public function __set(string $name, mixed $value): void { echo \"set:\" . $name . \"\\n\"; $this->last = $name . \":\" . $value; } }\n$o = new MagicWriteBag();\n$o->title = \"wasm\";\necho $o->last . \"\\n\";\n$o->count = 7;\necho $o->last . \"\\n\";\n",

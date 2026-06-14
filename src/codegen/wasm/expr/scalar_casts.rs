@@ -322,6 +322,10 @@ pub(super) fn emit_empty_call(
         ));
     };
     match &arg.kind {
+        ExprKind::PropertyAccess { object, property } => {
+            emit_object_property_empty_expr(arg, object, property, module)?;
+            return Ok(ValueKind::Bool);
+        }
         ExprKind::DynamicPropertyAccess { object, property } => {
             emit_dynamic_object_property_empty_expr(arg, object, property, module)?;
             return Ok(ValueKind::Bool);
@@ -337,6 +341,12 @@ pub(super) fn emit_empty_call(
             if object_expr_is_known_non_null(object, module) =>
         {
             emit_dynamic_object_property_empty_expr(arg, object, property, module)?;
+            return Ok(ValueKind::Bool);
+        }
+        ExprKind::NullsafePropertyAccess { object, property }
+            if object_expr_is_known_non_null(object, module) =>
+        {
+            emit_object_property_empty_expr(arg, object, property, module)?;
             return Ok(ValueKind::Bool);
         }
         _ => {}
