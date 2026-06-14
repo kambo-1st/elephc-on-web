@@ -160,7 +160,9 @@ pub(super) fn emit_array_filter_mode_assign(
                 module,
             )
         }
-        ExprKind::FunctionCall { .. } if expression_has_array_type(&args[0], module) => {
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
+            if expression_has_array_type(&args[0], module) =>
+        {
             let temp = module
                 .next_label("array_filter_key_source")
                 .trim_start_matches('$')

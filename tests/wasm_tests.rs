@@ -31017,6 +31017,9 @@ foreach (array_filter(make_callable_expr_array()("direct-filter-callback"), "str
 foreach (array_map("strlen", make_callable_expr_array()("direct-map-callback")) as $item) {
     echo $item . "\n";
 }
+foreach (array_filter(make_callable_expr_array()("direct-filter-key"), "is_int", ARRAY_FILTER_USE_KEY) as $item) {
+    echo $item . "\n";
+}
 "#,
     );
 }
