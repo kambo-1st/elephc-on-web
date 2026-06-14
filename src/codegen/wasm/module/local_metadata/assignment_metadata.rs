@@ -23,6 +23,7 @@ pub(super) fn infer_assignment_local_kind(
     php_normalized_key_arrays: &HashSet<String>,
     function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
     array_runtime_value_kinds: &HashMap<String, ValueCellKind>,
+    string_static_values: &HashMap<String, String>,
     function_array_return_layouts: &HashMap<String, ArrayLayout>,
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
     function_return_kinds: &HashMap<String, ValueKind>,
@@ -50,6 +51,7 @@ pub(super) fn infer_assignment_local_kind(
             php_normalized_key_arrays,
             function_array_return_value_kinds,
             array_runtime_value_kinds,
+            string_static_values,
             function_array_return_layouts,
             function_array_return_key_kinds,
             function_return_kinds,
@@ -68,6 +70,7 @@ pub(super) fn infer_assignment_local_kind(
                 php_normalized_key_arrays,
                 function_array_return_value_kinds,
                 array_runtime_value_kinds,
+                string_static_values,
                 function_array_return_layouts,
                 function_array_return_key_kinds,
                 function_return_kinds,
@@ -139,6 +142,7 @@ pub(super) fn infer_assignment_local_kind(
                         count,
                         array_key_kinds,
                         function_array_return_value_kinds,
+                        string_static_values,
                         function_array_return_key_kinds,
                     )
                 })
@@ -160,6 +164,7 @@ pub(super) fn infer_assignment_local_kind(
                 php_normalized_key_arrays,
                 array_value_kinds,
                 array_runtime_value_kinds,
+                string_static_values,
                 function_array_return_layouts,
                 function_array_return_key_kinds,
                 function_return_kinds,
@@ -176,6 +181,7 @@ fn array_rand_known_full_count_value(
     count: &Expr,
     array_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
     function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
+    string_static_values: &HashMap<String, String>,
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
 ) -> Option<usize> {
     static_positive_count(count).or_else(|| {
@@ -184,6 +190,7 @@ fn array_rand_known_full_count_value(
             count,
             array_key_kinds,
             function_array_return_value_kinds,
+            string_static_values,
             function_array_return_key_kinds,
         )
     })
@@ -219,6 +226,7 @@ fn known_count_call_value(
     count: &Expr,
     array_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
     function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
+    string_static_values: &HashMap<String, String>,
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
 ) -> Option<usize> {
     let ExprKind::FunctionCall { name, args } = &count.kind else {
@@ -231,6 +239,7 @@ fn known_count_call_value(
         &args[0],
         array_key_kinds,
         function_array_return_value_kinds,
+        string_static_values,
         function_array_return_key_kinds,
     )
         .or_else(|| {
@@ -238,6 +247,7 @@ fn known_count_call_value(
                 source,
                 array_key_kinds,
                 function_array_return_value_kinds,
+                string_static_values,
                 function_array_return_key_kinds,
             )
         })
@@ -247,6 +257,7 @@ fn known_array_len_for_metadata(
     expr: &Expr,
     array_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
     function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
+    string_static_values: &HashMap<String, String>,
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
 ) -> Option<usize> {
     match &expr.kind {
@@ -257,8 +268,18 @@ fn known_array_len_for_metadata(
             receiver: StaticReceiver::Named(class_name),
             method,
             ..
+        } => known_static_method_return_len(
+            class_name.as_str(),
+            method,
+            array_key_kinds,
+            function_array_return_value_kinds,
+        ),
+        ExprKind::DynamicStaticMethodCall {
+            receiver: StaticReceiver::Named(class_name),
+            method,
+            ..
         } => {
-            let key = static_method_call_return_key(class_name.as_str(), method);
+            let key = dynamic_static_method_return_key(class_name.as_str(), method, string_static_values)?;
             array_key_kinds
                 .get(&key)
                 .map(Vec::len)
@@ -274,6 +295,32 @@ fn known_array_len_for_metadata(
         }
         _ => None,
     }
+}
+
+fn known_static_method_return_len(
+    class_name: &str,
+    method: &str,
+    array_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+    function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
+) -> Option<usize> {
+    let key = static_method_call_return_key(class_name, method);
+    array_key_kinds
+        .get(&key)
+        .map(Vec::len)
+        .or_else(|| function_array_return_value_kinds.get(&key).map(Vec::len))
+}
+
+fn dynamic_static_method_return_key(
+    class_name: &str,
+    method: &Expr,
+    string_static_values: &HashMap<String, String>,
+) -> Option<String> {
+    let method = match &method.kind {
+        ExprKind::StringLiteral(method) => method.as_str(),
+        ExprKind::Variable(name) => string_static_values.get(name)?.as_str(),
+        _ => return None,
+    };
+    Some(static_method_call_return_key(class_name, method))
 }
 
 fn method_return_key_kinds(

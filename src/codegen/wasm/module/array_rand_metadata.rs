@@ -28,6 +28,7 @@ pub(super) fn local_kind_for_source(
     php_normalized_key_arrays: &HashSet<String>,
     array_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
     array_runtime_value_kinds: &HashMap<String, ValueCellKind>,
+    string_static_values: &HashMap<String, String>,
     function_array_return_layouts: &HashMap<String, ArrayLayout>,
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
     function_return_kinds: &HashMap<String, super::ValueKind>,
@@ -78,6 +79,23 @@ pub(super) fn local_kind_for_source(
                 .get(&function_key(name))
                 .and_then(|kinds| local_kind_from_key_kinds(kinds))
         }
+        ExprKind::DynamicStaticMethodCall {
+            receiver: StaticReceiver::Named(class_name),
+            method,
+            ..
+        } => dynamic_static_method_call_return_key(class_name.as_str(), method, string_static_values)
+            .and_then(|key| {
+                if function_array_return_layouts
+                    .get(&key)
+                    .is_some_and(|layout| *layout == ArrayLayout::Assoc)
+                {
+                    function_array_return_key_kinds
+                        .get(&key)
+                        .and_then(|kinds| local_kind_from_key_kinds(kinds))
+                } else {
+                    None
+                }
+            }),
         ExprKind::ExprCall { callee, .. } => callable_expr_source_key(
             callee,
             function_return_kinds,
@@ -213,6 +231,19 @@ fn unique_callable_return_method_key(
         selected_targets = Some(targets);
     }
     selected
+}
+
+fn dynamic_static_method_call_return_key(
+    class_name: &str,
+    method: &Expr,
+    string_static_values: &HashMap<String, String>,
+) -> Option<String> {
+    let method = match &method.kind {
+        ExprKind::StringLiteral(method) => method.as_str(),
+        ExprKind::Variable(name) => string_static_values.get(name)?.as_str(),
+        _ => return None,
+    };
+    Some(static_method_call_return_key(class_name, method))
 }
 
 fn local_kind_from_key_kinds(kinds: &[AssocKeyKind]) -> Option<LocalKind> {

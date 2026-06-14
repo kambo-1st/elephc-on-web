@@ -3255,6 +3255,13 @@ fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_assoc_array_ra
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_assoc_array_rand_assignment() {
+    assert_wasm_matches_php(
+        "<?php\nclass DynamicStaticAssocRandAssignBox { public static function items(): array { return [\"red\" => 1, \"blue\" => 2]; } }\n$name = \"items\";\n$key = array_rand(DynamicStaticAssocRandAssignBox::{$name}());\necho (($key === \"red\" || $key === \"blue\") ? 1 : 0) . \":\" . gettype($key) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_filter_default_return() {
     assert_wasm_matches_php(
         "<?php\nclass DynamicStaticFilterBox { public static function items(): array { return [\"a\" => \"red\", \"b\" => \"\", \"c\" => \"blue\"]; } }\n$name = \"items\";\n$filtered = array_filter(DynamicStaticFilterBox::{$name}());\necho count($filtered) . \":\" . $filtered[\"a\"] . \":\" . $filtered[\"c\"] . \"\\n\";\n",

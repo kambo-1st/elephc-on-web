@@ -75,6 +75,7 @@ pub(super) fn collect_assignment_locals(
             php_normalized_key_arrays,
             function_array_return_value_kinds,
             array_runtime_value_kinds,
+            string_static_values,
             function_array_return_layouts,
             function_array_return_key_kinds,
             function_return_kinds,
