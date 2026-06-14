@@ -925,6 +925,22 @@ fn collect_expr_assignment_prelude_locals(
                 collect_child!(arg);
             }
         }
+        ExprKind::DynamicMethodCall {
+            object,
+            method,
+            args,
+        }
+        | ExprKind::NullsafeDynamicMethodCall {
+            object,
+            method,
+            args,
+        } => {
+            collect_child!(object);
+            collect_child!(method);
+            for arg in args {
+                collect_child!(arg);
+            }
+        }
         ExprKind::Closure {
             params,
             body,

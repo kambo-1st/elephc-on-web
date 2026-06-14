@@ -201,6 +201,15 @@ pub(crate) fn prune_expr(expr: Expr) -> Expr {
             method,
             args: args.into_iter().map(prune_expr).collect(),
         },
+        ExprKind::DynamicMethodCall {
+            object,
+            method,
+            args,
+        } => ExprKind::DynamicMethodCall {
+            object: Box::new(prune_expr(*object)),
+            method: Box::new(prune_expr(*method)),
+            args: args.into_iter().map(prune_expr).collect(),
+        },
         ExprKind::NullsafeMethodCall {
             object,
             method,
@@ -208,6 +217,15 @@ pub(crate) fn prune_expr(expr: Expr) -> Expr {
         } => ExprKind::NullsafeMethodCall {
             object: Box::new(prune_expr(*object)),
             method,
+            args: args.into_iter().map(prune_expr).collect(),
+        },
+        ExprKind::NullsafeDynamicMethodCall {
+            object,
+            method,
+            args,
+        } => ExprKind::NullsafeDynamicMethodCall {
+            object: Box::new(prune_expr(*object)),
+            method: Box::new(prune_expr(*method)),
             args: args.into_iter().map(prune_expr).collect(),
         },
         ExprKind::StaticMethodCall {

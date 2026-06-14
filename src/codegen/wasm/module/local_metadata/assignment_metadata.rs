@@ -30,9 +30,11 @@ pub(super) fn infer_assignment_local_kind(
     function_possible_callable_return_targets: &HashMap<String, Vec<String>>,
 ) -> Option<LocalKind> {
     match &value.kind {
-        ExprKind::NullsafePropertyAccess { .. }
+        ExprKind::Null
+        | ExprKind::NullsafePropertyAccess { .. }
         | ExprKind::NullsafeDynamicPropertyAccess { .. }
-        | ExprKind::NullsafeMethodCall { .. } => Some(LocalKind::Mixed),
+        | ExprKind::NullsafeMethodCall { .. }
+        | ExprKind::NullsafeDynamicMethodCall { .. } => Some(LocalKind::Mixed),
         ExprKind::Assignment {
             value,
             result_target: Some(result_target),

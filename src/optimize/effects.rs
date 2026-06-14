@@ -269,7 +269,24 @@ pub(super) fn expr_effect(expr: &Expr) -> Effect {
         ExprKind::MethodCall { object, method, args } => expr_effect(object)
             .combine(combine_effects(args.iter().map(expr_effect)))
             .combine(private_instance_method_call_effect(object, method)),
+        ExprKind::DynamicMethodCall {
+            object,
+            method,
+            args,
+        } => expr_effect(object)
+            .combine(expr_effect(method))
+            .combine(combine_effects(args.iter().map(expr_effect)))
+            .with_side_effects()
+            .with_may_throw(),
         ExprKind::NullsafeMethodCall { object, args, .. } => expr_effect(object)
+            .combine(combine_effects(args.iter().map(expr_effect)))
+            .with_may_throw(),
+        ExprKind::NullsafeDynamicMethodCall {
+            object,
+            method,
+            args,
+        } => expr_effect(object)
+            .combine(expr_effect(method))
             .combine(combine_effects(args.iter().map(expr_effect)))
             .with_may_throw(),
         ExprKind::StaticMethodCall {

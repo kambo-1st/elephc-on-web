@@ -132,8 +132,14 @@ pub(crate) fn lower_expr(ctx: &mut LoweringContext<'_, '_>, expr: &Expr) -> Lowe
             lower_static_property_get(ctx, receiver, property, expr)
         }
         ExprKind::MethodCall { object, method, args } => lower_method_call(ctx, object, method, args, Op::MethodCall, expr),
+        ExprKind::DynamicMethodCall { .. } => {
+            panic!("dynamic method calls are not supported by EIR lowering")
+        }
         ExprKind::NullsafeMethodCall { object, method, args } => {
             lower_nullsafe_method_call(ctx, object, method, args, expr)
+        }
+        ExprKind::NullsafeDynamicMethodCall { .. } => {
+            panic!("nullsafe dynamic method calls are not supported by EIR lowering")
         }
         ExprKind::StaticMethodCall { receiver, method, args } => {
             lower_static_method_call(ctx, receiver, method, args, expr)
@@ -621,6 +627,8 @@ fn expr_can_reset_concat_storage(expr: &Expr) -> bool {
         | ExprKind::ExprCall { .. }
         | ExprKind::MethodCall { .. }
         | ExprKind::NullsafeMethodCall { .. }
+        | ExprKind::DynamicMethodCall { .. }
+        | ExprKind::NullsafeDynamicMethodCall { .. }
         | ExprKind::StaticMethodCall { .. }
         | ExprKind::NewObject { .. }
         | ExprKind::NewDynamic { .. }

@@ -398,7 +398,9 @@ pub(crate) fn expr_local_writes(expr: &Expr) -> Option<HashSet<String>> {
         | ExprKind::NewDynamicObject { .. }
         | ExprKind::NewScopedObject { .. }
         | ExprKind::MethodCall { .. }
+        | ExprKind::DynamicMethodCall { .. }
         | ExprKind::NullsafeMethodCall { .. }
+        | ExprKind::NullsafeDynamicMethodCall { .. }
         | ExprKind::StaticMethodCall { .. }
         | ExprKind::BufferNew { .. }
         | ExprKind::Yield { .. }

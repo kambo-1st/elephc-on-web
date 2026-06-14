@@ -89,6 +89,11 @@ pub(in crate::codegen::wasm) fn emit_expr(
             method,
             args,
         } => emit_method_call_expr(expr, object, method, args, module),
+        ExprKind::DynamicMethodCall {
+            object,
+            method,
+            args,
+        } => emit_dynamic_method_call_expr(expr, object, method, args, module),
         ExprKind::NullsafeMethodCall {
             object,
             method,
@@ -119,6 +124,11 @@ pub(in crate::codegen::wasm) fn emit_expr(
             method,
             args,
         } => emit_nullsafe_mixed_object_method_call_expr(expr, object, method, args, module),
+        ExprKind::NullsafeDynamicMethodCall {
+            object,
+            method,
+            args,
+        } => emit_nullsafe_dynamic_method_call_expr(expr, object, method, args, module),
         ExprKind::StaticMethodCall {
             receiver,
             method,

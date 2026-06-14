@@ -283,11 +283,17 @@ pub fn emit_expr(
             method,
             args,
         } => objects::emit_method_call(object, method, args, emitter, ctx, data),
+        ExprKind::DynamicMethodCall { .. } => {
+            panic!("dynamic method calls are not supported by native codegen")
+        }
         ExprKind::NullsafeMethodCall {
             object,
             method,
             args,
         } => objects::emit_nullsafe_method_call(object, method, args, emitter, ctx, data),
+        ExprKind::NullsafeDynamicMethodCall { .. } => {
+            panic!("nullsafe dynamic method calls are not supported by native codegen")
+        }
         ExprKind::StaticMethodCall {
             receiver,
             method,

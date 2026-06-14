@@ -263,6 +263,19 @@ pub(in crate::codegen::wasm) fn emit_output_expr(
                 _ => unreachable!("string method call target must return a string"),
             }
         }
+        ExprKind::DynamicMethodCall {
+            object,
+            method,
+            args,
+        } if dynamic_method_call_return_kind(object, method, module) == Some(ValueKind::Str) => {
+            match emit_dynamic_method_call_expr(expr, object, method, args, module)? {
+                ValueKind::Str => {
+                    module.body().line("call $host_write");
+                    Ok(())
+                }
+                _ => unreachable!("string dynamic method call target must return a string"),
+            }
+        }
         ExprKind::NullsafeMethodCall {
             object,
             method,
@@ -279,6 +292,10 @@ pub(in crate::codegen::wasm) fn emit_output_expr(
             }
         }
         ExprKind::NullsafeMethodCall { .. } => {
+            let kind = emit_expr(expr, module)?;
+            emit_output_loaded_kind(expr, kind, module)
+        }
+        ExprKind::NullsafeDynamicMethodCall { .. } => {
             let kind = emit_expr(expr, module)?;
             emit_output_loaded_kind(expr, kind, module)
         }

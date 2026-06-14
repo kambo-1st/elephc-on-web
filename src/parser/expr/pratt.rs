@@ -82,14 +82,14 @@ pub(super) fn parse_expr_bp(
                     ObjectMember::Named(member_name) => member_name,
                     ObjectMember::Dynamic(property) => {
                         if *pos < tokens.len() && tokens[*pos].0 == Token::LParen {
-                            let ExprKind::StringLiteral(member_name) = property.kind else {
-                                return Err(CompileError::new(
-                                    arrow_span,
-                                    "Dynamic method calls are not supported yet",
-                                ));
-                            };
                             *pos += 1;
                             if parse_first_class_callable_parens(tokens, pos)? {
+                                let ExprKind::StringLiteral(member_name) = property.kind else {
+                                    return Err(CompileError::new(
+                                        arrow_span,
+                                        "Dynamic first-class method callables are not supported yet",
+                                    ));
+                                };
                                 if nullsafe {
                                     return Err(CompileError::new(
                                         arrow_span,
@@ -105,22 +105,41 @@ pub(super) fn parse_expr_bp(
                                 );
                             } else {
                                 let args = parse_args(tokens, pos, arrow_span)?;
-                                lhs = Expr::new(
-                                    if nullsafe {
-                                        ExprKind::NullsafeMethodCall {
-                                            object: Box::new(lhs),
-                                            method: member_name,
-                                            args,
-                                        }
-                                    } else {
-                                        ExprKind::MethodCall {
-                                            object: Box::new(lhs),
-                                            method: member_name,
-                                            args,
-                                        }
-                                    },
-                                    arrow_span,
-                                );
+                                lhs = if let ExprKind::StringLiteral(member_name) = property.kind {
+                                    Expr::new(
+                                        if nullsafe {
+                                            ExprKind::NullsafeMethodCall {
+                                                object: Box::new(lhs),
+                                                method: member_name,
+                                                args,
+                                            }
+                                        } else {
+                                            ExprKind::MethodCall {
+                                                object: Box::new(lhs),
+                                                method: member_name,
+                                                args,
+                                            }
+                                        },
+                                        arrow_span,
+                                    )
+                                } else {
+                                    Expr::new(
+                                        if nullsafe {
+                                            ExprKind::NullsafeDynamicMethodCall {
+                                                object: Box::new(lhs),
+                                                method: Box::new(property),
+                                                args,
+                                            }
+                                        } else {
+                                            ExprKind::DynamicMethodCall {
+                                                object: Box::new(lhs),
+                                                method: Box::new(property),
+                                                args,
+                                            }
+                                        },
+                                        arrow_span,
+                                    )
+                                };
                             }
                             continue;
                         }

@@ -3142,16 +3142,16 @@ fn test_wasm32_web_e2e_matches_php_object_static_dynamic_method_calls() {
 }
 
 #[test]
-fn test_wasm32_web_runtime_variable_instance_method_name_is_rejected() {
-    assert_parse_compile_error(
-        "<?php\nclass Box { public function label(): string { return \"box\"; } }\n$o = new Box();\n$name = \"label\";\necho $o->{$name}() . \"\\n\";\n",
+fn test_wasm32_web_e2e_matches_php_runtime_variable_instance_method_name() {
+    assert_wasm_matches_php(
+        "<?php\nclass Box { public function label(): string { return \"box\"; } public function add(int $n): int { return $n + 7; } }\n$o = new Box();\n$name = \"label\";\n$add = \"add\";\necho $o->{$name}() . \":\" . $o->{$add}(5) . \"\\n\";\n",
     );
 }
 
 #[test]
-fn test_wasm32_web_runtime_variable_nullsafe_method_name_is_rejected() {
-    assert_parse_compile_error(
-        "<?php\nclass Box { public function label(): string { return \"box\"; } }\n$o = new Box();\n$name = \"label\";\necho $o?->{$name}() . \"\\n\";\n",
+fn test_wasm32_web_e2e_matches_php_runtime_variable_nullsafe_method_name() {
+    assert_wasm_matches_php(
+        "<?php\nclass Box { public function add(int $n): int { return $n + 4; } }\n$n = null;\n$name = \"add\";\n$n?->{$name}(6);\necho \"nullsafe-ok\\n\";\n",
     );
 }
 

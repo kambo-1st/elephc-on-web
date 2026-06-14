@@ -165,9 +165,19 @@ pub enum ExprKind {
         method: String,
         args: Vec<Expr>,
     },
+    DynamicMethodCall {
+        object: Box<Expr>,
+        method: Box<Expr>,
+        args: Vec<Expr>,
+    },
     NullsafeMethodCall {
         object: Box<Expr>,
         method: String,
+        args: Vec<Expr>,
+    },
+    NullsafeDynamicMethodCall {
+        object: Box<Expr>,
+        method: Box<Expr>,
         args: Vec<Expr>,
     },
     StaticMethodCall {

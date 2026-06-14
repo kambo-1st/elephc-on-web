@@ -408,8 +408,30 @@ fn collect_required_class_names_in_expr(expr: &Expr, names: &mut HashSet<String>
                 collect_required_class_names_in_expr(arg, names);
             }
         }
+        ExprKind::DynamicMethodCall {
+            object,
+            method,
+            args,
+        } => {
+            collect_required_class_names_in_expr(object, names);
+            collect_required_class_names_in_expr(method, names);
+            for arg in args {
+                collect_required_class_names_in_expr(arg, names);
+            }
+        }
         ExprKind::NullsafeMethodCall { object, args, .. } => {
             collect_required_class_names_in_expr(object, names);
+            for arg in args {
+                collect_required_class_names_in_expr(arg, names);
+            }
+        }
+        ExprKind::NullsafeDynamicMethodCall {
+            object,
+            method,
+            args,
+        } => {
+            collect_required_class_names_in_expr(object, names);
+            collect_required_class_names_in_expr(method, names);
             for arg in args {
                 collect_required_class_names_in_expr(arg, names);
             }

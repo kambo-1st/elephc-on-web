@@ -520,11 +520,55 @@ impl Checker {
                 method,
                 args,
             } => self.infer_method_call_type(object, method, args, expr, env),
+            ExprKind::DynamicMethodCall {
+                object,
+                method,
+                args,
+            } => {
+                let method_ty = self.infer_type(method, env)?;
+                if !self.type_accepts(&PhpType::Str, &method_ty) {
+                    return Err(CompileError::new(
+                        method.span,
+                        "Dynamic method name must be a string",
+                    ));
+                }
+                if let ExprKind::StringLiteral(method_name) = &method.kind {
+                    self.infer_method_call_type(object, method_name, args, expr, env)
+                } else {
+                    self.infer_type(object, env)?;
+                    for arg in args {
+                        self.infer_type(arg, env)?;
+                    }
+                    Ok(PhpType::Mixed)
+                }
+            }
             ExprKind::NullsafeMethodCall {
                 object,
                 method,
                 args,
             } => self.infer_nullsafe_method_call_type(object, method, args, expr, env),
+            ExprKind::NullsafeDynamicMethodCall {
+                object,
+                method,
+                args,
+            } => {
+                let method_ty = self.infer_type(method, env)?;
+                if !self.type_accepts(&PhpType::Str, &method_ty) {
+                    return Err(CompileError::new(
+                        method.span,
+                        "Dynamic method name must be a string",
+                    ));
+                }
+                if let ExprKind::StringLiteral(method_name) = &method.kind {
+                    self.infer_nullsafe_method_call_type(object, method_name, args, expr, env)
+                } else {
+                    self.infer_type(object, env)?;
+                    for arg in args {
+                        self.infer_type(arg, env)?;
+                    }
+                    Ok(PhpType::Mixed)
+                }
+            }
             ExprKind::StaticMethodCall {
                 receiver,
                 method,

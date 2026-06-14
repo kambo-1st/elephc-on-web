@@ -28,6 +28,10 @@ pub(in crate::codegen::wasm::module) fn infer_local_kind(
         {
             LocalKind::Mixed
         }
+        ExprKind::NullsafeDynamicMethodCall { object, .. } if matches!(object.kind, ExprKind::Null) =>
+        {
+            LocalKind::Mixed
+        }
         ExprKind::NewObject { .. } | ExprKind::NewScopedObject { .. } => LocalKind::Object,
         ExprKind::ArrayLiteral(_) | ExprKind::ArrayLiteralAssoc(_) => LocalKind::Array,
         ExprKind::FunctionCall { name, .. }
@@ -179,6 +183,22 @@ pub(in crate::codegen::wasm::module) fn infer_local_kind(
                 .map(local_kind_for_value)
                 .unwrap_or(LocalKind::I64)
         }
+        ExprKind::DynamicMethodCall { object, method, .. } => {
+            let Some(method) = static_dynamic_method_name(method, locals) else {
+                return LocalKind::Mixed;
+            };
+            let Some(class_name) = (match &object.kind {
+                ExprKind::NewObject { class_name, .. } => Some(class_name.as_str()),
+                _ => None,
+            }) else {
+                return unknown_receiver_method_local_kind(&method, function_return_kinds);
+            };
+            function_return_kinds
+                .get(&method_call_return_key(class_name, &method))
+                .copied()
+                .map(local_kind_for_value)
+                .unwrap_or(LocalKind::I64)
+        }
         ExprKind::NullsafeMethodCall { object, method, .. } => {
             let Some(class_name) = (match &object.kind {
                 ExprKind::NewObject { class_name, .. } => Some(class_name.as_str()),
@@ -188,6 +208,22 @@ pub(in crate::codegen::wasm::module) fn infer_local_kind(
             };
             function_return_kinds
                 .get(&method_call_return_key(class_name, method))
+                .copied()
+                .map(local_kind_for_value)
+                .unwrap_or(LocalKind::Mixed)
+        }
+        ExprKind::NullsafeDynamicMethodCall { object, method, .. } => {
+            let Some(method) = static_dynamic_method_name(method, locals) else {
+                return LocalKind::Mixed;
+            };
+            let Some(class_name) = (match &object.kind {
+                ExprKind::NewObject { class_name, .. } => Some(class_name.as_str()),
+                _ => None,
+            }) else {
+                return LocalKind::Mixed;
+            };
+            function_return_kinds
+                .get(&method_call_return_key(class_name, &method))
                 .copied()
                 .map(local_kind_for_value)
                 .unwrap_or(LocalKind::Mixed)
@@ -580,6 +616,21 @@ fn infer_pipe_local_kind(
         constants,
         class_constants,
     )
+}
+
+fn static_dynamic_method_name(
+    method: &Expr,
+    locals: &HashMap<String, LocalKind>,
+) -> Option<String> {
+    match &method.kind {
+        ExprKind::StringLiteral(value) => Some(value.clone()),
+        ExprKind::Variable(name) if locals.get(name) == Some(&LocalKind::Str) => {
+            // The exact string is tracked by codegen state at emission time; metadata can
+            // only safely use literal names here.
+            None
+        }
+        _ => None,
+    }
 }
 
 pub(in crate::codegen::wasm::module) fn unknown_receiver_method_local_kind(

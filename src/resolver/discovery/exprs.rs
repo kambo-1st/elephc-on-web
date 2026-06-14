@@ -172,6 +172,20 @@ pub(super) fn discover_expr(
             discover_expr(object, base_dir, loaded_paths, include_chain, state, output)?;
             discover_exprs(args, base_dir, loaded_paths, include_chain, state, output)?;
         }
+        ExprKind::DynamicMethodCall {
+            object,
+            method,
+            args,
+        }
+        | ExprKind::NullsafeDynamicMethodCall {
+            object,
+            method,
+            args,
+        } => {
+            discover_expr(object, base_dir, loaded_paths, include_chain, state, output)?;
+            discover_expr(method, base_dir, loaded_paths, include_chain, state, output)?;
+            discover_exprs(args, base_dir, loaded_paths, include_chain, state, output)?;
+        }
         ExprKind::FirstClassCallable(crate::parser::ast::CallableTarget::Method { object, .. }) => {
             discover_expr(object, base_dir, loaded_paths, include_chain, state, output)?;
         }

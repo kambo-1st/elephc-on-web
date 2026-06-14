@@ -1213,6 +1213,50 @@ pub(in crate::codegen::wasm) fn emit_method_call_expr(
     Ok(method_info.return_kind)
 }
 
+pub(in crate::codegen::wasm) fn emit_dynamic_method_call_expr(
+    expr: &Expr,
+    object: &Expr,
+    method: &Expr,
+    args: &[Expr],
+    module: &mut WasmModule,
+) -> Result<ValueKind, CompileError> {
+    let method_name = static_dynamic_method_name(expr, method, module)?;
+    emit_method_call_expr(expr, object, &method_name, args, module)
+}
+
+pub(in crate::codegen::wasm) fn emit_nullsafe_dynamic_method_call_expr(
+    expr: &Expr,
+    object: &Expr,
+    method: &Expr,
+    args: &[Expr],
+    module: &mut WasmModule,
+) -> Result<ValueKind, CompileError> {
+    if matches!(object.kind, ExprKind::Null) {
+        module.body().line("i32.const 0");
+        return Ok(ValueKind::Null);
+    }
+    let method_name = static_dynamic_method_name(expr, method, module)?;
+    if object_receiver_needs_runtime_class_id(object, module) {
+        return emit_nullsafe_dynamic_object_method_call(expr, object, &method_name, args, module);
+    }
+    if object_expr_is_known_non_null(object, module) {
+        return emit_method_call_expr(expr, object, &method_name, args, module);
+    }
+    if object_class_name_for_expr(object, module).is_some() {
+        return emit_nullable_exact_object_method_call(expr, object, &method_name, args, module);
+    }
+    emit_nullsafe_mixed_object_method_call_expr(expr, object, &method_name, args, module)
+}
+
+pub(in crate::codegen::wasm) fn dynamic_method_call_return_kind(
+    object: &Expr,
+    method: &Expr,
+    module: &WasmModule,
+) -> Option<ValueKind> {
+    let method_name = static_dynamic_method_name_opt(method, module)?;
+    method_call_return_kind(object, &method_name, module)
+}
+
 pub(in crate::codegen::wasm) fn emit_nullable_exact_object_method_call(
     expr: &Expr,
     object: &Expr,
@@ -5116,6 +5160,34 @@ fn static_object_property_name(expr: &Expr, module: &WasmModule) -> Option<Strin
         ExprKind::Variable(name) => module.string_static_value(name),
         _ => static_string_value(expr, module),
     }
+}
+
+fn static_dynamic_method_name(
+    call: &Expr,
+    method: &Expr,
+    module: &WasmModule,
+) -> Result<String, CompileError> {
+    if let Some(name) = static_dynamic_method_name_opt(method, module) {
+        return Ok(name);
+    }
+    Err(CompileError::new(
+        call.span,
+        "wasm32-web dynamic method calls require a compile-time-known method string",
+    ))
+}
+
+fn static_dynamic_method_name_opt(method: &Expr, module: &WasmModule) -> Option<String> {
+    if let Some(name) = static_object_property_name(method, module) {
+        return Some(name);
+    }
+    if let ExprKind::Variable(name) = &method.kind {
+        if let Some(values) = module.possible_static_string_values(name) {
+            if let [value] = values {
+                return Some(value.clone());
+            }
+        }
+    }
+    None
 }
 
 fn emit_runtime_dynamic_property_read_branch(

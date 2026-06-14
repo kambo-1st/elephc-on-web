@@ -310,9 +310,16 @@ pub(in crate::codegen::wasm) fn expression_is_stringy(expr: &Expr, module: &Wasm
         ExprKind::MethodCall { object, method, .. } => {
             method_call_return_kind(object, method, module) == Some(ValueKind::Str)
         }
+        ExprKind::DynamicMethodCall { object, method, .. } => {
+            dynamic_method_call_return_kind(object, method, module) == Some(ValueKind::Str)
+        }
         ExprKind::NullsafeMethodCall { object, method, .. } => {
             object_expr_is_known_non_null(object, module)
                 && method_call_return_kind(object, method, module) == Some(ValueKind::Str)
+        }
+        ExprKind::NullsafeDynamicMethodCall { object, method, .. } => {
+            object_expr_is_known_non_null(object, module)
+                && dynamic_method_call_return_kind(object, method, module) == Some(ValueKind::Str)
         }
         ExprKind::StaticMethodCall { receiver, method, .. } => {
             static_method_call_return_kind(receiver, method, module) == Some(ValueKind::Str)
