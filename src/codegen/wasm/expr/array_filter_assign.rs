@@ -481,7 +481,9 @@ pub(in crate::codegen::wasm) fn emit_array_filter_assign(
             let temp = materialize_static_method_array_filter_source(&args[0], receiver, method, module)?;
             emit_array_filter_staged_assign(name, &temp, args[0].span, &callback, shape, module)
         }
-        ExprKind::FunctionCall { .. } if expression_has_array_type(&args[0], module) => {
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
+            if expression_has_array_type(&args[0], module) =>
+        {
             emit_array_filter_array_expr_assign(name, &args[0], args[0].span, &callback, shape, module)
         }
         ExprKind::StaticMethodCall {

@@ -31011,6 +31011,9 @@ foreach (array_intersect(["head", "tail", "extra"], make_callable_expr_array()("
 foreach (array_filter(make_callable_expr_array()("direct-filter-default")) as $item) {
     echo $item . "\n";
 }
+foreach (array_filter(make_callable_expr_array()("direct-filter-callback"), "strlen") as $item) {
+    echo $item . "\n";
+}
 "#,
     );
 }
