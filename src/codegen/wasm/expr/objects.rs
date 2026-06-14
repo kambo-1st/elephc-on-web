@@ -3095,6 +3095,16 @@ pub(in crate::codegen::wasm) fn emit_get_parent_class_value_to_stack(
                 "wasm32-web get_parent_class() without arguments requires a class context",
             )
         })?,
+        [target] if object_receiver_needs_runtime_class_id(target, module) => {
+            if emit_expr(target, module)? != ValueKind::Object {
+                return Err(CompileError::new(
+                    target.span,
+                    "wasm32-web get_parent_class() expected an object or static class-string argument",
+                ));
+            }
+            emit_get_parent_class_from_dynamic_object(target, module)?;
+            return Ok(());
+        }
         [target] if object_class_name_for_expr(target, module).is_some() => {
             let class_name = object_class_name_for_expr(target, module).expect("checked by guard");
             if emit_expr(target, module)? != ValueKind::Object {
@@ -3151,6 +3161,77 @@ pub(in crate::codegen::wasm) fn emit_get_parent_class_value_to_stack(
     module.body().line(&format!("i32.const {}", ptr));
     module.body().line(&format!("i32.const {}", len));
     Ok(())
+}
+
+fn emit_get_parent_class_from_dynamic_object(
+    object: &Expr,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let receiver_type = dynamic_object_receiver_declared_type(object, module);
+    let classes = module
+        .object_class_names_by_id()
+        .into_iter()
+        .filter(|(_, class_name)| candidate_class_matches_declared_receiver(class_name, receiver_type.as_deref(), module))
+        .collect::<Vec<_>>();
+    if classes.is_empty() {
+        return Err(CompileError::new(
+            object.span,
+            "wasm32-web get_parent_class() from dynamic object receivers requires object class metadata",
+        ));
+    }
+    let object_local = module
+        .next_label("dynamic_object_get_parent_class_object")
+        .trim_start_matches('$')
+        .to_string();
+    let class_id_local = module
+        .next_label("dynamic_object_get_parent_class_class_id")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_object_local(object_local.clone());
+    module.declare_i64_local(class_id_local.clone());
+    module.body().line(&format!("local.set ${}", object_local));
+    module.body().line(&format!("local.get ${}", object_local));
+    module.body().line("i64.load");
+    module.body().line(&format!("local.set ${}", class_id_local));
+    emit_get_parent_class_name_from_class_id(&class_id_local, &classes, module);
+    Ok(())
+}
+
+fn emit_get_parent_class_name_from_class_id(
+    class_id_local: &str,
+    classes: &[(u64, String)],
+    module: &mut WasmModule,
+) {
+    emit_get_parent_class_name_branch(class_id_local, classes, 0, module);
+}
+
+fn emit_get_parent_class_name_branch(
+    class_id_local: &str,
+    classes: &[(u64, String)],
+    index: usize,
+    module: &mut WasmModule,
+) {
+    if index == classes.len() {
+        module.body().line("unreachable");
+        return;
+    }
+    let (class_id, class_name) = &classes[index];
+    module.body().line(&format!("local.get ${}", class_id_local));
+    module.body().line(&format!("i64.const {}", class_id));
+    module.body().line("i64.eq");
+    module.body().open("if (result i32 i32)");
+    let parent_name = module
+        .object_class(class_name)
+        .and_then(|class_info| class_info.parent.as_deref())
+        .and_then(|parent| module.object_class(parent))
+        .map(|parent| parent.name.clone())
+        .unwrap_or_default();
+    let (ptr, len) = module.intern_string(&parent_name);
+    module.body().line(&format!("i32.const {}", ptr));
+    module.body().line(&format!("i32.const {}", len));
+    module.body().line("else");
+    emit_get_parent_class_name_branch(class_id_local, classes, index + 1, module);
+    module.body().close("end");
 }
 
 fn emit_get_parent_class_from_runtime_string(
