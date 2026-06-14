@@ -31108,8 +31108,27 @@ $directDiffKey = array_diff_key(make_callable_expr_assoc()("direct-diff-key"), m
 echo count($directDiffKey) . ":" . $directDiffKey["keep"] . ":" . (array_key_exists("drop", $directDiffKey) ? 1 : 0) . "\n";
 $directIntersectKey = array_intersect_key(make_callable_expr_assoc()("direct-intersect-key"), make_callable_expr_mask()("direct-intersect-mask"));
 echo count($directIntersectKey) . ":" . $directIntersectKey["drop"] . ":" . $directIntersectKey[7] . "\n";
+$directRand = array_rand(make_callable_expr_numbers()("direct-rand"));
+echo (($directRand >= 0 && $directRand < 3) ? "rand-ok" : "rand-bad") . "\n";
+$directRandKeys = array_rand(make_callable_expr_numbers()("direct-rand-keys"), 3);
+echo count($directRandKeys) . ":" . $directRandKeys[0] . ":" . $directRandKeys[2] . "\n";
 "#,
     );
+}
+
+#[test]
+fn test_wasm32_web_callable_return_assoc_array_rand_is_rejected() {
+    let source = r#"<?php
+function assoc_items(string $prefix): array {
+    return ["keep" => $prefix, "drop" => "no"];
+}
+function make_assoc_callable(): callable {
+    return assoc_items(...);
+}
+$keys = array_rand(make_assoc_callable()("row"), 2);
+echo count($keys);
+"#;
+    assert_wasm_compile_error(source);
 }
 
 #[test]

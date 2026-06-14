@@ -67,13 +67,21 @@ pub(super) fn emit_array_rand_call(
             )?;
             return emit_array_rand_from_local(args[0].span, &temp, module);
         }
-        ExprKind::FunctionCall { .. } => {
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. } => {
             let temp = module
                 .next_label("array_rand_source")
                 .trim_start_matches('$')
                 .to_string();
             module.declare_array_local(temp.clone());
             emit_array_assign(&temp, &args[0], module)?;
+            if matches!(args[0].kind, ExprKind::ExprCall { .. })
+                && module.array_layout(&temp) == ArrayLayout::Assoc
+            {
+                return Err(CompileError::new(
+                    args[0].span,
+                    "wasm32-web array_rand() over callable-return associative expression arrays requires key metadata support",
+                ));
+            }
             return emit_array_rand_from_local(args[0].span, &temp, module);
         }
         ExprKind::ArrayAccess { .. } if nested_array_metadata_for_access_expr(&args[0], module).is_some() => {
@@ -200,7 +208,7 @@ pub(super) fn emit_array_rand_assign(
                 emit_array_rand_full_index_keys_from_local(name, args[0].span, &temp, &args[1], module)
             }
         }
-        ExprKind::FunctionCall { .. } => {
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. } => {
             let temp = module
                 .next_label("array_rand_array_source")
                 .trim_start_matches('$')
@@ -208,6 +216,12 @@ pub(super) fn emit_array_rand_assign(
             module.declare_array_local(temp.clone());
             emit_array_assign(&temp, &args[0], module)?;
             if module.array_layout(&temp) == ArrayLayout::Assoc {
+                if matches!(args[0].kind, ExprKind::ExprCall { .. }) {
+                    return Err(CompileError::new(
+                        args[0].span,
+                        "wasm32-web array_rand() over callable-return associative expression arrays requires key metadata support",
+                    ));
+                }
                 emit_array_rand_full_assoc_keys_from_local(name, args[0].span, &temp, &args[1], module)
             } else {
                 emit_array_rand_full_index_keys_from_local(name, args[0].span, &temp, &args[1], module)
