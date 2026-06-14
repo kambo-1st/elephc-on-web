@@ -31098,6 +31098,9 @@ echo array_reduce(make_callable_expr_array()("direct-reduce"), "callable_expr_jo
 echo array_reduce(make_callable_expr_numbers()("direct-int-reduce"), "callable_expr_sum", 1) . "\n";
 echo array_reduce(make_callable_expr_floats()("direct-float-reduce"), "callable_expr_sum_float", 0.25) . "\n";
 echo (array_reduce(make_callable_expr_flags()("direct-bool-reduce"), "callable_expr_all", true) ? "yes" : "no") . "\n";
+$directSum = array_sum(make_callable_expr_numbers()("direct-sum"));
+$directProduct = array_product(make_callable_expr_numbers()("direct-product"));
+echo $directSum . ":" . $directProduct . "\n";
 $mixedIntReduce = array_reduce(make_callable_expr_mixed_array()("direct-mixed-int-reduce"), "callable_expr_mixed_to_int", 0);
 echo ":" . $mixedIntReduce . "\n";
 echo (array_reduce(make_callable_expr_mixed_array()("direct-mixed-bool-reduce"), "callable_expr_mixed_to_bool", false) ? ":T" : ":F") . "\n";

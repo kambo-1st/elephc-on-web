@@ -121,6 +121,16 @@ pub(super) fn emit_numeric_array_fold_call(
             }
             emit_numeric_array_fold_from_local(expr, name, &temp, product, module)
         }
+        ExprKind::ExprCall { .. } if expression_has_array_type(&args[0], module) => {
+            let temp = module
+                .next_label("array_fold_expr_source")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_array_local(temp.clone());
+            emit_array_assign(&temp, &args[0], module)?;
+            reject_known_unsupported_array_fold_values(expr, &temp, name, module)?;
+            emit_numeric_array_fold_from_local(expr, name, &temp, product, module)
+        }
         ExprKind::MethodCall { object, method, .. }
             if method_call_array_return_metadata(object, method, module).is_some() =>
         {
