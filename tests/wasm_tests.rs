@@ -3738,6 +3738,13 @@ fn test_wasm32_web_e2e_matches_php_object_mixed_property_object_cell_get_class()
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_mixed_property_object_cell_get_parent_class() {
+    assert_wasm_matches_php(
+        "<?php\nclass Base {}\nclass Child extends Base {}\nclass Box { public mixed $value = 1; }\n$o = new Box();\n$o->value = new Child();\necho \"[\" . get_parent_class($o->value) . \"]\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_mixed_property_object_cell_class_checks() {
     assert_wasm_matches_php(
         "<?php\ninterface Named {}\nclass Base {}\nclass Child extends Base implements Named {}\nclass Other {}\nclass Box { public mixed $value = 1; }\nfunction mixed_target(): string { echo \"target\\n\"; return \"Base\"; }\n$o = new Box();\n$o->value = new Child();\necho ($o->value instanceof Child ? 1 : 0); echo \":\"; echo ($o->value instanceof Base ? 1 : 0); echo \":\"; echo ($o->value instanceof Named ? 1 : 0); echo \":\"; echo ($o->value instanceof Other ? 1 : 0); echo \":\"; echo (is_a($o->value, Base::class) ? 1 : 0); echo \":\"; echo (is_subclass_of($o->value, Base::class) ? 1 : 0); echo \":\"; echo (is_a($o->value, mixed_target()) ? 1 : 0); echo \":\"; echo (is_subclass_of($o->value, mixed_target()) ? 1 : 0); echo \"\\n\";\n",
@@ -4245,6 +4252,13 @@ fn test_wasm32_web_e2e_matches_php_static_mixed_property_object_cell_type_surfac
 fn test_wasm32_web_e2e_matches_php_static_mixed_property_object_cell_get_class() {
     assert_wasm_matches_php(
         "<?php\nclass Child {}\nclass Box { public static mixed $value = 1; }\nBox::$value = new Child();\necho get_class(Box::$value) . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_static_mixed_property_object_cell_get_parent_class() {
+    assert_wasm_matches_php(
+        "<?php\nclass Base {}\nclass Child extends Base {}\nclass Box { public static mixed $value = 1; }\nBox::$value = new Child();\necho \"[\" . get_parent_class(Box::$value) . \"]\\n\";\n",
     );
 }
 
