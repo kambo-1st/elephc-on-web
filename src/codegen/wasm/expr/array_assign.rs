@@ -664,7 +664,7 @@ fn emit_class_parents_array_assign(
             "wasm32-web class_parents() expects one or two arguments",
         ));
     };
-    let class_name = if let Some(class_name) = static_string_value(target, module) {
+    let class_name = if let Some(class_name) = static_or_tracked_string_value(target, module) {
         class_name
     } else if let Some(class_name) = object_class_name_for_expr(target, module) {
         if emit_expr(target, module)? != ValueKind::Object {
@@ -734,7 +734,7 @@ fn emit_class_implements_array_assign(
             "wasm32-web class_implements() expects one or two arguments",
         ));
     };
-    let names = if let Some(class_name) = static_string_value(target, module) {
+    let names = if let Some(class_name) = static_or_tracked_string_value(target, module) {
         if let Some(names) = module.implemented_interface_names_for_class(&class_name) {
             names
         } else if let Some(names) = module.parent_interface_names_for_interface(&class_name) {
@@ -781,6 +781,13 @@ fn assoc_string_set_items(names: Vec<String>, span: crate::span::Span) -> Vec<(E
         .collect()
 }
 
+fn static_or_tracked_string_value(expr: &Expr, module: &WasmModule) -> Option<String> {
+    match &expr.kind {
+        ExprKind::Variable(name) => module.string_static_value(name),
+        _ => static_string_value(expr, module),
+    }
+}
+
 fn emit_class_uses_array_assign(
     name: &str,
     call: &Expr,
@@ -793,7 +800,7 @@ fn emit_class_uses_array_assign(
             "wasm32-web class_uses() expects one or two arguments",
         ));
     };
-    let names = if let Some(class_name) = static_string_value(target, module) {
+    let names = if let Some(class_name) = static_or_tracked_string_value(target, module) {
         module
             .used_trait_names_for_class_or_trait(&class_name)
             .ok_or_else(|| {

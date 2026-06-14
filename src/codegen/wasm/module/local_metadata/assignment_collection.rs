@@ -152,18 +152,9 @@ pub(super) fn collect_assignment_locals(
         array_key_kinds,
         array_key_values,
     );
-    if let Some((values, keys)) = class_parents_metadata_for_assignment(value, object_classes) {
-        array_value_kinds.insert(name.clone(), values);
-        array_runtime_value_kinds.remove(name);
-        array_nested_values.remove(name);
-        array_key_kinds.insert(
-            name.clone(),
-            keys.iter().map(assoc_key_kind_for_value).collect(),
-        );
-        array_key_values.insert(name.clone(), keys);
-        php_normalized_key_arrays.remove(name);
-    }
-    if let Some((values, keys)) = class_implements_metadata_for_assignment(value, object_classes) {
+    if let Some((values, keys)) =
+        class_parents_metadata_for_assignment(value, object_classes, string_static_values)
+    {
         array_value_kinds.insert(name.clone(), values);
         array_runtime_value_kinds.remove(name);
         array_nested_values.remove(name);
@@ -175,7 +166,25 @@ pub(super) fn collect_assignment_locals(
         php_normalized_key_arrays.remove(name);
     }
     if let Some((values, keys)) =
-        class_uses_metadata_for_assignment(value, object_classes, trait_use_names)
+        class_implements_metadata_for_assignment(value, object_classes, string_static_values)
+    {
+        array_value_kinds.insert(name.clone(), values);
+        array_runtime_value_kinds.remove(name);
+        array_nested_values.remove(name);
+        array_key_kinds.insert(
+            name.clone(),
+            keys.iter().map(assoc_key_kind_for_value).collect(),
+        );
+        array_key_values.insert(name.clone(), keys);
+        php_normalized_key_arrays.remove(name);
+    }
+    if let Some((values, keys)) =
+        class_uses_metadata_for_assignment(
+            value,
+            object_classes,
+            trait_use_names,
+            string_static_values,
+        )
     {
         array_value_kinds.insert(name.clone(), values);
         array_runtime_value_kinds.remove(name);
@@ -1872,6 +1881,7 @@ fn array_access_has_unknown_nested_assoc_keys(
 fn class_parents_metadata_for_assignment(
     value: &Expr,
     object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
+    string_static_values: &HashMap<String, String>,
 ) -> Option<(Vec<ValueCellKind>, Vec<AssocKeyValue>)> {
     let ExprKind::FunctionCall { name, args } = &value.kind else {
         return None;
@@ -1879,7 +1889,7 @@ fn class_parents_metadata_for_assignment(
     if !name.eq_ignore_ascii_case("class_parents") {
         return None;
     }
-    let class_name = class_relation_static_or_new_target_name(args.first()?)?;
+    let class_name = class_relation_static_or_new_target_name(args.first()?, string_static_values)?;
     let mut names = Vec::new();
     let mut current = function_key(&class_name);
     while let Some(class_info) = object_classes.get(&current) {
@@ -1898,6 +1908,7 @@ fn class_parents_metadata_for_assignment(
 fn class_implements_metadata_for_assignment(
     value: &Expr,
     object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
+    string_static_values: &HashMap<String, String>,
 ) -> Option<(Vec<ValueCellKind>, Vec<AssocKeyValue>)> {
     let ExprKind::FunctionCall { name, args } = &value.kind else {
         return None;
@@ -1905,7 +1916,7 @@ fn class_implements_metadata_for_assignment(
     if !name.eq_ignore_ascii_case("class_implements") {
         return None;
     }
-    let class_name = class_relation_static_or_new_target_name(args.first()?)?;
+    let class_name = class_relation_static_or_new_target_name(args.first()?, string_static_values)?;
     let class_info = object_classes.get(&function_key(&class_name))?;
     let keys = class_info
         .interfaces
@@ -1920,6 +1931,7 @@ fn class_uses_metadata_for_assignment(
     value: &Expr,
     object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
     trait_use_names: &HashMap<String, Vec<String>>,
+    string_static_values: &HashMap<String, String>,
 ) -> Option<(Vec<ValueCellKind>, Vec<AssocKeyValue>)> {
     let ExprKind::FunctionCall { name, args } = &value.kind else {
         return None;
@@ -1927,7 +1939,7 @@ fn class_uses_metadata_for_assignment(
     if !name.eq_ignore_ascii_case("class_uses") {
         return None;
     }
-    let class_name = class_relation_static_or_new_target_name(args.first()?)?;
+    let class_name = class_relation_static_or_new_target_name(args.first()?, string_static_values)?;
     let key = function_key(&class_name);
     let used_traits = object_classes
         .get(&key)
@@ -1941,10 +1953,14 @@ fn class_uses_metadata_for_assignment(
     Some((vec![ValueCellKind::Str; keys.len()], keys))
 }
 
-fn class_relation_static_or_new_target_name(target: &Expr) -> Option<String> {
+fn class_relation_static_or_new_target_name(
+    target: &Expr,
+    string_static_values: &HashMap<String, String>,
+) -> Option<String> {
     match &target.kind {
         ExprKind::StringLiteral(class_name) => Some(class_name.clone()),
         ExprKind::NewObject { class_name, .. } => Some(class_name.as_str().to_string()),
+        ExprKind::Variable(name) => string_static_values.get(name).cloned(),
         _ => None,
     }
 }
