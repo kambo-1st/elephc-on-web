@@ -3122,6 +3122,13 @@ fn test_wasm32_web_e2e_matches_php_class_parents_direct_function_call_callbacks(
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_class_parents_direct_function_call_reduce_walk() {
+    assert_wasm_matches_php(
+        "<?php\nfunction reduce_parent_call(string $carry, string $value): string { return $carry . \"/\" . $value; }\nfunction walk_parent_call(string $value, string $key): void { echo $key . \"=\" . $value . \";\"; }\nclass ReduceWalkParentCallRoot {}\nclass ReduceWalkParentCallMiddle extends ReduceWalkParentCallRoot {}\nclass ReduceWalkParentCallLeaf extends ReduceWalkParentCallMiddle {}\nfunction reduce_walk_parent_call_class(): string { echo \"target\\n\"; return ReduceWalkParentCallLeaf::class; }\necho array_reduce(class_parents(reduce_walk_parent_call_class()), \"reduce_parent_call\", \"s\") . \"\\n\";\necho (array_walk(class_parents(reduce_walk_parent_call_class()), \"walk_parent_call\") ? \"ok\" : \"no\") . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_class_implements_assigned_array() {
     assert_wasm_matches_php(
         "<?php\ninterface implements_one {}\ninterface implements_two {}\nclass implements_target implements implements_one, implements_two {}\n$interfaces = class_implements(\"implements_target\");\necho count($interfaces) . \":\";\nforeach ($interfaces as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
@@ -3188,6 +3195,13 @@ fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_slice_m
 fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_callbacks() {
     assert_wasm_matches_php(
         "<?php\ninterface CallbackCallImplementsOne {}\ninterface CallbackCallImplementsTwo {}\nclass CallbackCallImplementsTarget implements CallbackCallImplementsOne, CallbackCallImplementsTwo {}\nfunction callback_implements_call_class(): string { echo \"target\\n\"; return CallbackCallImplementsTarget::class; }\nforeach (array_filter(class_implements(callback_implements_call_class())) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_filter(class_implements(callback_implements_call_class()), \"strlen\") as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_map(\"strlen\", class_implements(callback_implements_call_class())) as $value) { echo $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_reduce_walk() {
+    assert_wasm_matches_php(
+        "<?php\nfunction reduce_implements_call(string $carry, string $value): string { return $carry . \"/\" . $value; }\nfunction walk_implements_call(string $value, string $key): void { echo $key . \"=\" . $value . \";\"; }\ninterface ReduceWalkCallImplementsOne {}\ninterface ReduceWalkCallImplementsTwo {}\nclass ReduceWalkCallImplementsTarget implements ReduceWalkCallImplementsOne, ReduceWalkCallImplementsTwo {}\nfunction reduce_walk_implements_call_class(): string { echo \"target\\n\"; return ReduceWalkCallImplementsTarget::class; }\necho array_reduce(class_implements(reduce_walk_implements_call_class()), \"reduce_implements_call\", \"s\") . \"\\n\";\necho (array_walk(class_implements(reduce_walk_implements_call_class()), \"walk_implements_call\") ? \"ok\" : \"no\") . \"\\n\";\n",
     );
 }
 
@@ -3279,6 +3293,13 @@ fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_slice_merge()
 fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_callbacks() {
     assert_wasm_matches_php(
         "<?php\ntrait CallbackCallUsesTrait {}\nclass CallbackCallUsesTarget { use CallbackCallUsesTrait; }\nfunction callback_uses_call_class(): string { echo \"target\\n\"; return CallbackCallUsesTarget::class; }\nforeach (array_filter(class_uses(callback_uses_call_class())) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_filter(class_uses(callback_uses_call_class()), \"strlen\") as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_map(\"strlen\", class_uses(callback_uses_call_class())) as $value) { echo $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_reduce_walk() {
+    assert_wasm_matches_php(
+        "<?php\nfunction reduce_uses_call(string $carry, string $value): string { return $carry . \"/\" . $value; }\nfunction walk_uses_call(string $value, string $key): void { echo $key . \"=\" . $value . \";\"; }\ntrait ReduceWalkCallUsesTrait {}\nclass ReduceWalkCallUsesTarget { use ReduceWalkCallUsesTrait; }\nfunction reduce_walk_uses_call_class(): string { echo \"target\\n\"; return ReduceWalkCallUsesTarget::class; }\necho array_reduce(class_uses(reduce_walk_uses_call_class()), \"reduce_uses_call\", \"s\") . \"\\n\";\necho (array_walk(class_uses(reduce_walk_uses_call_class()), \"walk_uses_call\") ? \"ok\" : \"no\") . \"\\n\";\n",
     );
 }
 
