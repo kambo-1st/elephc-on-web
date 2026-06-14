@@ -31160,6 +31160,31 @@ echo gettype($key) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_callable_method_return_assoc_array_rand() {
+    assert_wasm_matches_php(
+        r#"<?php
+function callable_method_assoc_rand_items(string $prefix): array {
+    return ["keep" => $prefix, "drop" => "no"];
+}
+class AssocRandFactory {
+    public static function staticFactory(): callable {
+        echo "static-rand\n";
+        return callable_method_assoc_rand_items(...);
+    }
+    public function instanceFactory(): callable {
+        echo "method-rand\n";
+        return callable_method_assoc_rand_items(...);
+    }
+}
+$staticKey = array_rand((AssocRandFactory::staticFactory())("static"));
+echo gettype($staticKey) . "\n";
+$methodKey = array_rand(((new AssocRandFactory())->instanceFactory())("method"));
+echo gettype($methodKey) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_callable_typed_function_param_descriptor_helpers() {
     assert_wasm_matches_php(
         r#"<?php

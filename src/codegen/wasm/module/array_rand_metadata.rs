@@ -11,12 +11,13 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::parser::ast::{Expr, ExprKind};
+use crate::parser::ast::{Expr, ExprKind, StaticReceiver};
 
 use super::{
     array_access_metadata, array_filter_foreach_key_kinds, assoc_key_kind_for_value,
-    direct_assoc_builder_key_kinds_for_foreach, function_key, static_assoc_key_kinds_for_items,
-    ArrayLayout, AssocKeyKind, AssocKeyValue, LocalKind, NestedArrayMetadata, ValueCellKind,
+    direct_assoc_builder_key_kinds_for_foreach, function_key, method_call_return_key,
+    static_assoc_key_kinds_for_items, static_method_call_return_key, ArrayLayout, AssocKeyKind,
+    AssocKeyValue, LocalKind, NestedArrayMetadata, ValueCellKind,
 };
 
 pub(super) fn local_kind_for_source(
@@ -129,6 +130,19 @@ fn callable_expr_source_key(
 ) -> Option<String> {
     let descriptor = match &callee.kind {
         ExprKind::FunctionCall { name, .. } => function_key(name),
+        ExprKind::StaticMethodCall {
+            receiver: StaticReceiver::Named(class_name),
+            method,
+            ..
+        } => static_method_call_return_key(class_name.as_str(), method),
+        ExprKind::MethodCall { object, method, .. }
+        | ExprKind::NullsafeMethodCall { object, method, .. } => {
+            if let ExprKind::NewObject { class_name, .. } = &object.kind {
+                method_call_return_key(class_name.as_str(), method)
+            } else {
+                return None;
+            }
+        }
         _ => return None,
     };
     if function_return_kinds.get(&descriptor) != Some(&super::ValueKind::Callable) {
