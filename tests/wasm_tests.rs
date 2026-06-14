@@ -3115,6 +3115,13 @@ fn test_wasm32_web_e2e_matches_php_class_parents_direct_function_call_slice_merg
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_class_parents_direct_function_call_callbacks() {
+    assert_wasm_matches_php(
+        "<?php\nclass CallbackParentCallRoot {}\nclass CallbackParentCallMiddle extends CallbackParentCallRoot {}\nclass CallbackParentCallLeaf extends CallbackParentCallMiddle {}\nfunction callback_parent_call_class(): string { echo \"target\\n\"; return CallbackParentCallLeaf::class; }\nforeach (array_filter(class_parents(callback_parent_call_class())) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_filter(class_parents(callback_parent_call_class()), \"strlen\") as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_map(\"strlen\", class_parents(callback_parent_call_class())) as $value) { echo $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_class_implements_assigned_array() {
     assert_wasm_matches_php(
         "<?php\ninterface implements_one {}\ninterface implements_two {}\nclass implements_target implements implements_one, implements_two {}\n$interfaces = class_implements(\"implements_target\");\necho count($interfaces) . \":\";\nforeach ($interfaces as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
@@ -3174,6 +3181,13 @@ fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_key_pre
 fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_slice_merge() {
     assert_wasm_matches_php(
         "<?php\ninterface SliceMergeCallImplementsOne {}\ninterface SliceMergeCallImplementsTwo {}\nclass SliceMergeCallImplementsTarget implements SliceMergeCallImplementsOne, SliceMergeCallImplementsTwo {}\nfunction slice_merge_implements_call_class(): string { echo \"target\\n\"; return SliceMergeCallImplementsTarget::class; }\nforeach (array_slice(class_implements(slice_merge_implements_call_class()), 0, 1, true) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_merge([\"seed\"], class_implements(slice_merge_implements_call_class())) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_callbacks() {
+    assert_wasm_matches_php(
+        "<?php\ninterface CallbackCallImplementsOne {}\ninterface CallbackCallImplementsTwo {}\nclass CallbackCallImplementsTarget implements CallbackCallImplementsOne, CallbackCallImplementsTwo {}\nfunction callback_implements_call_class(): string { echo \"target\\n\"; return CallbackCallImplementsTarget::class; }\nforeach (array_filter(class_implements(callback_implements_call_class())) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_filter(class_implements(callback_implements_call_class()), \"strlen\") as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_map(\"strlen\", class_implements(callback_implements_call_class())) as $value) { echo $value . \";\"; }\necho \"\\n\";\n",
     );
 }
 
@@ -3258,6 +3272,13 @@ fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_key_preservin
 fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_slice_merge() {
     assert_wasm_matches_php(
         "<?php\ntrait SliceMergeCallUsesTrait {}\nclass SliceMergeCallUsesTarget { use SliceMergeCallUsesTrait; }\nfunction slice_merge_uses_call_class(): string { echo \"target\\n\"; return SliceMergeCallUsesTarget::class; }\nforeach (array_slice(class_uses(slice_merge_uses_call_class()), 0, 1, true) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_merge([\"seed\"], class_uses(slice_merge_uses_call_class())) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_callbacks() {
+    assert_wasm_matches_php(
+        "<?php\ntrait CallbackCallUsesTrait {}\nclass CallbackCallUsesTarget { use CallbackCallUsesTrait; }\nfunction callback_uses_call_class(): string { echo \"target\\n\"; return CallbackCallUsesTarget::class; }\nforeach (array_filter(class_uses(callback_uses_call_class())) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_filter(class_uses(callback_uses_call_class()), \"strlen\") as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_map(\"strlen\", class_uses(callback_uses_call_class())) as $value) { echo $value . \";\"; }\necho \"\\n\";\n",
     );
 }
 

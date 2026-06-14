@@ -50,6 +50,14 @@ pub(super) fn default_value_kinds_for_assignment(
             )
             .map(|(kinds, _)| kinds)
         }
+        ExprKind::FunctionCall { name, .. }
+            if matches!(
+                name.to_ascii_lowercase().as_str(),
+                "class_parents" | "class_implements" | "class_uses"
+            ) =>
+        {
+            Some(vec![ValueCellKind::Str])
+        }
         _ => None,
     }
 }
@@ -172,6 +180,14 @@ pub(super) fn callback_value_kinds_for_assignment(
     let values = match &args[0].kind {
         ExprKind::ArrayLiteral(items) => static_value_cell_kinds_for_items(items)?,
         ExprKind::Variable(source) => array_value_kinds.get(source)?.clone(),
+        ExprKind::FunctionCall { name, .. }
+            if matches!(
+                name.to_ascii_lowercase().as_str(),
+                "class_parents" | "class_implements" | "class_uses"
+            ) =>
+        {
+            vec![ValueCellKind::Str]
+        }
         _ => return None,
     };
     callback_value_kinds_are_homogeneous_supported(&values).then_some(values)

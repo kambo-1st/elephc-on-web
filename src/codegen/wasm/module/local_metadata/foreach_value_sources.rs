@@ -168,6 +168,14 @@ pub(in crate::codegen::wasm::module) fn value_kinds_for_foreach_source(
         ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("array_flip") => {
             array_flip_value_kinds(args, &HashMap::new())
         }
+        ExprKind::FunctionCall { name, .. }
+            if matches!(
+                name.to_ascii_lowercase().as_str(),
+                "class_parents" | "class_implements" | "class_uses"
+            ) =>
+        {
+            Some(vec![ValueCellKind::Str])
+        }
         _ => None,
     }
 }

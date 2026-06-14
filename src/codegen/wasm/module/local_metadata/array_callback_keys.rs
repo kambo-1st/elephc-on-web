@@ -40,6 +40,14 @@ pub(super) fn array_map_foreach_key_kinds(
                 array_runtime_value_kinds,
             )
         }
+        ExprKind::FunctionCall { name, .. }
+            if matches!(
+                name.to_ascii_lowercase().as_str(),
+                "class_parents" | "class_implements" | "class_uses"
+            ) =>
+        {
+            Some(vec![AssocKeyKind::Str])
+        }
         ExprKind::FunctionCall { name, .. } => function_array_return_key_kinds
             .get(&function_key(name))
             .cloned(),
@@ -102,6 +110,14 @@ pub(in crate::codegen::wasm::module) fn array_filter_foreach_key_kinds(
                 array_value_kinds,
                 array_runtime_value_kinds,
             )
+        }
+        ExprKind::FunctionCall { name, .. }
+            if matches!(
+                name.to_ascii_lowercase().as_str(),
+                "class_parents" | "class_implements" | "class_uses"
+            ) =>
+        {
+            Some(vec![AssocKeyKind::Str])
         }
         ExprKind::FunctionCall { name, .. } => function_array_return_key_kinds
             .get(&function_key(name))
