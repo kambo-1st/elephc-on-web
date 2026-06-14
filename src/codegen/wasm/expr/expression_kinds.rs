@@ -324,6 +324,9 @@ pub(in crate::codegen::wasm) fn expression_is_stringy(expr: &Expr, module: &Wasm
         ExprKind::StaticMethodCall { receiver, method, .. } => {
             static_method_call_return_kind(receiver, method, module) == Some(ValueKind::Str)
         }
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. } => {
+            dynamic_static_method_call_return_kind(receiver, method, module) == Some(ValueKind::Str)
+        }
         ExprKind::ClosureCall { var, args } => {
             callable_variable_return_kind(module, var, args) == Some(ValueKind::Str)
         }
@@ -521,6 +524,10 @@ fn method_call_assoc_static_access_kind(
         ExprKind::StaticMethodCall { receiver, method, .. } => {
             static_method_call_array_return_metadata(receiver, method, module)?
         }
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. } => {
+            let method = static_dynamic_method_name_opt(method, module)?;
+            static_method_call_array_return_metadata(receiver, &method, module)?
+        }
         _ => return None,
     };
     if metadata.layout != ArrayLayout::Assoc {
@@ -624,6 +631,11 @@ pub(in crate::codegen::wasm) fn expression_has_array_type(expr: &Expr, module: &
             .is_some(),
         ExprKind::StaticMethodCall { receiver, method, .. } => {
             static_method_call_array_return_metadata(receiver, method, module).is_some()
+        }
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. } => {
+            static_dynamic_method_name_opt(method, module)
+                .and_then(|method| static_method_call_array_return_metadata(receiver, &method, module))
+                .is_some()
         }
         ExprKind::MethodCall { object, method, .. } => {
             method_call_array_return_metadata(object, method, module).is_some()

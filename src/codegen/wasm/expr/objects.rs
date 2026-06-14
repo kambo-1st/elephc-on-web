@@ -1257,6 +1257,26 @@ pub(in crate::codegen::wasm) fn dynamic_method_call_return_kind(
     method_call_return_kind(object, &method_name, module)
 }
 
+pub(in crate::codegen::wasm) fn emit_dynamic_static_method_call_expr(
+    expr: &Expr,
+    receiver: &StaticReceiver,
+    method: &Expr,
+    args: &[Expr],
+    module: &mut WasmModule,
+) -> Result<ValueKind, CompileError> {
+    let method_name = static_dynamic_method_name(expr, method, module)?;
+    emit_static_method_call_expr(expr, receiver, &method_name, args, module)
+}
+
+pub(in crate::codegen::wasm) fn dynamic_static_method_call_return_kind(
+    receiver: &StaticReceiver,
+    method: &Expr,
+    module: &WasmModule,
+) -> Option<ValueKind> {
+    let method_name = static_dynamic_method_name_opt(method, module)?;
+    static_method_call_return_kind(receiver, &method_name, module)
+}
+
 pub(in crate::codegen::wasm) fn emit_nullable_exact_object_method_call(
     expr: &Expr,
     object: &Expr,
@@ -5176,7 +5196,10 @@ fn static_dynamic_method_name(
     ))
 }
 
-fn static_dynamic_method_name_opt(method: &Expr, module: &WasmModule) -> Option<String> {
+pub(in crate::codegen::wasm) fn static_dynamic_method_name_opt(
+    method: &Expr,
+    module: &WasmModule,
+) -> Option<String> {
     if let Some(name) = static_object_property_name(method, module) {
         return Some(name);
     }

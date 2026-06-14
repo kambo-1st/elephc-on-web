@@ -295,6 +295,14 @@ pub(super) fn expr_effect(expr: &Expr) -> Effect {
             args,
         } => combine_effects(args.iter().map(expr_effect))
             .combine(static_method_call_effect(receiver, method)),
+        ExprKind::DynamicStaticMethodCall {
+            method,
+            args,
+            ..
+        } => expr_effect(method)
+            .combine(combine_effects(args.iter().map(expr_effect)))
+            .with_side_effects()
+            .with_may_throw(),
         ExprKind::ArrayLiteral(items) => combine_effects(items.iter().map(expr_effect)),
         ExprKind::ArrayLiteralAssoc(items) => combine_effects(
             items

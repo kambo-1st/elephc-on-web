@@ -286,6 +286,15 @@ pub(crate) fn propagate_expr(expr: Expr, env: &ConstantEnv) -> Expr {
                 args: propagate_args(args, arg_env),
             }
         }
+        ExprKind::DynamicStaticMethodCall {
+            receiver,
+            method,
+            args,
+        } => ExprKind::DynamicStaticMethodCall {
+            receiver,
+            method: Box::new(propagate_expr(*method, env)),
+            args: propagate_args(args, None),
+        },
         ExprKind::FirstClassCallable(target) => {
             ExprKind::FirstClassCallable(propagate_callable_target(target, env))
         }

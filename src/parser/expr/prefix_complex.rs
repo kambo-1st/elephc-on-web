@@ -341,6 +341,12 @@ fn collect_arrow_expr_captures(
                 collect_arrow_expr_captures(arg, bound, seen, captures);
             }
         }
+        ExprKind::DynamicStaticMethodCall { method, args, .. } => {
+            collect_arrow_expr_captures(method, bound, seen, captures);
+            for arg in args {
+                collect_arrow_expr_captures(arg, bound, seen, captures);
+            }
+        }
         ExprKind::NewDynamicObject {
             class_name, args, ..
         } => {

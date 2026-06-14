@@ -98,6 +98,12 @@ pub(super) fn collect_expr_reads(
                 collect_expr_reads(arg, scope, warnings);
             }
         }
+        ExprKind::DynamicStaticMethodCall { method, args, .. } => {
+            collect_expr_reads(method, scope, warnings);
+            for arg in args {
+                collect_expr_reads(arg, scope, warnings);
+            }
+        }
         ExprKind::DynamicMethodCall {
             object,
             method,

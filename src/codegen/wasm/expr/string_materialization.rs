@@ -197,6 +197,21 @@ pub(in crate::codegen::wasm) fn emit_string_assign(
                 _ => unreachable!("string static method target must return a string"),
             }
         }
+        ExprKind::DynamicStaticMethodCall {
+            receiver,
+            method,
+            args,
+        } if dynamic_static_method_call_return_kind(receiver, method, module) == Some(ValueKind::Str) =>
+        {
+            match emit_dynamic_static_method_call_expr(value, receiver, method, args, module)? {
+                ValueKind::Str => {
+                    module.body().line(&format!("local.set ${}_len", name));
+                    module.body().line(&format!("local.set ${}_ptr", name));
+                    Ok(())
+                }
+                _ => unreachable!("string dynamic static method target must return a string"),
+            }
+        }
         ExprKind::ExprCall { callee, args }
             if callable_expr_return_kind(module, callee, args) == Some(ValueKind::Str) =>
         {
@@ -573,6 +588,17 @@ pub(in crate::codegen::wasm) fn emit_string_value_to_stack(
             match emit_static_method_call_expr(value, receiver, method, args, module)? {
                 ValueKind::Str => Ok(()),
                 _ => unreachable!("string static method target must return a string"),
+            }
+        }
+        ExprKind::DynamicStaticMethodCall {
+            receiver,
+            method,
+            args,
+        } if dynamic_static_method_call_return_kind(receiver, method, module) == Some(ValueKind::Str) =>
+        {
+            match emit_dynamic_static_method_call_expr(value, receiver, method, args, module)? {
+                ValueKind::Str => Ok(()),
+                _ => unreachable!("string dynamic static method target must return a string"),
             }
         }
         ExprKind::ClosureCall { var, args }

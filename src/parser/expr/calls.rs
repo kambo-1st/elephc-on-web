@@ -26,6 +26,7 @@ enum ScopedStaticMember {
     ClassConstant,
     Named(String),
     BracedString(String),
+    Dynamic(Expr),
 }
 
 pub(super) fn parse_scoped_static_call(
@@ -55,6 +56,30 @@ pub(super) fn parse_scoped_static_call(
         }
         ScopedStaticMember::Named(method) => method,
         ScopedStaticMember::BracedString(method) => method,
+        ScopedStaticMember::Dynamic(method) => {
+            if *pos >= tokens.len() || tokens[*pos].0 != Token::LParen {
+                return Err(CompileError::new(
+                    span,
+                    "Dynamic class constants are not supported yet",
+                ));
+            }
+            *pos += 1;
+            if parse_first_class_callable_parens(tokens, pos)? {
+                return Err(CompileError::new(
+                    span,
+                    "Dynamic static first-class method callables are not supported yet",
+                ));
+            }
+            let args = parse_args(tokens, pos, span)?;
+            return Ok(Expr::new(
+                ExprKind::DynamicStaticMethodCall {
+                    receiver,
+                    method: Box::new(method),
+                    args,
+                },
+                span,
+            ));
+        }
     };
     // If a `(` follows, this is a static method call; otherwise it's a
     // user-declared class-constant access (`MyClass::FOO`).
@@ -152,10 +177,14 @@ fn parse_braced_scoped_static_member(
         *pos += 3;
         return Ok(ScopedStaticMember::BracedString(method));
     }
-    Err(CompileError::new(
-        span,
-        "Dynamic static method calls are not supported yet",
-    ))
+    if let (Some((Token::LBrace, _)), Some((Token::Variable(name), _)), Some((Token::RBrace, _))) =
+        (tokens.get(*pos), tokens.get(*pos + 1), tokens.get(*pos + 2))
+    {
+        let method = Expr::new(ExprKind::Variable(name.clone()), span);
+        *pos += 3;
+        return Ok(ScopedStaticMember::Dynamic(method));
+    }
+    Err(CompileError::new(span, "Dynamic static method calls are not supported yet"))
 }
 
 /// Checks whether `...)` appears at the current position, indicating PHP's first-class callable

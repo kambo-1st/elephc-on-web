@@ -574,6 +574,27 @@ impl Checker {
                 method,
                 args,
             } => self.infer_static_method_call_type(receiver, method, args, expr, env),
+            ExprKind::DynamicStaticMethodCall {
+                receiver,
+                method,
+                args,
+            } => {
+                let method_ty = self.infer_type(method, env)?;
+                if !self.type_accepts(&PhpType::Str, &method_ty) {
+                    return Err(CompileError::new(
+                        method.span,
+                        "Dynamic static method name must be a string",
+                    ));
+                }
+                if let ExprKind::StringLiteral(method_name) = &method.kind {
+                    self.infer_static_method_call_type(receiver, method_name, args, expr, env)
+                } else {
+                    for arg in args {
+                        self.infer_type(arg, env)?;
+                    }
+                    Ok(PhpType::Mixed)
+                }
+            }
             ExprKind::This => self.infer_this_type(expr),
             ExprKind::PtrCast {
                 target_type,

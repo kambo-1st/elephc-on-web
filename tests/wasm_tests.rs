@@ -1206,12 +1206,6 @@ fn assert_wasm_compile_error(source: &str) {
     assert!(result.is_err(), "expected WASM generation to fail");
 }
 
-fn assert_parse_compile_error(source: &str) {
-    let tokens = elephc::lexer::tokenize(source).expect("tokenize failed");
-    let result = elephc::parser::parse(&tokens);
-    assert!(result.is_err(), "expected parsing to fail");
-}
-
 #[test]
 fn test_wasm32_web_target_parse() {
     let target = Target::parse("wasm32-web").expect("target parse failed");
@@ -3177,9 +3171,9 @@ fn test_wasm32_web_e2e_matches_php_object_static_string_dynamic_static_method_ca
 }
 
 #[test]
-fn test_wasm32_web_runtime_variable_static_method_name_is_rejected() {
-    assert_parse_compile_error(
-        "<?php\nclass Box { public static function label(): string { return \"box\"; } }\n$name = \"label\";\necho Box::{$name}() . \"\\n\";\n",
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_name() {
+    assert_wasm_matches_php(
+        "<?php\nclass Box { public static function label(): string { return \"box\"; } public static function add(int $n): int { return $n + 9; } }\n$name = \"label\";\n$add = \"add\";\necho Box::{$name}() . \":\" . Box::{$add}(3) . \"\\n\";\n",
     );
 }
 

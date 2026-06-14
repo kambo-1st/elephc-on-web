@@ -444,6 +444,19 @@ fn collect_required_class_names_in_expr(expr: &Expr, names: &mut HashSet<String>
                 collect_required_class_names_in_expr(arg, names);
             }
         }
+        ExprKind::DynamicStaticMethodCall {
+            receiver,
+            method,
+            args,
+        } => {
+            if let crate::parser::ast::StaticReceiver::Named(name) = receiver {
+                names.insert(name.as_str().to_string());
+            }
+            collect_required_class_names_in_expr(method, names);
+            for arg in args {
+                collect_required_class_names_in_expr(arg, names);
+            }
+        }
         ExprKind::FirstClassCallable(target) => match target {
             crate::parser::ast::CallableTarget::StaticMethod { receiver, .. } => {
                 if let crate::parser::ast::StaticReceiver::Named(name) = receiver {

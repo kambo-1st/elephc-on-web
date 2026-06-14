@@ -372,6 +372,12 @@ fn collect_assignment_target_dependencies(expr: &Expr, dependencies: &mut HashSe
                 collect_assignment_target_dependencies(arg, dependencies);
             }
         }
+        ExprKind::DynamicStaticMethodCall { method, args, .. } => {
+            collect_assignment_target_dependencies(method, dependencies);
+            for arg in args {
+                collect_assignment_target_dependencies(arg, dependencies);
+            }
+        }
         ExprKind::ArrayLiteral(items) => {
             for item in items {
                 collect_assignment_target_dependencies(item, dependencies);
@@ -458,6 +464,14 @@ fn expr_may_write_dependency(expr: &Expr, dependencies: &HashSet<String>) -> boo
             expr_contains_dependency(arg, dependencies)
                 || expr_may_write_dependency(arg, dependencies)
         }),
+        ExprKind::DynamicStaticMethodCall { method, args, .. } => {
+            expr_contains_dependency(method, dependencies)
+                || expr_may_write_dependency(method, dependencies)
+                || args.iter().any(|arg| {
+                    expr_contains_dependency(arg, dependencies)
+                        || expr_may_write_dependency(arg, dependencies)
+                })
+        }
         ExprKind::BinaryOp { left, right, .. } => {
             expr_may_write_dependency(left, dependencies)
                 || expr_may_write_dependency(right, dependencies)
@@ -727,6 +741,10 @@ fn expr_contains_equivalent(expr: &Expr, needle: &Expr) -> bool {
         | ExprKind::NewObject { args, .. }
         | ExprKind::NewScopedObject { args, .. } => {
             args.iter().any(|arg| expr_contains_equivalent(arg, needle))
+        }
+        ExprKind::DynamicStaticMethodCall { method, args, .. } => {
+            expr_contains_equivalent(method, needle)
+                || args.iter().any(|arg| expr_contains_equivalent(arg, needle))
         }
         ExprKind::NewDynamic { name_expr, args } => {
             expr_contains_equivalent(name_expr, needle)

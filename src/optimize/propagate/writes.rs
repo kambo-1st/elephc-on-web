@@ -402,6 +402,7 @@ pub(crate) fn expr_local_writes(expr: &Expr) -> Option<HashSet<String>> {
         | ExprKind::NullsafeMethodCall { .. }
         | ExprKind::NullsafeDynamicMethodCall { .. }
         | ExprKind::StaticMethodCall { .. }
+        | ExprKind::DynamicStaticMethodCall { .. }
         | ExprKind::BufferNew { .. }
         | ExprKind::Yield { .. }
         | ExprKind::YieldFrom(_) => None,

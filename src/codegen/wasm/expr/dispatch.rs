@@ -134,6 +134,11 @@ pub(in crate::codegen::wasm) fn emit_expr(
             method,
             args,
         } => emit_static_method_call_expr(expr, receiver, method, args, module),
+        ExprKind::DynamicStaticMethodCall {
+            receiver,
+            method,
+            args,
+        } => emit_dynamic_static_method_call_expr(expr, receiver, method, args, module),
         ExprKind::Assignment {
             target,
             value,

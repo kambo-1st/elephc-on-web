@@ -277,6 +277,15 @@ fn expr_refs_pdo(expr: &Expr) -> bool {
         ExprKind::StaticMethodCall { receiver, args, .. } => {
             receiver_refs_pdo(receiver) || args.iter().any(expr_refs_pdo)
         }
+        ExprKind::DynamicStaticMethodCall {
+            receiver,
+            method,
+            args,
+        } => {
+            receiver_refs_pdo(receiver)
+                || expr_refs_pdo(method)
+                || args.iter().any(expr_refs_pdo)
+        }
         ExprKind::FirstClassCallable(target) => callable_target_refs_pdo(target),
         ExprKind::BufferNew { element_type, len } => {
             type_refs_pdo(element_type) || expr_refs_pdo(len)

@@ -299,6 +299,9 @@ pub fn emit_expr(
             method,
             args,
         } => objects::emit_static_method_call(receiver, method, args, emitter, ctx, data),
+        ExprKind::DynamicStaticMethodCall { .. } => {
+            panic!("dynamic static method calls are not supported by native codegen")
+        }
         ExprKind::This => {
             variables::emit_this(emitter, ctx)
         }

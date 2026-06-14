@@ -864,6 +864,12 @@ fn collect_expr_assignment_prelude_locals(
                 collect_child!(arg);
             }
         }
+        ExprKind::DynamicStaticMethodCall { method, args, .. } => {
+            collect_child!(method);
+            for arg in args {
+                collect_child!(arg);
+            }
+        }
         ExprKind::ExprCall { callee, args } => {
             collect_child!(callee);
             for arg in args {

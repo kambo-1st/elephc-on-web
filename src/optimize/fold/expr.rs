@@ -354,6 +354,15 @@ pub(in crate::optimize) fn fold_expr(expr: Expr) -> Expr {
             method,
             args: args.into_iter().map(fold_expr).collect(),
         },
+        ExprKind::DynamicStaticMethodCall {
+            receiver,
+            method,
+            args,
+        } => ExprKind::DynamicStaticMethodCall {
+            receiver,
+            method: Box::new(fold_expr(*method)),
+            args: args.into_iter().map(fold_expr).collect(),
+        },
         ExprKind::FirstClassCallable(target) => {
             ExprKind::FirstClassCallable(fold_callable_target(target))
         }

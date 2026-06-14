@@ -312,6 +312,20 @@ pub(in crate::codegen::wasm) fn emit_output_expr(
                 _ => unreachable!("string static method call target must return a string"),
             }
         }
+        ExprKind::DynamicStaticMethodCall {
+            receiver,
+            method,
+            args,
+        } if dynamic_static_method_call_return_kind(receiver, method, module) == Some(ValueKind::Str) =>
+        {
+            match emit_dynamic_static_method_call_expr(expr, receiver, method, args, module)? {
+                ValueKind::Str => {
+                    module.body().line("call $host_write");
+                    Ok(())
+                }
+                _ => unreachable!("string dynamic static method call target must return a string"),
+            }
+        }
         ExprKind::ClosureCall { var, args }
             if callable_variable_return_kind(module, var, args) == Some(ValueKind::Str) =>
         {

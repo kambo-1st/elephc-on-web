@@ -237,6 +237,15 @@ pub(crate) fn prune_expr(expr: Expr) -> Expr {
             method,
             args: args.into_iter().map(prune_expr).collect(),
         },
+        ExprKind::DynamicStaticMethodCall {
+            receiver,
+            method,
+            args,
+        } => ExprKind::DynamicStaticMethodCall {
+            receiver,
+            method: Box::new(prune_expr(*method)),
+            args: args.into_iter().map(prune_expr).collect(),
+        },
         ExprKind::FirstClassCallable(target) => {
             ExprKind::FirstClassCallable(prune_callable_target(target))
         }

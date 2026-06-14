@@ -334,6 +334,9 @@ fn expr_has_regex_call(expr: &Expr) -> bool {
         | ExprKind::StaticMethodCall { args, .. }
         | ExprKind::NewObject { args, .. }
         | ExprKind::NewScopedObject { args, .. } => args.iter().any(expr_has_regex_call),
+        ExprKind::DynamicStaticMethodCall { method, args, .. } => {
+            expr_has_regex_call(method) || args.iter().any(expr_has_regex_call)
+        }
         ExprKind::NewDynamicObject {
             class_name,
             fallback_class,
@@ -659,6 +662,10 @@ fn expr_needs_descriptor_invoker(expr: &Expr) -> bool {
         | ExprKind::StaticMethodCall { args, .. }
         | ExprKind::NewObject { args, .. }
         | ExprKind::NewScopedObject { args, .. } => args.iter().any(expr_needs_descriptor_invoker),
+        ExprKind::DynamicStaticMethodCall { method, args, .. } => {
+            expr_needs_descriptor_invoker(method)
+                || args.iter().any(expr_needs_descriptor_invoker)
+        }
         ExprKind::NewDynamicObject {
             class_name, args, ..
         } => expr_needs_descriptor_invoker(class_name) || args.iter().any(expr_needs_descriptor_invoker),

@@ -173,6 +173,9 @@ fn expr_has_includes(expr: &Expr) -> bool {
         | ExprKind::StaticMethodCall { args, .. }
         | ExprKind::NewObject { args, .. }
         | ExprKind::NewScopedObject { args, .. } => args.iter().any(expr_has_includes),
+        ExprKind::DynamicStaticMethodCall { method, args, .. } => {
+            expr_has_includes(method) || args.iter().any(expr_has_includes)
+        }
         ExprKind::NewDynamic { name_expr, args } => {
             expr_has_includes(name_expr) || args.iter().any(expr_has_includes)
         }

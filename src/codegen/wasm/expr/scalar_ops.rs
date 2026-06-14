@@ -554,6 +554,23 @@ pub(in crate::codegen::wasm) fn materialize_mixed_value_cell(
                 _ => unreachable!("mixed static method metadata must return a mixed value"),
             }
         }
+        ExprKind::DynamicStaticMethodCall { receiver, method, args }
+            if dynamic_static_method_call_return_kind(receiver, method, module)
+                == Some(ValueKind::Mixed) =>
+        {
+            let local = module
+                .next_label("mixed_dynamic_static_method_value")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_i32_local(local.clone());
+            match emit_dynamic_static_method_call_expr(candidate, receiver, method, args, module)? {
+                ValueKind::Mixed => {
+                    module.body().line(&format!("local.set ${}", local));
+                    Ok(Some(local))
+                }
+                _ => unreachable!("mixed dynamic static method metadata must return a mixed value"),
+            }
+        }
         ExprKind::NullsafePropertyAccess { .. } => {
             let local = module
                 .next_label("mixed_nullsafe_property_value")

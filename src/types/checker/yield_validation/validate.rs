@@ -301,6 +301,12 @@ fn visit_expr(expr: &Expr, st: &mut State) {
                 visit_expr(a, st);
             }
         }
+        ExprKind::DynamicStaticMethodCall { method, args, .. } => {
+            visit_expr(method, st);
+            for a in args {
+                visit_expr(a, st);
+            }
+        }
         ExprKind::NewDynamic { name_expr, args } => {
             visit_expr(name_expr, st);
             for a in args {

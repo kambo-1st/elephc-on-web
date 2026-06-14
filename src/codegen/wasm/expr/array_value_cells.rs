@@ -216,6 +216,7 @@ pub(in crate::codegen::wasm) fn emit_store_value_cell(
         | ExprKind::MethodCall { .. }
         | ExprKind::DynamicMethodCall { .. }
         | ExprKind::StaticMethodCall { .. }
+        | ExprKind::DynamicStaticMethodCall { .. }
         | ExprKind::ScopedConstantAccess { .. } => {
             let emitted = emit_expr(value, module)?;
             emit_store_emitted_value_kind(cell, emitted, "value_cell_property", module)

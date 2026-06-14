@@ -255,6 +255,15 @@ pub(super) fn walk_expr<P: Pass>(expr: Expr, pass: &mut P) -> Expr {
             method,
             args: args.into_iter().map(|a| walk_expr(a, pass)).collect(),
         },
+        ExprKind::DynamicStaticMethodCall {
+            receiver,
+            method,
+            args,
+        } => ExprKind::DynamicStaticMethodCall {
+            receiver,
+            method: Box::new(walk_expr(*method, pass)),
+            args: args.into_iter().map(|a| walk_expr(a, pass)).collect(),
+        },
         ExprKind::FirstClassCallable(target) => {
             ExprKind::FirstClassCallable(walk_callable_target(target, pass))
         }

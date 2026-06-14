@@ -185,6 +185,11 @@ pub enum ExprKind {
         method: String,
         args: Vec<Expr>,
     },
+    DynamicStaticMethodCall {
+        receiver: StaticReceiver,
+        method: Box<Expr>,
+        args: Vec<Expr>,
+    },
     FirstClassCallable(CallableTarget),
     This,
     PtrCast {
