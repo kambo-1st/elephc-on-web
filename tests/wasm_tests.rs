@@ -3220,6 +3220,13 @@ fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_filter_d
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_map_return() {
+    assert_wasm_matches_php(
+        "<?php\nclass DynamicStaticMapBox { public static function items(): array { return [\"a\" => \"red\", \"b\" => \"\", \"c\" => \"blue\"]; } }\n$name = \"items\";\n$mapped = array_map(\"strlen\", DynamicStaticMapBox::{$name}());\necho count($mapped) . \":\" . $mapped[\"a\"] . \":\" . $mapped[\"b\"] . \":\" . $mapped[\"c\"] . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_static_string_dynamic_static_method_first_class_callable() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public static function add(int $n): int { return $n + 10; } }\n$cb = Box::{\"add\"}(...);\necho (is_callable($cb) ? 1 : 0) . \":\" . $cb(5) . \":\" . call_user_func($cb, 7) . \"\\n\";\n",
