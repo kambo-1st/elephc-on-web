@@ -849,6 +849,9 @@ pub(in crate::codegen::wasm) fn emit_dynamic_object_property_empty_expr(
     if object_receiver_needs_runtime_class_id(object, module) {
         return emit_dynamic_object_property_empty_by_class_expr(expr, object, property, module);
     }
+    if let Some(property_name) = static_object_property_name(property, module) {
+        return emit_object_property_empty_expr(expr, object, &property_name, module);
+    }
     let class_name = object_class_name_for_expr(object, module).ok_or_else(|| {
         CompileError::new(
             expr.span,
@@ -862,6 +865,8 @@ pub(in crate::codegen::wasm) fn emit_dynamic_object_property_empty_expr(
         )
     })?;
     let properties = visible_fixed_properties(&class_info, module);
+    let magic_isset = supported_magic_isset_method(&class_name, module);
+    let magic_get = supported_magic_get_method(&class_name, module);
     if emit_expr(object, module)? != ValueKind::Object {
         return Err(CompileError::new(
             object.span,
@@ -874,22 +879,17 @@ pub(in crate::codegen::wasm) fn emit_dynamic_object_property_empty_expr(
         .to_string();
     module.declare_object_local(object_local.clone());
     module.body().line(&format!("local.set ${}", object_local));
-    if let Some(property_name) = static_object_property_name(property, module) {
-        let Some(property_info) = properties
-            .iter()
-            .find(|candidate| candidate.name == property_name)
-        else {
-            module.body().line("i32.const 1");
-            return Ok(());
-        };
-        module.body().line(&format!("local.get ${}", object_local));
-        emit_load_property(property_info, module)?;
-        emit_loaded_property_empty(property_info.kind, module);
-        return Ok(());
-    }
     let property_local =
         materialize_runtime_string_expr(property, "dynamic_property_empty_name", module)?;
-    emit_runtime_dynamic_property_empty_branch(&object_local, &property_local, &properties, 0, module)
+    emit_runtime_dynamic_property_empty_branch(
+        &object_local,
+        &property_local,
+        &properties,
+        magic_isset.as_ref(),
+        magic_get.as_ref(),
+        0,
+        module,
+    )
 }
 
 fn emit_dynamic_object_property_isset_by_class_expr(
@@ -4867,11 +4867,33 @@ fn emit_runtime_dynamic_property_empty_branch(
     object_local: &str,
     property_local: &str,
     properties: &[ObjectPropertyInfo],
+    magic_isset: Option<&(String, ObjectMethodInfo)>,
+    magic_get: Option<&(String, ObjectMethodInfo)>,
     index: usize,
     module: &mut WasmModule,
 ) -> Result<(), CompileError> {
     if index >= properties.len() {
-        module.body().line("i32.const 1");
+        if let (Some((_, isset_method)), Some((_, get_method))) = (magic_isset, magic_get) {
+            module.body().line(&format!("local.get ${}", object_local));
+            module.body().line(&format!("local.get ${}_ptr", property_local));
+            module.body().line(&format!("local.get ${}_len", property_local));
+            module
+                .body()
+                .line(&format!("call ${}", wasm_function_name(&isset_method.symbol)));
+            module.body().open("if (result i32)");
+            module.body().line(&format!("local.get ${}", object_local));
+            module.body().line(&format!("local.get ${}_ptr", property_local));
+            module.body().line(&format!("local.get ${}_len", property_local));
+            module
+                .body()
+                .line(&format!("call ${}", wasm_function_name(&get_method.symbol)));
+            emit_loaded_value_empty(get_method.return_kind, module);
+            module.body().line("else");
+            module.body().line("i32.const 1");
+            module.body().close("end");
+        } else {
+            module.body().line("i32.const 1");
+        }
         return Ok(());
     }
     let property_info = &properties[index];
@@ -4885,6 +4907,8 @@ fn emit_runtime_dynamic_property_empty_branch(
         object_local,
         property_local,
         properties,
+        magic_isset,
+        magic_get,
         index + 1,
         module,
     )?;
@@ -5157,6 +5181,62 @@ fn emit_loaded_property_empty(kind: ObjectPropertyKind, module: &mut WasmModule)
             module.body().line("call $__rt_mixed_truthy");
             module.body().line("i32.eqz");
         }
+    }
+}
+
+fn emit_loaded_value_empty(kind: ValueKind, module: &mut WasmModule) {
+    match kind {
+        ValueKind::Int => {
+            module.body().line("i64.const 0");
+            module.body().line("i64.eq");
+        }
+        ValueKind::Float => {
+            module.body().line("f64.const 0");
+            module.body().line("f64.eq");
+        }
+        ValueKind::Bool => {
+            module.body().line("i32.eqz");
+        }
+        ValueKind::Null => {
+            module.body().line("drop");
+            module.body().line("i32.const 1");
+        }
+        ValueKind::Str => {
+            let local = module
+                .next_label("dynamic_magic_empty_str")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_i32_local(format!("{}_ptr", local));
+            module.declare_i32_local(format!("{}_len", local));
+            module.body().line(&format!("local.set ${}_len", local));
+            module.body().line(&format!("local.set ${}_ptr", local));
+            emit_string_local_truthiness(&local, module);
+            module.body().line("i32.eqz");
+        }
+        ValueKind::Array => {
+            let local = module
+                .next_label("dynamic_magic_empty_array_len")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_i32_local(local.clone());
+            module.body().line(&format!("local.set ${}", local));
+            module.body().line("drop");
+            module.body().line(&format!("local.get ${}", local));
+            module.body().line("i32.eqz");
+        }
+        ValueKind::Object => {
+            module.body().line("drop");
+            module.body().line("i32.const 0");
+        }
+        ValueKind::Callable => {
+            module.body().line("drop");
+            module.body().line("i32.const 0");
+        }
+        ValueKind::Mixed => {
+            module.body().line("call $__rt_mixed_truthy");
+            module.body().line("i32.eqz");
+        }
+        ValueKind::Never => module.body().line("unreachable"),
     }
 }
 
