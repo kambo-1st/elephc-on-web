@@ -275,6 +275,9 @@ pub(super) fn emit_member_exists_call(
             &format!("wasm32-web {}() expects exactly two arguments", name),
         ));
     };
+    if object_receiver_needs_runtime_class_id(target, module) {
+        return emit_dynamic_member_exists_call(call, name, target, member, module);
+    }
     let target = member_exists_class_target(target, module)?.ok_or_else(|| {
         CompileError::new(
             target.span,
@@ -309,6 +312,115 @@ pub(super) fn emit_member_exists_call(
     };
     module.body().line(&format!("i32.const {}", i32::from(exists)));
     Ok(ValueKind::Bool)
+}
+
+fn emit_dynamic_member_exists_call(
+    call: &Expr,
+    name: &str,
+    target: &Expr,
+    member: &Expr,
+    module: &mut WasmModule,
+) -> Result<ValueKind, CompileError> {
+    let object_local = module
+        .next_label("member_exists_object")
+        .trim_start_matches('$')
+        .to_string();
+    let class_id_local = module
+        .next_label("member_exists_class_id")
+        .trim_start_matches('$')
+        .to_string();
+    let result_local = module
+        .next_label("member_exists_result")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_object_local(object_local.clone());
+    module.declare_i64_local(class_id_local.clone());
+    module.declare_i32_local(result_local.clone());
+    if emit_expr(target, module)? != ValueKind::Object {
+        return Err(CompileError::new(
+            target.span,
+            &format!("wasm32-web {}() expected an object target", name),
+        ));
+    }
+    module.body().line(&format!("local.set ${}", object_local));
+    module.body().line(&format!("local.get ${}", object_local));
+    module.body().line("i64.load");
+    module.body().line(&format!("local.set ${}", class_id_local));
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set ${}", result_local));
+
+    if let Some(var) = runtime_string_arg_or_materialize(member, "member_exists_name", module)? {
+        emit_dynamic_member_exists_runtime_name(
+            name,
+            &class_id_local,
+            &result_local,
+            &var,
+            module,
+        );
+        module.body().line(&format!("local.get ${}", result_local));
+        return Ok(ValueKind::Bool);
+    }
+
+    let member_name = member_exists_member_name(call, member, module)?;
+    emit_dynamic_member_exists_static_name(
+        name,
+        &class_id_local,
+        &result_local,
+        &member_name,
+        module,
+    );
+    module.body().line(&format!("local.get ${}", result_local));
+    Ok(ValueKind::Bool)
+}
+
+fn emit_dynamic_member_exists_runtime_name(
+    name: &str,
+    class_id_local: &str,
+    result_local: &str,
+    member_var: &str,
+    module: &mut WasmModule,
+) {
+    for (class_id, class_name) in module.object_class_names_by_id() {
+        let candidates = match name.to_ascii_lowercase().as_str() {
+            "method_exists" => runtime_visible_method_names(&class_name, true, module),
+            "property_exists" => runtime_visible_property_names(&class_name, module),
+            _ => unreachable!(),
+        };
+        module.body().line(&format!("local.get ${}", class_id_local));
+        module.body().line(&format!("i64.const {}", class_id));
+        module.body().line("i64.eq");
+        module.body().open("if");
+        emit_runtime_string_matches_any("member_exists", candidates, member_var, module);
+        module.body().line(&format!("local.set ${}", result_local));
+        module.body().close("end");
+    }
+}
+
+fn emit_dynamic_member_exists_static_name(
+    name: &str,
+    class_id_local: &str,
+    result_local: &str,
+    member_name: &str,
+    module: &mut WasmModule,
+) {
+    for (class_id, class_name) in module.object_class_names_by_id() {
+        let exists = match name.to_ascii_lowercase().as_str() {
+            "method_exists" => {
+                class_declares_runtime_visible_method(&class_name, member_name, true, module)
+            }
+            "property_exists" => {
+                class_declares_runtime_visible_property(&class_name, member_name, module)
+            }
+            _ => unreachable!(),
+        };
+        module.body().line(&format!("local.get ${}", class_id_local));
+        module.body().line(&format!("i64.const {}", class_id));
+        module.body().line("i64.eq");
+        module.body().open("if");
+        module.body().line(&format!("i32.const {}", i32::from(exists)));
+        module.body().line(&format!("local.set ${}", result_local));
+        module.body().close("end");
+    }
 }
 
 fn runtime_visible_method_names(
