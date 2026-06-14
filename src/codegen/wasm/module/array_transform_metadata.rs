@@ -11,12 +11,13 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::parser::ast::{Expr, ExprKind};
+use crate::parser::ast::{Expr, ExprKind, StaticReceiver};
 
 use super::{
-    array_merge_foreach_key_local_kind, function_key, static_assoc_key_kinds_for_items,
-    static_assoc_key_values_for_items, static_nested_array_metadata_for_assoc_items,
-    static_nested_array_metadata_for_items, static_value_cell_kind_for_expr,
+    array_merge_foreach_key_local_kind, function_key, static_method_call_return_key,
+    static_assoc_key_kinds_for_items, static_assoc_key_values_for_items,
+    static_nested_array_metadata_for_assoc_items, static_nested_array_metadata_for_items,
+    static_value_cell_kind_for_expr,
     static_value_cell_kinds_for_assoc_items, static_value_cell_kinds_for_items,
     value_kinds_for_foreach_source, ArrayLayout, AssocKeyKind, AssocKeyValue, LocalKind,
     NestedArrayMetadata, ValueCellKind,
@@ -241,6 +242,9 @@ pub(super) fn array_merge_value_kinds_for_assignment(
     value: &Expr,
     array_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
     array_runtime_value_kinds: &HashMap<String, ValueCellKind>,
+    string_static_values: &HashMap<String, String>,
+    function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
+    function_array_return_runtime_value_kinds: &HashMap<String, ValueCellKind>,
 ) -> Option<Vec<ValueCellKind>> {
     let ExprKind::FunctionCall { name, args } = &value.kind else {
         return None;
@@ -254,7 +258,14 @@ pub(super) fn array_merge_value_kinds_for_assignment(
             arg,
             array_value_kinds,
             array_runtime_value_kinds,
-        )?);
+        ).or_else(|| {
+            dynamic_static_method_return_value_kinds_for_assignment(
+                arg,
+                string_static_values,
+                function_array_return_value_kinds,
+                function_array_return_runtime_value_kinds,
+            )
+        })?);
     }
     (!kinds.is_empty()).then_some(kinds)
 }
@@ -265,6 +276,8 @@ pub(super) fn array_merge_key_kinds_for_assignment(
     array_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
     array_runtime_value_kinds: &HashMap<String, ValueCellKind>,
     php_normalized_key_arrays: &HashSet<String>,
+    string_static_values: &HashMap<String, String>,
+    function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
 ) -> Option<Vec<AssocKeyKind>> {
     let ExprKind::FunctionCall { name, args } = &value.kind else {
         return None;
@@ -278,12 +291,46 @@ pub(super) fn array_merge_key_kinds_for_assignment(
         array_value_kinds,
         array_runtime_value_kinds,
         php_normalized_key_arrays,
+        string_static_values,
+        function_array_return_key_kinds,
     ) {
         LocalKind::Str => Some(vec![AssocKeyKind::Str]),
         LocalKind::Mixed => Some(vec![AssocKeyKind::Int, AssocKeyKind::Str]),
         LocalKind::I64 => Some(vec![AssocKeyKind::Int]),
         _ => None,
     }
+}
+
+fn dynamic_static_method_return_value_kinds_for_assignment(
+    source: &Expr,
+    string_static_values: &HashMap<String, String>,
+    function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
+    function_array_return_runtime_value_kinds: &HashMap<String, ValueCellKind>,
+) -> Option<Vec<ValueCellKind>> {
+    let key = dynamic_static_method_return_key_for_assignment(source, string_static_values)?;
+    function_array_return_value_kinds
+        .get(&key)
+        .cloned()
+        .or_else(|| function_array_return_runtime_value_kinds.get(&key).map(|kind| vec![*kind]))
+}
+
+fn dynamic_static_method_return_key_for_assignment(
+    source: &Expr,
+    string_static_values: &HashMap<String, String>,
+) -> Option<String> {
+    let ExprKind::DynamicStaticMethodCall {
+        receiver: StaticReceiver::Named(class_name),
+        method,
+        ..
+    } = &source.kind else {
+        return None;
+    };
+    let method = match &method.kind {
+        ExprKind::StringLiteral(method) => method.clone(),
+        ExprKind::Variable(name) => string_static_values.get(name)?.clone(),
+        _ => return None,
+    };
+    Some(static_method_call_return_key(class_name.as_str(), &method))
 }
 
 pub(super) fn key_set_value_kinds_for_assignment(

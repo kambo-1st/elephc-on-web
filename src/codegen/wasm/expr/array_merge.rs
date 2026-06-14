@@ -66,6 +66,13 @@ pub(super) fn emit_indexed_array_merge_assign(
     }
     if args
         .iter()
+        .any(|arg| dynamic_static_method_array_merge_needs_materialized_arg(arg, module))
+    {
+        let args = materialize_dynamic_static_method_array_merge_args(args, module)?;
+        return emit_indexed_array_merge_assign(name, expr, &args, module);
+    }
+    if args
+        .iter()
         .any(|arg| matches_assoc_array_expr(arg, module) || matches!(arg.kind, ExprKind::ArrayLiteralAssoc(_)))
     {
         if args
@@ -228,6 +235,69 @@ fn materialize_static_method_array_merge_args(
                         return Err(CompileError::new(
                             arg.span,
                             "wasm32-web array_merge() expected an array-returning static method value",
+                        ));
+                    }
+                }
+                module.set_array_layout(&temp, metadata.layout);
+                if let Some(len) = metadata.len {
+                    module.set_array_length(&temp, len);
+                }
+                module.set_array_value_cell_kinds(&temp, metadata.value_kinds);
+                module.set_array_runtime_value_cell_kind(&temp, metadata.runtime_value_kind);
+                module.set_array_nested_value_metadata(&temp, metadata.nested_values);
+                module.set_array_key_kinds(&temp, metadata.key_kinds);
+                module.set_array_key_values(&temp, metadata.key_values);
+                materialized.push(Expr::new(ExprKind::Variable(temp), arg.span));
+            }
+            _ => materialized.push(arg.clone()),
+        }
+    }
+    Ok(materialized)
+}
+
+fn dynamic_static_method_array_merge_needs_materialized_arg(
+    arg: &Expr,
+    module: &WasmModule,
+) -> bool {
+    match &arg.kind {
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. } => {
+            dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some()
+        }
+        _ => false,
+    }
+}
+
+fn materialize_dynamic_static_method_array_merge_args(
+    args: &[Expr],
+    module: &mut WasmModule,
+) -> Result<Vec<Expr>, CompileError> {
+    let mut materialized = Vec::with_capacity(args.len());
+    for arg in args {
+        match &arg.kind {
+            ExprKind::DynamicStaticMethodCall { receiver, method, .. }
+                if dynamic_static_method_call_array_return_metadata(receiver, method, module)
+                    .is_some() =>
+            {
+                let metadata = dynamic_static_method_call_array_return_metadata(
+                    receiver,
+                    method,
+                    module,
+                )
+                .expect("guarded dynamic static method array return metadata");
+                let temp = module
+                    .next_label("array_merge_dynamic_static_method_source")
+                    .trim_start_matches('$')
+                    .to_string();
+                module.declare_array_local(temp.clone());
+                match emit_expr(arg, module)? {
+                    ValueKind::Array => {
+                        module.body().line(&format!("local.set ${}_len", temp));
+                        module.body().line(&format!("local.set ${}_ptr", temp));
+                    }
+                    _ => {
+                        return Err(CompileError::new(
+                            arg.span,
+                            "wasm32-web array_merge() expected an array-returning dynamic static method value",
                         ));
                     }
                 }

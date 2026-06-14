@@ -388,6 +388,7 @@ pub(super) fn foreach_value_local_kind(
                 array_runtime_value_kinds,
                 function_array_return_value_kinds,
                 function_array_return_runtime_value_kinds,
+                string_static_values,
             )
         }
         ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("array_pad") => {

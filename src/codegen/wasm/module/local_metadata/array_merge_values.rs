@@ -17,6 +17,7 @@ pub(super) fn array_merge_foreach_value_local_kind(
     array_runtime_value_kinds: &HashMap<String, ValueCellKind>,
     function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
     function_array_return_runtime_value_kinds: &HashMap<String, ValueCellKind>,
+    string_static_values: &HashMap<String, String>,
 ) -> LocalKind {
     let mut kinds = Vec::new();
     for arg in args {
@@ -49,6 +50,14 @@ pub(super) fn array_merge_foreach_value_local_kind(
                 function_array_return_value_kinds,
                 function_array_return_runtime_value_kinds,
             )
+            .or_else(|| {
+                dynamic_static_method_return_value_kinds(
+                    arg,
+                    string_static_values,
+                    function_array_return_value_kinds,
+                    function_array_return_runtime_value_kinds,
+                )
+            })
         }) else {
             return LocalKind::I64;
         };
@@ -59,4 +68,24 @@ pub(super) fn array_merge_foreach_value_local_kind(
     } else {
         foreach_value_cell_local_kind(&kinds)
     }
+}
+
+fn dynamic_static_method_return_value_kinds(
+    source: &Expr,
+    string_static_values: &HashMap<String, String>,
+    function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
+    function_array_return_runtime_value_kinds: &HashMap<String, ValueCellKind>,
+) -> Option<Vec<ValueCellKind>> {
+    let ExprKind::DynamicStaticMethodCall {
+        receiver: StaticReceiver::Named(class_name),
+        method,
+        ..
+    } = &source.kind else {
+        return None;
+    };
+    let key = dynamic_static_method_call_return_key(class_name.as_str(), method, string_static_values)?;
+    function_array_return_value_kinds
+        .get(&key)
+        .cloned()
+        .or_else(|| function_array_return_runtime_value_kinds.get(&key).map(|kind| vec![*kind]))
 }

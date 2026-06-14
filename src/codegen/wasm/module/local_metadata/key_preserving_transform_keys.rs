@@ -14,6 +14,7 @@ use super::*;
 fn array_reverse_foreach_key_kinds(
     args: &[Expr],
     array_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+    string_static_values: &HashMap<String, String>,
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
 ) -> Option<Vec<AssocKeyKind>> {
     let source = args.first()?;
@@ -24,6 +25,12 @@ fn array_reverse_foreach_key_kinds(
         ExprKind::FunctionCall { name, .. } => function_array_return_key_kinds
             .get(&function_key(name))
             .cloned(),
+        ExprKind::DynamicStaticMethodCall {
+            receiver: StaticReceiver::Named(class_name),
+            method,
+            ..
+        } => dynamic_static_method_call_return_key(class_name.as_str(), method, string_static_values)
+            .and_then(|key| function_array_return_key_kinds.get(&key).cloned()),
         _ => None,
     }?;
     if key_kinds.iter().all(|kind| *kind == AssocKeyKind::Str) {
@@ -38,6 +45,7 @@ pub(super) fn key_preserving_transform_foreach_key_kinds(
     array_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
     array_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
     array_runtime_value_kinds: &HashMap<String, ValueCellKind>,
+    string_static_values: &HashMap<String, String>,
     function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
 ) -> Option<Vec<AssocKeyKind>> {
@@ -77,6 +85,7 @@ pub(super) fn key_preserving_transform_foreach_key_kinds(
                 array_key_kinds,
                 array_value_kinds,
                 array_runtime_value_kinds,
+                string_static_values,
                 function_array_return_value_kinds,
                 function_array_return_key_kinds,
             )
@@ -87,6 +96,7 @@ pub(super) fn key_preserving_transform_foreach_key_kinds(
                 array_key_kinds,
                 array_value_kinds,
                 array_runtime_value_kinds,
+                string_static_values,
                 function_array_return_value_kinds,
                 function_array_return_key_kinds,
             )
@@ -105,6 +115,7 @@ pub(super) fn key_preserving_transform_foreach_key_kinds(
                 array_key_kinds,
                 array_value_kinds,
                 array_runtime_value_kinds,
+                string_static_values,
                 function_array_return_value_kinds,
                 function_array_return_key_kinds,
             )
@@ -116,6 +127,8 @@ pub(super) fn key_preserving_transform_foreach_key_kinds(
                 array_value_kinds,
                 array_runtime_value_kinds,
                 &HashSet::new(),
+                string_static_values,
+                function_array_return_key_kinds,
             ) {
                 LocalKind::Str => Some(vec![AssocKeyKind::Str]),
                 LocalKind::Mixed => Some(vec![AssocKeyKind::Int, AssocKeyKind::Str]),
@@ -125,6 +138,7 @@ pub(super) fn key_preserving_transform_foreach_key_kinds(
         _ => array_reverse_foreach_key_kinds(
             args,
             array_key_kinds,
+            string_static_values,
             function_array_return_key_kinds,
         ),
     }

@@ -17,6 +17,8 @@ pub(in crate::codegen::wasm::module) fn array_merge_foreach_key_local_kind(
     array_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
     array_runtime_value_kinds: &HashMap<String, ValueCellKind>,
     php_normalized_key_arrays: &HashSet<String>,
+    string_static_values: &HashMap<String, String>,
+    function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
 ) -> LocalKind {
     let mut saw_key = false;
     let mut all_string = true;
@@ -30,6 +32,8 @@ pub(in crate::codegen::wasm::module) fn array_merge_foreach_key_local_kind(
             array_key_kinds,
             array_value_kinds,
             array_runtime_value_kinds,
+            string_static_values,
+            function_array_return_key_kinds,
         ) else {
             return LocalKind::I64;
         };
@@ -51,6 +55,8 @@ fn assoc_key_kinds_for_foreach_source(
     array_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
     array_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
     array_runtime_value_kinds: &HashMap<String, ValueCellKind>,
+    string_static_values: &HashMap<String, String>,
+    function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
 ) -> Option<Vec<AssocKeyKind>> {
     match &source.kind {
         ExprKind::ArrayLiteralAssoc(items) => static_assoc_key_kinds_for_items(items),
@@ -72,6 +78,8 @@ fn assoc_key_kinds_for_foreach_source(
                     array_key_kinds,
                     array_value_kinds,
                     array_runtime_value_kinds,
+                    string_static_values,
+                    function_array_return_key_kinds,
                 )?);
             }
             Some(kinds)
@@ -86,9 +94,17 @@ fn assoc_key_kinds_for_foreach_source(
                     array_key_kinds,
                     array_value_kinds,
                     array_runtime_value_kinds,
+                    string_static_values,
+                    function_array_return_key_kinds,
                 )
             })
         }
+        ExprKind::DynamicStaticMethodCall {
+            receiver: StaticReceiver::Named(class_name),
+            method,
+            ..
+        } => dynamic_static_method_call_return_key(class_name.as_str(), method, string_static_values)
+            .and_then(|key| function_array_return_key_kinds.get(&key).cloned()),
         _ => None,
     }
 }

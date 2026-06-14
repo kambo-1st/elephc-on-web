@@ -531,6 +531,9 @@ pub(super) fn collect_assignment_locals(
         value,
         array_value_kinds,
         array_runtime_value_kinds,
+        string_static_values,
+        function_array_return_value_kinds,
+        function_array_return_runtime_value_kinds,
     )
     {
         array_value_kinds.insert(name.clone(), kinds);
@@ -543,6 +546,8 @@ pub(super) fn collect_assignment_locals(
             array_value_kinds,
             array_runtime_value_kinds,
             php_normalized_key_arrays,
+            string_static_values,
+            function_array_return_key_kinds,
         ) {
             array_key_kinds.insert(name.clone(), kinds);
             array_key_values.remove(name);
