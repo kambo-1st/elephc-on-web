@@ -3206,6 +3206,13 @@ fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_implode_
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_json_return() {
+    assert_wasm_matches_php(
+        "<?php\nclass DynamicStaticJsonBox { public static function items(): array { return [2, 3, 4]; } }\n$name = \"items\";\necho json_encode(DynamicStaticJsonBox::{$name}()) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_slice_return() {
     assert_wasm_matches_php(
         "<?php\nclass DynamicStaticSliceBox { public static function items(): array { return [\"a\" => \"red\", \"b\" => \"blue\", \"c\" => \"green\"]; } }\n$name = \"items\";\n$slice = array_slice(DynamicStaticSliceBox::{$name}(), 1, 2, true);\necho count($slice) . \":\" . $slice[\"b\"] . \":\";\nforeach (array_slice(DynamicStaticSliceBox::{$name}(), 1, 1, true) as $key => $value) { echo $key . \"=\" . $value; }\necho \"\\n\";\n",

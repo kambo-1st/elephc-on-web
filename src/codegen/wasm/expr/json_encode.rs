@@ -57,6 +57,11 @@ pub(super) fn emit_output_json_encode_array_local(
         {
             materialize_json_method_array_source(&args[0], "json_static_method_array_source", module)?
         }
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. }
+            if dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some() =>
+        {
+            materialize_json_method_array_source(&args[0], "json_dynamic_static_method_array_source", module)?
+        }
         ExprKind::ArrayAccess { .. } if nested_array_metadata_for_access_expr(&args[0], module).is_some() => {
             materialize_nested_json_source(&args[0], "json_nested_array_source", module)?
         }
