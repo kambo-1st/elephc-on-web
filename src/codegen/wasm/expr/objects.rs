@@ -147,14 +147,20 @@ pub(in crate::codegen::wasm) fn emit_property_access_expr(
         .properties
         .iter()
         .find(|candidate| candidate.name == property)
-        .cloned()
-        .ok_or_else(|| {
-            CompileError::new(
-                expr.span,
-                "wasm32-web property read requires a supported public fixed property",
-            )
-        })?;
+        .cloned();
+    let Some(property_info) = property_info else {
+        if let Some(kind) = emit_missing_property_magic_get_expr(expr, object, property, module)? {
+            return Ok(kind);
+        }
+        return Err(CompileError::new(
+            expr.span,
+            "wasm32-web property read requires a supported public fixed property",
+        ));
+    };
     if !module.object_member_is_accessible(&property_info.owner_class, &property_info.visibility) {
+        if let Some(kind) = emit_missing_property_magic_get_expr(expr, object, property, module)? {
+            return Ok(kind);
+        }
         return Err(CompileError::new(
             expr.span,
             "wasm32-web property read requires visible fixed property metadata",
@@ -208,6 +214,40 @@ fn emit_object_receiver_for_property_read(
         }
     }
     emit_expr(object, module)
+}
+
+fn emit_missing_property_magic_get_expr(
+    expr: &Expr,
+    object: &Expr,
+    property: &str,
+    module: &mut WasmModule,
+) -> Result<Option<ValueKind>, CompileError> {
+    if object_receiver_needs_runtime_class_id(object, module)
+        || object_class_name_for_expr(object, module).is_none()
+    {
+        return Ok(None);
+    }
+    let class_name = object_class_name_for_expr(object, module).expect("checked above");
+    if supported_magic_get_method(&class_name, module).is_none() {
+        return Ok(None);
+    }
+    let property_arg = Expr::new(ExprKind::StringLiteral(property.to_string()), expr.span);
+    let kind = emit_method_call_expr(expr, object, "__get", &[property_arg], module)?;
+    Ok(Some(kind))
+}
+
+fn supported_magic_get_method(
+    class_name: &str,
+    module: &WasmModule,
+) -> Option<(String, ObjectMethodInfo)> {
+    let (declaring_class, method) = module.object_method_in_hierarchy(class_name, "__get")?;
+    if !module.object_member_is_accessible(&method.owner_class, &method.visibility)
+        || method.param_kinds.as_slice() != [LocalKind::Str]
+        || method.return_kind == ValueKind::Never
+    {
+        return None;
+    }
+    Some((declaring_class, method))
 }
 
 pub(in crate::codegen::wasm) fn emit_nullable_exact_object_property_access(
