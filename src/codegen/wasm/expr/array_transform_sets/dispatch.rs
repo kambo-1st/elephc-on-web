@@ -1071,7 +1071,7 @@ pub(in crate::codegen::wasm::expr) fn emit_indexed_array_transform_assign(
                 ArrayLayout::CompactInt => emit_known_indexed_int_array_flip_assign(name, &temp, args, module),
             }
         }
-        ExprKind::FunctionCall { .. }
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
             if matches!(
                 function_name.to_ascii_lowercase().as_str(),
                 "array_diff" | "array_intersect"

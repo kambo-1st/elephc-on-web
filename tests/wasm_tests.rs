@@ -30982,6 +30982,12 @@ foreach (array_unique(make_callable_expr_array()("direct-unique")) as $item) {
 }
 $directFlip = array_flip(($factory->makeInstanceArray())("direct-flip"));
 echo count($directFlip) . ":" . $directFlip["head"] . ":" . $directFlip["tail"] . "\n";
+foreach (array_diff(make_callable_expr_array()("direct-diff"), ["tail"]) as $item) {
+    echo $item . "\n";
+}
+foreach (array_intersect(($factory->makeInstanceArray())("direct-intersect"), ["tail"]) as $item) {
+    echo $item . "\n";
+}
 "#,
     );
 }
