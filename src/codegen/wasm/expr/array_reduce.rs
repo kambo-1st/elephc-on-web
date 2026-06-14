@@ -566,6 +566,18 @@ pub(super) fn emit_array_reduce_call(
         {
             emit_array_reduce_int_array_expr(&acc, &args[0], &callback, module)?;
         }
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. }
+            if dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some() =>
+        {
+            let temp = materialize_dynamic_static_method_array_reduce_source(
+                &args[0],
+                receiver,
+                method,
+                "array_reduce_dynamic_static_method_source",
+                module,
+            )?;
+            emit_array_reduce_int_staged_local(&acc, &temp, args[0].span, &callback, module)?;
+        }
         ExprKind::Variable(source)
             if module.local_kind(source) == Some(LocalKind::Array)
                 && module.array_layout(source) == ArrayLayout::CompactInt =>
@@ -2670,6 +2682,18 @@ fn emit_array_reduce_float_call(
         {
             emit_array_reduce_float_array_expr(&acc, &args[0], callback, module)?;
         }
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. }
+            if dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some() =>
+        {
+            let temp = materialize_dynamic_static_method_array_reduce_source(
+                &args[0],
+                receiver,
+                method,
+                "array_reduce_dynamic_static_method_source",
+                module,
+            )?;
+            emit_array_reduce_float_staged_local(&acc, &temp, args[0].span, callback, module)?;
+        }
         ExprKind::Variable(source)
             if module.local_kind(source) == Some(LocalKind::Array)
                 && module.array_layout(source) == ArrayLayout::Value
@@ -2806,6 +2830,18 @@ fn emit_array_reduce_bool_call(
         {
             emit_array_reduce_bool_array_expr(&acc, &args[0], callback, module)?;
         }
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. }
+            if dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some() =>
+        {
+            let temp = materialize_dynamic_static_method_array_reduce_source(
+                &args[0],
+                receiver,
+                method,
+                "array_reduce_dynamic_static_method_source",
+                module,
+            )?;
+            emit_array_reduce_bool_staged_local(&acc, &temp, args[0].span, callback, module)?;
+        }
         ExprKind::Variable(source)
             if module.local_kind(source) == Some(LocalKind::Array)
                 && module.array_layout(source) == ArrayLayout::CompactInt =>
@@ -2875,45 +2911,55 @@ fn emit_array_reduce_int_array_expr(
         .to_string();
     module.declare_array_local(temp.clone());
     emit_array_assign(&temp, source_expr, module)?;
-    if module.array_layout(&temp) == ArrayLayout::CompactInt {
-        return emit_array_reduce_compact_int_local(acc, &temp, source_expr.span, callback, module);
+    emit_array_reduce_int_staged_local(acc, &temp, source_expr.span, callback, module)
+}
+
+fn emit_array_reduce_int_staged_local(
+    acc: &str,
+    source: &str,
+    source_span: crate::span::Span,
+    callback: &str,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    if module.array_layout(source) == ArrayLayout::CompactInt {
+        return emit_array_reduce_compact_int_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Value && array_map_value_cells_are_ints(&temp, module) {
-        return emit_array_reduce_value_int_local(acc, &temp, source_expr.span, callback, module);
+    if module.array_layout(source) == ArrayLayout::Value && array_map_value_cells_are_ints(source, module) {
+        return emit_array_reduce_value_int_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Value && array_filter_value_cells_are_bools(&temp, module) {
-        return emit_array_reduce_value_int_local(acc, &temp, source_expr.span, callback, module);
+    if module.array_layout(source) == ArrayLayout::Value && array_filter_value_cells_are_bools(source, module) {
+        return emit_array_reduce_value_int_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Value && array_map_value_cells_are_strings(&temp, module) {
-        return emit_array_reduce_value_numeric_string_as_int_local(acc, &temp, source_expr.span, callback, module);
+    if module.array_layout(source) == ArrayLayout::Value && array_map_value_cells_are_strings(source, module) {
+        return emit_array_reduce_value_numeric_string_as_int_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Assoc
-        && array_filter_assoc_local_matches_shape(&temp, ArrayFilterCallbackShape::Int, module)
+    if module.array_layout(source) == ArrayLayout::Assoc
+        && array_filter_assoc_local_matches_shape(source, ArrayFilterCallbackShape::Int, module)
     {
-        return emit_array_reduce_assoc_int_local(acc, &temp, source_expr.span, callback, module);
+        return emit_array_reduce_assoc_int_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Assoc
-        && array_filter_assoc_local_matches_shape(&temp, ArrayFilterCallbackShape::Bool, module)
+    if module.array_layout(source) == ArrayLayout::Assoc
+        && array_filter_assoc_local_matches_shape(source, ArrayFilterCallbackShape::Bool, module)
     {
-        return emit_array_reduce_assoc_int_local(acc, &temp, source_expr.span, callback, module);
+        return emit_array_reduce_assoc_int_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Assoc
+    if module.array_layout(source) == ArrayLayout::Assoc
         && module
-            .array_value_cell_kinds(&temp)
+            .array_value_cell_kinds(source)
             .is_some_and(|kinds| kinds.iter().all(|kind| *kind == ValueCellKind::Str))
     {
-        return emit_array_reduce_assoc_int_local(acc, &temp, source_expr.span, callback, module);
+        return emit_array_reduce_assoc_int_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Assoc
+    if module.array_layout(source) == ArrayLayout::Assoc
         && matches!(
-            module.array_runtime_value_cell_kind(&temp),
+            module.array_runtime_value_cell_kind(source),
             Some(ValueCellKind::Int | ValueCellKind::Bool | ValueCellKind::Str)
         )
     {
-        return emit_array_reduce_runtime_assoc_int_local(acc, &temp, source_expr.span, callback, module);
+        return emit_array_reduce_runtime_assoc_int_local(acc, source, source_span, callback, module);
     }
     Err(CompileError::new(
-        source_expr.span,
+        source_span,
         "wasm32-web array_reduce() int callbacks require a compact integer, integer value-cell, or integer associative array source",
     ))
 }
@@ -3117,34 +3163,44 @@ fn emit_array_reduce_bool_array_expr(
         .to_string();
     module.declare_array_local(temp.clone());
     emit_array_assign(&temp, source_expr, module)?;
-    if module.array_layout(&temp) == ArrayLayout::CompactInt {
-        return emit_array_reduce_compact_int_as_bool_local(acc, &temp, source_expr.span, callback, module);
+    emit_array_reduce_bool_staged_local(acc, &temp, source_expr.span, callback, module)
+}
+
+fn emit_array_reduce_bool_staged_local(
+    acc: &str,
+    source: &str,
+    source_span: crate::span::Span,
+    callback: &str,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    if module.array_layout(source) == ArrayLayout::CompactInt {
+        return emit_array_reduce_compact_int_as_bool_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Value && array_filter_value_cells_are_bools(&temp, module) {
-        return emit_array_reduce_value_bool_local(acc, &temp, source_expr.span, callback, module);
+    if module.array_layout(source) == ArrayLayout::Value && array_filter_value_cells_are_bools(source, module) {
+        return emit_array_reduce_value_bool_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Value
-        && array_reduce_bool_callback_value_cells_are_supported(&temp, module)
+    if module.array_layout(source) == ArrayLayout::Value
+        && array_reduce_bool_callback_value_cells_are_supported(source, module)
     {
-        return emit_array_reduce_value_truthy_local(acc, &temp, source_expr.span, callback, module);
+        return emit_array_reduce_value_truthy_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Assoc
-        && array_filter_assoc_local_matches_shape(&temp, ArrayFilterCallbackShape::Bool, module)
+    if module.array_layout(source) == ArrayLayout::Assoc
+        && array_filter_assoc_local_matches_shape(source, ArrayFilterCallbackShape::Bool, module)
     {
-        return emit_array_reduce_assoc_bool_local(acc, &temp, source_expr.span, callback, module);
+        return emit_array_reduce_assoc_bool_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Assoc
-        && array_reduce_bool_callback_assoc_local_is_supported(&temp, module)
+    if module.array_layout(source) == ArrayLayout::Assoc
+        && array_reduce_bool_callback_assoc_local_is_supported(source, module)
     {
-        return emit_array_reduce_assoc_truthy_local(acc, &temp, source_expr.span, callback, module);
+        return emit_array_reduce_assoc_truthy_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Assoc
-        && module.array_runtime_value_cell_kind(&temp) == Some(ValueCellKind::Bool)
+    if module.array_layout(source) == ArrayLayout::Assoc
+        && module.array_runtime_value_cell_kind(source) == Some(ValueCellKind::Bool)
     {
-        return emit_array_reduce_runtime_assoc_bool_local(acc, &temp, source_expr.span, callback, module);
+        return emit_array_reduce_runtime_assoc_bool_local(acc, source, source_span, callback, module);
     }
     Err(CompileError::new(
-        source_expr.span,
+        source_span,
         "wasm32-web array_reduce() bool callbacks require a bool value-cell or associative array source",
     ))
 }
@@ -3161,42 +3217,52 @@ fn emit_array_reduce_float_array_expr(
         .to_string();
     module.declare_array_local(temp.clone());
     emit_array_assign(&temp, source_expr, module)?;
-    if module.array_layout(&temp) == ArrayLayout::CompactInt {
-        return emit_array_reduce_compact_int_as_float_local(acc, &temp, source_expr.span, callback, module);
+    emit_array_reduce_float_staged_local(acc, &temp, source_expr.span, callback, module)
+}
+
+fn emit_array_reduce_float_staged_local(
+    acc: &str,
+    source: &str,
+    source_span: crate::span::Span,
+    callback: &str,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    if module.array_layout(source) == ArrayLayout::CompactInt {
+        return emit_array_reduce_compact_int_as_float_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Value && array_filter_value_cells_are_floats(&temp, module) {
-        return emit_array_reduce_value_float_local(acc, &temp, source_expr.span, callback, module);
+    if module.array_layout(source) == ArrayLayout::Value && array_filter_value_cells_are_floats(source, module) {
+        return emit_array_reduce_value_float_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Value
-        && array_reduce_float_callback_value_cells_are_supported(&temp, module)
+    if module.array_layout(source) == ArrayLayout::Value
+        && array_reduce_float_callback_value_cells_are_supported(source, module)
     {
-        return emit_array_reduce_value_int_as_float_local(acc, &temp, source_expr.span, callback, module);
+        return emit_array_reduce_value_int_as_float_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Assoc
-        && array_filter_assoc_local_matches_shape(&temp, ArrayFilterCallbackShape::Float, module)
+    if module.array_layout(source) == ArrayLayout::Assoc
+        && array_filter_assoc_local_matches_shape(source, ArrayFilterCallbackShape::Float, module)
     {
-        return emit_array_reduce_assoc_float_local(acc, &temp, source_expr.span, callback, module);
+        return emit_array_reduce_assoc_float_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Assoc
-        && array_reduce_float_callback_assoc_local_is_supported(&temp, module)
+    if module.array_layout(source) == ArrayLayout::Assoc
+        && array_reduce_float_callback_assoc_local_is_supported(source, module)
     {
-        return emit_array_reduce_assoc_int_as_float_local(acc, &temp, source_expr.span, callback, module);
+        return emit_array_reduce_assoc_int_as_float_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Assoc
-        && module.array_runtime_value_cell_kind(&temp) == Some(ValueCellKind::Float)
+    if module.array_layout(source) == ArrayLayout::Assoc
+        && module.array_runtime_value_cell_kind(source) == Some(ValueCellKind::Float)
     {
-        return emit_array_reduce_runtime_assoc_float_local(acc, &temp, source_expr.span, callback, module);
+        return emit_array_reduce_runtime_assoc_float_local(acc, source, source_span, callback, module);
     }
-    if module.array_layout(&temp) == ArrayLayout::Assoc
+    if module.array_layout(source) == ArrayLayout::Assoc
         && matches!(
-            module.array_runtime_value_cell_kind(&temp),
+            module.array_runtime_value_cell_kind(source),
             Some(ValueCellKind::Int | ValueCellKind::Bool | ValueCellKind::Str)
         )
     {
-        return emit_array_reduce_runtime_assoc_int_as_float_local(acc, &temp, source_expr.span, callback, module);
+        return emit_array_reduce_runtime_assoc_int_as_float_local(acc, source, source_span, callback, module);
     }
     Err(CompileError::new(
-        source_expr.span,
+        source_span,
         "wasm32-web array_reduce() float callbacks require a float value-cell or associative array source",
     ))
 }
