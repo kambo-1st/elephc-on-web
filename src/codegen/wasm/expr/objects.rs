@@ -1644,6 +1644,15 @@ pub(in crate::codegen::wasm) fn static_method_call_array_return_metadata(
     })
 }
 
+pub(in crate::codegen::wasm) fn dynamic_static_method_call_array_return_metadata(
+    receiver: &StaticReceiver,
+    method: &Expr,
+    module: &WasmModule,
+) -> Option<MethodArrayReturnMetadata> {
+    let method = static_dynamic_method_name_opt(method, module)?;
+    static_method_call_array_return_metadata(receiver, &method, module)
+}
+
 fn compact_int_array_return_len(body: &[Stmt]) -> Option<usize> {
     let mut len = None;
     for stmt in body {

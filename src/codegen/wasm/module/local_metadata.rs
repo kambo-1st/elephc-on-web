@@ -74,7 +74,9 @@ use self::direct_foreach_values::{
 use self::expression_inference::{
     infer_assignment_fallback_local_kind, infer_branch_local_kind, infer_many_local_kind,
 };
-use self::foreach_key_metadata::foreach_key_local_kind;
+use self::foreach_key_metadata::{
+    dynamic_static_method_call_return_key, foreach_key_local_kind,
+};
 use self::foreach_value_metadata::foreach_value_local_kind;
 use self::foreach_value_kinds::{assoc_foreach_value_local_kind, foreach_value_cell_local_kind};
 pub(super) use self::foreach_value_sources::value_kinds_for_foreach_source;
@@ -320,6 +322,7 @@ pub(super) fn collect_stmt_locals(
                         array_value_kinds,
                         array_runtime_value_kinds,
                         php_normalized_key_arrays,
+                        string_static_values,
                         function_array_return_value_kinds,
                         function_array_return_key_kinds,
                         array_constants,

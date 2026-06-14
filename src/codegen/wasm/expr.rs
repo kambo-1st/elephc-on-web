@@ -503,6 +503,7 @@ pub(super) use self::objects::{
     emit_nullsafe_mixed_object_dynamic_property_access_expr,
     emit_nullsafe_mixed_object_dynamic_property_isset_expr, emit_object_property_assign,
     emit_object_property_assignment_expr, emit_object_property_isset_expr,
+    dynamic_static_method_call_array_return_metadata,
     method_call_array_return_metadata, object_class_name_for_expr,
     static_method_call_array_return_metadata,
     emit_static_property_access_expr, emit_static_property_assign, emit_static_property_isset_expr,

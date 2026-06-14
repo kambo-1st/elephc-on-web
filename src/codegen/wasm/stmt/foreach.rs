@@ -30,7 +30,7 @@ use super::super::expr::{
     callable_expr_return_kind, emit_array_value_to_stack, emit_expr, emit_value_array_items_assign,
     emit_value_cell_address_for_local, method_call_array_return_metadata,
     nested_array_metadata_for_access_expr, normalize_assoc_items, object_class_name_for_expr,
-    static_method_call_array_return_metadata,
+    static_method_call_array_return_metadata, dynamic_static_method_call_array_return_metadata,
 };
 use super::super::module::{
     ArrayLayout, AssocKeyKind, AssocKeyValue, ConstantArrayValue, LocalKind,
@@ -148,6 +148,28 @@ pub(super) fn emit_foreach(
         if static_method_call_array_return_metadata(receiver, method, module).is_some() {
             let temp = module
                 .next_label("foreach_static_method_array_return")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_array_local(temp.clone());
+            emit_array_assign(&temp, array, module)?;
+            if module.array_layout(&temp) == ArrayLayout::Assoc {
+                return emit_assoc_array_foreach(&temp, key_var, value_var, body, module);
+            }
+            if module.array_layout(&temp) == ArrayLayout::Value {
+                return emit_value_array_foreach(&temp, key_var, value_var, body, module);
+            }
+            return emit_compact_array_foreach(&temp, key_var, value_var, body, module);
+        }
+    }
+    if let ExprKind::DynamicStaticMethodCall {
+        receiver,
+        method,
+        ..
+    } = &array.kind
+    {
+        if dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some() {
+            let temp = module
+                .next_label("foreach_dynamic_static_method_array_return")
                 .trim_start_matches('$')
                 .to_string();
             module.declare_array_local(temp.clone());

@@ -395,6 +395,30 @@ pub(crate) fn emit_array_assign(
                 _ => unreachable!("array-returning static method metadata must emit an array value"),
             }
         }
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. }
+            if dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some() =>
+        {
+            let metadata = dynamic_static_method_call_array_return_metadata(receiver, method, module)
+                .expect("guarded dynamic static method array return metadata");
+            match emit_expr(value, module)? {
+                ValueKind::Array => {
+                    module.body().line(&format!("local.set ${}_len", name));
+                    module.body().line(&format!("local.set ${}_ptr", name));
+                    module.set_array_layout(name, metadata.layout);
+                    if let Some(len) = metadata.len {
+                        module.set_array_length(name, len);
+                    }
+                    module.set_array_value_cell_kinds(name, metadata.value_kinds);
+                    module.set_array_value_constants(name, metadata.value_constants);
+                    module.set_array_runtime_value_cell_kind(name, metadata.runtime_value_kind);
+                    module.set_array_nested_value_metadata(name, metadata.nested_values);
+                    module.set_array_key_kinds(name, metadata.key_kinds);
+                    module.set_array_key_values(name, metadata.key_values);
+                    return Ok(());
+                }
+                _ => unreachable!("array-returning dynamic static method metadata must emit an array value"),
+            }
+        }
         ExprKind::Variable(source) if module.local_kind(source) == Some(LocalKind::Array) => {
             return emit_indexed_array_copy_assign(name, source, module);
         }

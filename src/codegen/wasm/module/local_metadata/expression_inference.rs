@@ -135,6 +135,20 @@ pub(super) fn infer_assignment_fallback_local_kind(
             return kind;
         }
     }
+    if let ExprKind::DynamicStaticMethodCall {
+        receiver: StaticReceiver::Named(class_name),
+        method,
+        ..
+    } = &expr.kind
+    {
+        if let Some(key) =
+            dynamic_static_method_call_return_key(class_name.as_str(), method, string_static_values)
+        {
+            if let Some(kind) = function_return_kinds.get(&key).copied() {
+                return local_kind_for_value(kind);
+            }
+        }
+    }
     if let ExprKind::ClosureCall { var, .. } = &expr.kind {
         if let Some(target) = callable_targets
             .get(var)

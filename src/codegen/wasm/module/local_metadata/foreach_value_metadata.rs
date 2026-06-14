@@ -173,6 +173,32 @@ pub(super) fn foreach_value_local_kind(
                     .expect("checked by guard for runtime value static method return foreach metadata"),
             )
         }
+        ExprKind::DynamicStaticMethodCall {
+            receiver: StaticReceiver::Named(class_name),
+            method,
+            ..
+        } => {
+            if let Some(key) =
+                dynamic_static_method_call_return_key(class_name.as_str(), method, string_static_values)
+            {
+                if function_array_return_key_kinds.contains_key(&key)
+                    && function_array_return_value_kinds.get(&key).is_some()
+                {
+                    return assoc_foreach_value_local_kind(
+                        function_array_return_value_kinds
+                            .get(&key)
+                            .expect("checked by guard for associative dynamic static method return foreach metadata"),
+                    );
+                }
+                if let Some(kinds) = function_array_return_value_kinds.get(&key) {
+                    return foreach_value_cell_local_kind(kinds);
+                }
+                if let Some(kind) = function_array_return_runtime_value_kinds.get(&key) {
+                    return local_kind_for_value_cell(*kind);
+                }
+            }
+            LocalKind::I64
+        }
         ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("array_filter") => {
             if let Some(kinds) = array_filter_array_map_null_value_kinds_for_foreach(
                 args,

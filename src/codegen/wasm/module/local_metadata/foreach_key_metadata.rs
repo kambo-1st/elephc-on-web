@@ -19,6 +19,7 @@ pub(super) fn foreach_key_local_kind(
     array_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
     array_runtime_value_kinds: &HashMap<String, ValueCellKind>,
     php_normalized_key_arrays: &HashSet<String>,
+    string_static_values: &HashMap<String, String>,
     function_array_return_value_kinds: &HashMap<String, Vec<ValueCellKind>>,
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
     array_constants: &HashMap<String, ConstantArrayValue>,
@@ -168,6 +169,12 @@ pub(super) fn foreach_key_local_kind(
         } => function_array_return_key_kinds
             .get(&static_method_call_return_key(class_name.as_str(), method))
             .cloned(),
+        ExprKind::DynamicStaticMethodCall {
+            receiver: StaticReceiver::Named(class_name),
+            method,
+            ..
+        } => dynamic_static_method_call_return_key(class_name.as_str(), method, string_static_values)
+            .and_then(|key| function_array_return_key_kinds.get(&key).cloned()),
         ExprKind::MethodCall { .. } | ExprKind::NullsafeMethodCall { .. } => {
             return LocalKind::Mixed;
         }
@@ -183,6 +190,19 @@ pub(super) fn foreach_key_local_kind(
     } else {
         LocalKind::Mixed
     }
+}
+
+pub(super) fn dynamic_static_method_call_return_key(
+    class_name: &str,
+    method: &Expr,
+    string_static_values: &HashMap<String, String>,
+) -> Option<String> {
+    let method = match &method.kind {
+        ExprKind::StringLiteral(method) => method.clone(),
+        ExprKind::Variable(name) => string_static_values.get(name)?.clone(),
+        _ => return None,
+    };
+    Some(static_method_call_return_key(class_name, &method))
 }
 
 fn array_constant_key_kinds(
