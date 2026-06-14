@@ -31101,6 +31101,8 @@ echo (array_reduce(make_callable_expr_flags()("direct-bool-reduce"), "callable_e
 $directSum = array_sum(make_callable_expr_numbers()("direct-sum"));
 $directProduct = array_product(make_callable_expr_numbers()("direct-product"));
 echo $directSum . ":" . $directProduct . "\n";
+echo (in_array(4, make_callable_expr_numbers()("direct-in-array"), true) ? "hit" : "miss") . "\n";
+echo (array_key_exists("keep", make_callable_expr_assoc()("direct-key-exists")) ? "key-yes" : "key-no") . "\n";
 $mixedIntReduce = array_reduce(make_callable_expr_mixed_array()("direct-mixed-int-reduce"), "callable_expr_mixed_to_int", 0);
 echo ":" . $mixedIntReduce . "\n";
 echo (array_reduce(make_callable_expr_mixed_array()("direct-mixed-bool-reduce"), "callable_expr_mixed_to_bool", false) ? ":T" : ":F") . "\n";
