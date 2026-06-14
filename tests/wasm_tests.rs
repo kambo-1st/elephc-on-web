@@ -3080,6 +3080,13 @@ fn test_wasm32_web_e2e_matches_php_class_parents_assigned_function_call_array() 
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_class_parents_direct_function_call_foreach() {
+    assert_wasm_matches_php(
+        "<?php\nclass DirectParentCallRoot {}\nclass DirectParentCallMiddle extends DirectParentCallRoot {}\nclass DirectParentCallLeaf extends DirectParentCallMiddle {}\nfunction direct_parent_call_class(): string { echo \"target\\n\"; return DirectParentCallLeaf::class; }\nforeach (class_parents(direct_parent_call_class()) as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_class_implements_assigned_array() {
     assert_wasm_matches_php(
         "<?php\ninterface implements_one {}\ninterface implements_two {}\nclass implements_target implements implements_one, implements_two {}\n$interfaces = class_implements(\"implements_target\");\necho count($interfaces) . \":\";\nforeach ($interfaces as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
@@ -3104,6 +3111,13 @@ fn test_wasm32_web_e2e_matches_php_class_implements_assigned_string_local_array(
 fn test_wasm32_web_e2e_matches_php_class_implements_assigned_function_call_array() {
     assert_wasm_matches_php(
         "<?php\ninterface AssignedCallImplementsOne {}\ninterface AssignedCallImplementsTwo {}\nclass AssignedCallImplementsTarget implements AssignedCallImplementsOne, AssignedCallImplementsTwo {}\nfunction assigned_implements_call_class(): string { echo \"target\\n\"; return AssignedCallImplementsTarget::class; }\n$interfaces = class_implements(assigned_implements_call_class());\necho count($interfaces) . \":\";\nforeach ($interfaces as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_foreach() {
+    assert_wasm_matches_php(
+        "<?php\ninterface DirectCallImplementsOne {}\ninterface DirectCallImplementsTwo {}\nclass DirectCallImplementsTarget implements DirectCallImplementsOne, DirectCallImplementsTwo {}\nfunction direct_implements_call_class(): string { echo \"target\\n\"; return DirectCallImplementsTarget::class; }\nforeach (class_implements(direct_implements_call_class()) as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
     );
 }
 
@@ -3153,6 +3167,13 @@ fn test_wasm32_web_e2e_matches_php_class_uses_assigned_string_local_array() {
 fn test_wasm32_web_e2e_matches_php_class_uses_assigned_function_call_array() {
     assert_wasm_matches_php(
         "<?php\ntrait AssignedCallUsesTrait {}\nclass AssignedCallUsesTarget { use AssignedCallUsesTrait; }\nfunction assigned_uses_call_class(): string { echo \"target\\n\"; return AssignedCallUsesTarget::class; }\n$traits = class_uses(assigned_uses_call_class());\necho count($traits) . \":\";\nforeach ($traits as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_foreach() {
+    assert_wasm_matches_php(
+        "<?php\ntrait DirectCallUsesTrait {}\nclass DirectCallUsesTarget { use DirectCallUsesTrait; }\nfunction direct_uses_call_class(): string { echo \"target\\n\"; return DirectCallUsesTarget::class; }\nforeach (class_uses(direct_uses_call_class()) as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
     );
 }
 
