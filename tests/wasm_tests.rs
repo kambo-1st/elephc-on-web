@@ -30889,6 +30889,9 @@ function callable_expr_add(int $value): int {
 function callable_expr_wrap(string $value): string {
     return "[" . $value . "]";
 }
+function callable_expr_echo(string $value): void {
+    echo $value . "\n";
+}
 function callable_expr_items(string $prefix): array {
     return ["head", "tail"];
 }
@@ -31020,6 +31023,7 @@ foreach (array_map("strlen", make_callable_expr_array()("direct-map-callback")) 
 foreach (array_filter(make_callable_expr_array()("direct-filter-key"), "is_int", ARRAY_FILTER_USE_KEY) as $item) {
     echo $item . "\n";
 }
+array_walk(make_callable_expr_array()("direct-walk"), "callable_expr_echo");
 "#,
     );
 }

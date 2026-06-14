@@ -261,7 +261,9 @@ pub(super) fn emit_array_walk_call(
         {
             emit_array_walk_runtime_assoc_local(source, args[0].span, &callback, shape, module)?;
         }
-        ExprKind::FunctionCall { .. } if expression_has_array_type(&args[0], module) => {
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
+            if expression_has_array_type(&args[0], module) =>
+        {
             emit_array_walk_array_expr(&args[0], args[0].span, &callback, shape, module)?;
         }
         ExprKind::MethodCall { object, method, .. }
