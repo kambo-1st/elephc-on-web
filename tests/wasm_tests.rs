@@ -30892,6 +30892,9 @@ function callable_expr_wrap(string $value): string {
 function callable_expr_echo(string $value): void {
     echo $value . "\n";
 }
+function callable_expr_join(string $carry, string $value): string {
+    return $carry . "/" . $value;
+}
 function callable_expr_items(string $prefix): array {
     return ["head", "tail"];
 }
@@ -31024,6 +31027,7 @@ foreach (array_filter(make_callable_expr_array()("direct-filter-key"), "is_int",
     echo $item . "\n";
 }
 array_walk(make_callable_expr_array()("direct-walk"), "callable_expr_echo");
+echo array_reduce(make_callable_expr_array()("direct-reduce"), "callable_expr_join", "s") . "\n";
 "#,
     );
 }

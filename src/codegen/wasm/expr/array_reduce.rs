@@ -2455,7 +2455,9 @@ fn emit_array_reduce_string_call(
                 module,
             )?;
         }
-        ExprKind::FunctionCall { .. } if expression_has_array_type(&args[0], module) => {
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
+            if expression_has_array_type(&args[0], module) =>
+        {
             emit_array_reduce_string_array_expr(&acc_ptr, &acc_len, &args[0], callback, module)?;
         }
         ExprKind::MethodCall { object, method, .. }
