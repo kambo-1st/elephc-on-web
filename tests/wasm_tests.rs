@@ -3073,6 +3073,13 @@ fn test_wasm32_web_e2e_matches_php_class_parents_assigned_string_local_array() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_class_parents_assigned_function_call_array() {
+    assert_wasm_matches_php(
+        "<?php\nclass AssignedParentCallRoot {}\nclass AssignedParentCallMiddle extends AssignedParentCallRoot {}\nclass AssignedParentCallLeaf extends AssignedParentCallMiddle {}\nfunction assigned_parent_call_class(): string { echo \"target\\n\"; return AssignedParentCallLeaf::class; }\n$parents = class_parents(assigned_parent_call_class());\necho count($parents) . \":\";\nforeach ($parents as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_class_implements_assigned_array() {
     assert_wasm_matches_php(
         "<?php\ninterface implements_one {}\ninterface implements_two {}\nclass implements_target implements implements_one, implements_two {}\n$interfaces = class_implements(\"implements_target\");\necho count($interfaces) . \":\";\nforeach ($interfaces as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
@@ -3090,6 +3097,13 @@ fn test_wasm32_web_e2e_matches_php_class_implements_assigned_object_array() {
 fn test_wasm32_web_e2e_matches_php_class_implements_assigned_string_local_array() {
     assert_wasm_matches_php(
         "<?php\ninterface AssignedLocalImplementsOne {}\ninterface AssignedLocalImplementsTwo {}\nclass AssignedLocalImplementsTarget implements AssignedLocalImplementsOne, AssignedLocalImplementsTwo {}\n$class = \"AssignedLocalImplementsTarget\";\n$interfaces = class_implements($class);\necho count($interfaces) . \":\";\nforeach ($interfaces as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_implements_assigned_function_call_array() {
+    assert_wasm_matches_php(
+        "<?php\ninterface AssignedCallImplementsOne {}\ninterface AssignedCallImplementsTwo {}\nclass AssignedCallImplementsTarget implements AssignedCallImplementsOne, AssignedCallImplementsTwo {}\nfunction assigned_implements_call_class(): string { echo \"target\\n\"; return AssignedCallImplementsTarget::class; }\n$interfaces = class_implements(assigned_implements_call_class());\necho count($interfaces) . \":\";\nforeach ($interfaces as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
     );
 }
 
@@ -3132,6 +3146,13 @@ fn test_wasm32_web_e2e_matches_php_class_uses_assigned_object_array() {
 fn test_wasm32_web_e2e_matches_php_class_uses_assigned_string_local_array() {
     assert_wasm_matches_php(
         "<?php\ntrait AssignedLocalUsesTrait {}\nclass AssignedLocalUsesTarget { use AssignedLocalUsesTrait; }\n$class = \"AssignedLocalUsesTarget\";\n$traits = class_uses($class);\necho count($traits) . \":\";\nforeach ($traits as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_uses_assigned_function_call_array() {
+    assert_wasm_matches_php(
+        "<?php\ntrait AssignedCallUsesTrait {}\nclass AssignedCallUsesTarget { use AssignedCallUsesTrait; }\nfunction assigned_uses_call_class(): string { echo \"target\\n\"; return AssignedCallUsesTarget::class; }\n$traits = class_uses(assigned_uses_call_class());\necho count($traits) . \":\";\nforeach ($traits as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
     );
 }
 
