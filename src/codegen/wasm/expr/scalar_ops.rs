@@ -506,6 +506,38 @@ pub(in crate::codegen::wasm) fn materialize_mixed_value_cell(
             module.body().line(&format!("local.set ${}", local));
             Ok(Some(local))
         }
+        ExprKind::MethodCall { object, method, args }
+            if method_call_return_kind(object, method, module) == Some(ValueKind::Mixed) =>
+        {
+            let local = module
+                .next_label("mixed_method_value")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_i32_local(local.clone());
+            match emit_method_call_expr(candidate, object, method, args, module)? {
+                ValueKind::Mixed => {
+                    module.body().line(&format!("local.set ${}", local));
+                    Ok(Some(local))
+                }
+                _ => unreachable!("mixed method metadata must return a mixed value"),
+            }
+        }
+        ExprKind::StaticMethodCall { receiver, method, args }
+            if static_method_call_return_kind(receiver, method, module) == Some(ValueKind::Mixed) =>
+        {
+            let local = module
+                .next_label("mixed_static_method_value")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_i32_local(local.clone());
+            match emit_static_method_call_expr(candidate, receiver, method, args, module)? {
+                ValueKind::Mixed => {
+                    module.body().line(&format!("local.set ${}", local));
+                    Ok(Some(local))
+                }
+                _ => unreachable!("mixed static method metadata must return a mixed value"),
+            }
+        }
         ExprKind::NullsafePropertyAccess { .. } => {
             let local = module
                 .next_label("mixed_nullsafe_property_value")

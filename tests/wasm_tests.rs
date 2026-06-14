@@ -2029,6 +2029,13 @@ fn test_wasm32_web_e2e_matches_php_object_magic_call_nested_string_consumers() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_magic_call_mixed_string_expression_indexing() {
+    assert_wasm_matches_php(
+        "<?php\nclass MagicCallMixedString { public function __call(string $method, array $args): mixed { return $method . \":\" . $args[0] . \":\" . $args[1]; } }\n$p = new MagicCallMixedString();\n$value = $p->join(\"ab\", \"cd\");\necho strlen($value) . \":\" . $value[0] . \":\" . $value[-1] . \":\" . strtoupper($value[5]) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_scalar_property_writes() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public int $i = 0; public float $f = 0.0; public bool $b = false; public string $s = \"\"; }\n$o = new Box();\n$o->i = 9;\n$o->f = 2.5;\n$o->b = true;\n$o->s = \"wasm\";\necho $o->i . \",\" . $o->f . \",\" . $o->b . \",\" . $o->s . \"\\n\";\n",
@@ -3044,6 +3051,13 @@ fn test_wasm32_web_e2e_matches_php_object_method_args_and_assigned_return() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_method_mixed_string_expression_indexing() {
+    assert_wasm_matches_php(
+        "<?php\nclass MixedStringMethodBox { public function label(string $name): mixed { return \"box:\" . $name; } }\n$o = new MixedStringMethodBox();\n$value = $o->label(\"web\");\necho strlen($value) . \":\" . $value[0] . \":\" . $value[-1] . \":\" . strtoupper($value[4]) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_static_dynamic_method_calls() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public function add(int $a, int $b): int { return $a + $b; } public function label(string $s): string { return \"box-\" . $s; } }\n$o = new Box();\n$v = $o->{\"add\"}(2, 3);\n$s = $o->{\"label\"}(\"web\");\necho $v . \":\" . strlen($s) . \":\" . $s . \"\\n\";\n",
@@ -3691,6 +3705,13 @@ fn test_wasm32_web_e2e_matches_php_object_static_method_scalar_output() {
 fn test_wasm32_web_e2e_matches_php_object_static_method_string_output_and_named_arg() {
     assert_wasm_matches_php(
         "<?php\nclass Box { public static function label(string $name = \"web\"): string { return \"box-\" . $name; } }\necho Box::label(name: \"wasm\") . \",\" . Box::label() . \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_object_static_method_mixed_string_expression_indexing() {
+    assert_wasm_matches_php(
+        "<?php\nclass StaticMixedStringMethodBox { public static function label(string $name): mixed { return \"box:\" . $name; } }\n$value = StaticMixedStringMethodBox::label(\"web\");\necho strlen($value) . \":\" . $value[0] . \":\" . $value[-1] . \":\" . strtoupper($value[4]) . \"\\n\";\n",
     );
 }
 
