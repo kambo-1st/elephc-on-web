@@ -104,7 +104,10 @@ pub(super) fn emit_output_implode_assigned_string_array(
         ExprKind::FunctionCall { name, .. }
             if name.eq_ignore_ascii_case("explode")
                 || name.eq_ignore_ascii_case("str_split")
-                || name.eq_ignore_ascii_case("range") =>
+                || name.eq_ignore_ascii_case("range")
+                || name.eq_ignore_ascii_case("class_parents")
+                || name.eq_ignore_ascii_case("class_implements")
+                || name.eq_ignore_ascii_case("class_uses") =>
         {
             temp = module
                 .next_label("output_implode_direct_array")

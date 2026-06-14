@@ -142,6 +142,9 @@ fn json_encode_direct_array_call_is_supported(name: &str) -> bool {
             | "array_fill_keys"
             | "array_combine"
             | "array_column"
+            | "class_parents"
+            | "class_implements"
+            | "class_uses"
     )
 }
 

@@ -3136,6 +3136,13 @@ fn test_wasm32_web_e2e_matches_php_class_parents_direct_function_call_set_ops() 
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_class_parents_direct_function_call_string_bridges() {
+    assert_wasm_matches_php(
+        "<?php\nclass BridgeParentCallRoot {}\nclass BridgeParentCallMiddle extends BridgeParentCallRoot {}\nclass BridgeParentCallLeaf extends BridgeParentCallMiddle {}\nfunction bridge_parent_call_class(): string { echo \"target\\n\"; return BridgeParentCallLeaf::class; }\necho json_encode(class_parents(bridge_parent_call_class())) . \"\\n\";\necho implode(\"|\", class_parents(bridge_parent_call_class())) . \"\\n\";\necho (array_key_exists(BridgeParentCallRoot::class, class_parents(bridge_parent_call_class())) ? \"key\" : \"missing\") . \"\\n\";\necho array_search(BridgeParentCallMiddle::class, class_parents(bridge_parent_call_class()), true) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_class_implements_assigned_array() {
     assert_wasm_matches_php(
         "<?php\ninterface implements_one {}\ninterface implements_two {}\nclass implements_target implements implements_one, implements_two {}\n$interfaces = class_implements(\"implements_target\");\necho count($interfaces) . \":\";\nforeach ($interfaces as $name => $value) { echo $name . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
@@ -3216,6 +3223,13 @@ fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_reduce_
 fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_set_ops() {
     assert_wasm_matches_php(
         "<?php\ninterface SetOpCallImplementsOne {}\ninterface SetOpCallImplementsTwo {}\nclass SetOpCallImplementsTarget implements SetOpCallImplementsOne, SetOpCallImplementsTwo {}\nfunction set_op_implements_call_class(): string { echo \"target\\n\"; return SetOpCallImplementsTarget::class; }\nforeach (array_diff(class_implements(set_op_implements_call_class()), [SetOpCallImplementsOne::class]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_intersect(class_implements(set_op_implements_call_class()), [SetOpCallImplementsTwo::class]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_diff_key(class_implements(set_op_implements_call_class()), [SetOpCallImplementsOne::class => true]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_intersect_key(class_implements(set_op_implements_call_class()), [SetOpCallImplementsTwo::class => true]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_implements_direct_function_call_string_bridges() {
+    assert_wasm_matches_php(
+        "<?php\ninterface BridgeCallImplementsOne {}\ninterface BridgeCallImplementsTwo {}\nclass BridgeCallImplementsTarget implements BridgeCallImplementsOne, BridgeCallImplementsTwo {}\nfunction bridge_implements_call_class(): string { echo \"target\\n\"; return BridgeCallImplementsTarget::class; }\necho json_encode(class_implements(bridge_implements_call_class())) . \"\\n\";\necho implode(\"|\", class_implements(bridge_implements_call_class())) . \"\\n\";\necho (array_key_exists(BridgeCallImplementsOne::class, class_implements(bridge_implements_call_class())) ? \"key\" : \"missing\") . \"\\n\";\necho array_search(BridgeCallImplementsTwo::class, class_implements(bridge_implements_call_class()), true) . \"\\n\";\n",
     );
 }
 
@@ -3321,6 +3335,13 @@ fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_reduce_walk()
 fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_set_ops() {
     assert_wasm_matches_php(
         "<?php\ntrait SetOpCallUsesTrait {}\ntrait SetOpCallUsesOtherTrait {}\nclass SetOpCallUsesTarget { use SetOpCallUsesTrait; use SetOpCallUsesOtherTrait; }\nfunction set_op_uses_call_class(): string { echo \"target\\n\"; return SetOpCallUsesTarget::class; }\nforeach (array_diff(class_uses(set_op_uses_call_class()), [SetOpCallUsesTrait::class]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_intersect(class_uses(set_op_uses_call_class()), [SetOpCallUsesOtherTrait::class]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_diff_key(class_uses(set_op_uses_call_class()), [SetOpCallUsesTrait::class => true]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (array_intersect_key(class_uses(set_op_uses_call_class()), [SetOpCallUsesOtherTrait::class => true]) as $key => $value) { echo $key . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_class_uses_direct_function_call_string_bridges() {
+    assert_wasm_matches_php(
+        "<?php\ntrait BridgeCallUsesTrait {}\ntrait BridgeCallUsesOtherTrait {}\nclass BridgeCallUsesTarget { use BridgeCallUsesTrait; use BridgeCallUsesOtherTrait; }\nfunction bridge_uses_call_class(): string { echo \"target\\n\"; return BridgeCallUsesTarget::class; }\necho json_encode(class_uses(bridge_uses_call_class())) . \"\\n\";\necho implode(\"|\", class_uses(bridge_uses_call_class())) . \"\\n\";\necho (array_key_exists(BridgeCallUsesTrait::class, class_uses(bridge_uses_call_class())) ? \"key\" : \"missing\") . \"\\n\";\necho array_search(BridgeCallUsesOtherTrait::class, class_uses(bridge_uses_call_class()), true) . \"\\n\";\n",
     );
 }
 
