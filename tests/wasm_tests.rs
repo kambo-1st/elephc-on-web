@@ -30988,6 +30988,9 @@ foreach (array_diff(make_callable_expr_array()("direct-diff"), ["tail"]) as $ite
 foreach (array_intersect(($factory->makeInstanceArray())("direct-intersect"), ["tail"]) as $item) {
     echo $item . "\n";
 }
+foreach (array_merge(["start"], make_callable_expr_array()("direct-merge")) as $item) {
+    echo $item . "\n";
+}
 "#,
     );
 }

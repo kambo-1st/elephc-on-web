@@ -21,7 +21,11 @@ pub(super) fn indexed_array_merge_needs_value_layout(args: &[Expr], module: &Was
         {
             module.function_array_return_layout(name) == ArrayLayout::Value
         }
-        ExprKind::FunctionCall { .. } if expression_has_array_type(arg, module) => true,
+        ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
+            if expression_has_array_type(arg, module) =>
+        {
+            true
+        }
         _ => false,
     })
 }
@@ -38,7 +42,11 @@ pub(super) fn indexed_array_merge_needs_dynamic_value_layout(args: &[Expr], modu
             {
                 module.function_array_return_length(name).is_none()
             }
-            ExprKind::FunctionCall { .. } if expression_has_array_type(arg, module) => true,
+            ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
+                if expression_has_array_type(arg, module) =>
+            {
+                true
+            }
             _ => false,
         })
 }
@@ -267,7 +275,9 @@ pub(super) fn emit_dynamic_value_array_merge_assign(
                 module.body().line(&format!("local.set {}", ptr));
                 module.function_array_return_layout(function_name)
             }
-            ExprKind::FunctionCall { .. } if expression_has_array_type(arg, module) => {
+            ExprKind::FunctionCall { .. } | ExprKind::ExprCall { .. }
+                if expression_has_array_type(arg, module) =>
+            {
                 let source = materialize_array_map_multi_source(arg, "value_array_merge_source", module)?;
                 module.body().line(&format!("local.get ${}_ptr", source));
                 module.body().line(&format!("local.set {}", ptr));
