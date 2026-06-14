@@ -17,7 +17,7 @@ use crate::codegen::wasm::expr::array_value_cells::emit_store_emitted_value_kind
 use crate::codegen::wasm::expr::existence::emit_runtime_string_matches_any;
 use crate::codegen::wasm::module::{
     method_call_return_key, static_method_call_return_key, ObjectClassInfo, ObjectPropertyInfo,
-    ObjectPropertyKind, ObjectStaticPropertyInfo, EnumCaseBackingValue,
+    ObjectMethodInfo, ObjectPropertyKind, ObjectStaticPropertyInfo, EnumCaseBackingValue,
 };
 use crate::names::php_symbol_key;
 use crate::parser::ast::{InstanceOfTarget, StaticReceiver, Stmt, StmtKind};
@@ -530,7 +530,9 @@ fn emit_missing_property_magic_isset_expr(
     property: &str,
     module: &mut WasmModule,
 ) -> Result<Option<ValueKind>, CompileError> {
-    if object_receiver_needs_runtime_class_id(object, module) || object_class_name_for_expr(object, module).is_none() {
+    if object_receiver_needs_runtime_class_id(object, module)
+        || object_class_name_for_expr(object, module).is_none()
+    {
         return Ok(None);
     }
     let class_name = object_class_name_for_expr(object, module).expect("checked above");
@@ -543,18 +545,26 @@ fn emit_missing_property_magic_isset_expr(
     }) {
         return Ok(None);
     }
-    let Some((_, method)) = module.object_method_in_hierarchy(&class_name, "__isset") else {
-        return Ok(None);
-    };
-    if !module.object_member_is_accessible(&method.owner_class, &method.visibility)
-        || method.return_kind != ValueKind::Bool
-        || method.param_kinds.as_slice() != [LocalKind::Str]
-    {
+    if supported_magic_isset_method(&class_name, module).is_none() {
         return Ok(None);
     }
     let property_arg = Expr::new(ExprKind::StringLiteral(property.to_string()), expr.span);
     let kind = emit_method_call_expr(expr, object, "__isset", &[property_arg], module)?;
     Ok(Some(kind))
+}
+
+fn supported_magic_isset_method(
+    class_name: &str,
+    module: &WasmModule,
+) -> Option<(String, ObjectMethodInfo)> {
+    let (declaring_class, method) = module.object_method_in_hierarchy(class_name, "__isset")?;
+    if !module.object_member_is_accessible(&method.owner_class, &method.visibility)
+        || method.return_kind != ValueKind::Bool
+        || method.param_kinds.as_slice() != [LocalKind::Str]
+    {
+        return None;
+    }
+    Some((declaring_class, method))
 }
 
 pub(in crate::codegen::wasm) fn emit_dynamic_object_property_isset_expr(
@@ -787,7 +797,19 @@ fn emit_runtime_dynamic_property_isset_expr(
         })
         .cloned()
         .collect();
-    if properties.is_empty() {
+    let magic_isset = supported_magic_isset_method(&class_name, module);
+    if let Some((declaring_class, method)) = &magic_isset {
+        if !declaring_class.eq_ignore_ascii_case(&class_name)
+            && method_body_uses_this_property(&method.body)
+            && !inherited_property_layout_available(&class_name, declaring_class, module)
+        {
+            return Err(CompileError::new(
+                expr.span,
+                "wasm32-web inherited __isset methods that read parent properties require inherited object layout metadata",
+            ));
+        }
+    }
+    if properties.is_empty() && magic_isset.is_none() {
         return Err(CompileError::new(
             expr.span,
             "wasm32-web runtime dynamic property isset requires visible fixed property metadata",
@@ -806,7 +828,14 @@ fn emit_runtime_dynamic_property_isset_expr(
     module.declare_object_local(object_local.clone());
     module.body().line(&format!("local.set ${}", object_local));
     let property_local = materialize_runtime_string_expr(property, "dynamic_property_isset_name", module)?;
-    emit_runtime_dynamic_property_isset_branch(&object_local, &property_local, &properties, 0, module)?;
+    emit_runtime_dynamic_property_isset_branch(
+        &object_local,
+        &property_local,
+        &properties,
+        magic_isset.as_ref(),
+        0,
+        module,
+    )?;
     Ok(ValueKind::Bool)
 }
 
@@ -4501,11 +4530,21 @@ fn emit_runtime_dynamic_property_isset_branch(
     object_local: &str,
     property_local: &str,
     properties: &[ObjectPropertyInfo],
+    magic_isset: Option<&(String, ObjectMethodInfo)>,
     index: usize,
     module: &mut WasmModule,
 ) -> Result<(), CompileError> {
     if index >= properties.len() {
-        module.body().line("i32.const 0");
+        if let Some((_, method)) = magic_isset {
+            module.body().line(&format!("local.get ${}", object_local));
+            module.body().line(&format!("local.get ${}_ptr", property_local));
+            module.body().line(&format!("local.get ${}_len", property_local));
+            module
+                .body()
+                .line(&format!("call ${}", wasm_function_name(&method.symbol)));
+        } else {
+            module.body().line("i32.const 0");
+        }
         return Ok(());
     }
     let property_info = &properties[index];
@@ -4519,6 +4558,7 @@ fn emit_runtime_dynamic_property_isset_branch(
         object_local,
         property_local,
         properties,
+        magic_isset,
         index + 1,
         module,
     )?;

@@ -47,7 +47,8 @@ use function_metadata::*;
 use local_metadata::*;
 pub(super) use local_metadata::value_kind_for_local;
 pub(in crate::codegen::wasm) use object_metadata::{
-    ObjectClassInfo, ObjectPropertyInfo, ObjectPropertyKind, ObjectStaticPropertyInfo,
+    ObjectClassInfo, ObjectMethodInfo, ObjectPropertyInfo, ObjectPropertyKind,
+    ObjectStaticPropertyInfo,
 };
 
 const DATA_START: usize = 1024;
