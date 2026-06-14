@@ -277,6 +277,11 @@ pub(super) fn emit_array_walk_call(
         {
             emit_array_walk_array_expr(&args[0], args[0].span, &callback, shape, module)?;
         }
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. }
+            if dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some() =>
+        {
+            emit_array_walk_array_expr(&args[0], args[0].span, &callback, shape, module)?;
+        }
         _ => {
             return Err(CompileError::new(
                 args[0].span,
