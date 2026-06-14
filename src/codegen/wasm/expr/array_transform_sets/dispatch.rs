@@ -875,6 +875,129 @@ pub(in crate::codegen::wasm::expr) fn emit_indexed_array_transform_assign(
                 }
             }
         }
+        ExprKind::DynamicStaticMethodCall { receiver, method, .. }
+            if matches!(
+                function_name.to_ascii_lowercase().as_str(),
+                "array_values"
+                    | "array_keys"
+                    | "array_reverse"
+                    | "array_unique"
+                    | "array_flip"
+                    | "array_diff"
+                    | "array_intersect"
+            ) && dynamic_static_method_call_array_return_metadata(receiver, method, module).is_some() =>
+        {
+            let temp = materialize_array_map_multi_source(
+                &args[0],
+                "array_transform_dynamic_static_method_source",
+                module,
+            )?;
+            match module.array_layout(&temp) {
+                ArrayLayout::Assoc => {
+                    if function_name.eq_ignore_ascii_case("array_values") {
+                        emit_assoc_array_values_assign(name, &temp, module)
+                    } else if function_name.eq_ignore_ascii_case("array_reverse") {
+                        emit_assoc_array_reverse_assign(
+                            name,
+                            &temp,
+                            args[0].span,
+                            array_reverse_preserve_keys_arg(args, module)?,
+                            module,
+                        )
+                    } else if function_name.eq_ignore_ascii_case("array_unique") {
+                        emit_known_assoc_array_unique_assign(name, &temp, args, module)
+                    } else if function_name.eq_ignore_ascii_case("array_flip") {
+                        if module.array_key_kinds(&temp).is_some() {
+                            emit_known_assoc_array_flip_assign(name, &temp, args, module)
+                        } else {
+                            emit_unknown_assoc_array_flip_assign(name, &temp, module);
+                            Ok(())
+                        }
+                    } else if matches!(
+                        function_name.to_ascii_lowercase().as_str(),
+                        "array_diff" | "array_intersect"
+                    ) {
+                        emit_known_assoc_array_value_set_assign(name, &temp, function_name, args, module)
+                    } else {
+                        emit_assoc_array_keys_assign(name, &temp, module)
+                    }
+                }
+                ArrayLayout::Value if !function_name.eq_ignore_ascii_case("array_keys") => {
+                    if function_name.eq_ignore_ascii_case("array_unique") {
+                        emit_known_value_string_array_unique_assign(name, &temp, args, module)
+                    } else if function_name.eq_ignore_ascii_case("array_flip") {
+                        emit_known_value_string_array_flip_assign(name, &temp, args, module)
+                    } else if matches!(
+                        function_name.to_ascii_lowercase().as_str(),
+                        "array_diff" | "array_intersect"
+                    ) {
+                        emit_known_value_string_array_value_set_assign(
+                            name,
+                            &temp,
+                            function_name,
+                            args,
+                            module,
+                        )
+                    } else if function_name.eq_ignore_ascii_case("array_reverse")
+                        && array_reverse_preserve_keys_arg(args, module)?
+                    {
+                        emit_indexed_array_reverse_preserve_keys_assign(
+                            name,
+                            &temp,
+                            ArrayLayout::Value,
+                            module,
+                        )
+                    } else {
+                        emit_dynamic_value_array_transform_assign(
+                            name,
+                            &Expr::new(ExprKind::Variable(temp), args[0].span),
+                            function_name,
+                            module,
+                        )
+                    }
+                }
+                ArrayLayout::Value => emit_dynamic_indexed_array_transform_assign(
+                    name,
+                    &Expr::new(ExprKind::Variable(temp), args[0].span),
+                    function_name,
+                    module,
+                ),
+                ArrayLayout::CompactInt => {
+                    if function_name.eq_ignore_ascii_case("array_unique") {
+                        emit_known_indexed_int_array_unique_assign(name, &temp, args, module)
+                    } else if function_name.eq_ignore_ascii_case("array_flip") {
+                        emit_known_indexed_int_array_flip_assign(name, &temp, args, module)
+                    } else if matches!(
+                        function_name.to_ascii_lowercase().as_str(),
+                        "array_diff" | "array_intersect"
+                    ) {
+                        emit_known_indexed_int_array_value_set_assign(
+                            name,
+                            &temp,
+                            function_name,
+                            args,
+                            module,
+                        )
+                    } else if function_name.eq_ignore_ascii_case("array_reverse")
+                        && array_reverse_preserve_keys_arg(args, module)?
+                    {
+                        emit_indexed_array_reverse_preserve_keys_assign(
+                            name,
+                            &temp,
+                            ArrayLayout::CompactInt,
+                            module,
+                        )
+                    } else {
+                        emit_dynamic_indexed_array_transform_assign(
+                            name,
+                            &Expr::new(ExprKind::Variable(temp), args[0].span),
+                            function_name,
+                            module,
+                        )
+                    }
+                }
+            }
+        }
         ExprKind::ArrayAccess { .. }
             if matches!(
                 function_name.to_ascii_lowercase().as_str(),

@@ -3234,6 +3234,13 @@ fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_pad_retu
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_transform_sets_return() {
+    assert_wasm_matches_php(
+        "<?php\nclass DynamicStaticTransformSetBox { public static function nums(): array { return [2, 3, 2]; } public static function rows(): array { return [\"name\" => \"box\", \"tail\" => \"end\", \"again\" => \"box\"]; } }\n$nums = \"nums\";\n$rows = \"rows\";\n$values = array_values(DynamicStaticTransformSetBox::{$rows}());\n$keys = array_keys(DynamicStaticTransformSetBox::{$rows}());\n$reverse = array_reverse(DynamicStaticTransformSetBox::{$rows}());\n$unique = array_unique(DynamicStaticTransformSetBox::{$rows}());\n$flip = array_flip(DynamicStaticTransformSetBox::{$rows}());\n$diff = array_diff(DynamicStaticTransformSetBox::{$rows}(), [\"end\"]);\n$intersect = array_intersect(DynamicStaticTransformSetBox::{$rows}(), [\"box\"]);\n$nunique = array_unique(DynamicStaticTransformSetBox::{$nums}());\necho $values[0] . \":\" . $keys[1] . \":\" . $reverse[\"tail\"] . \":\" . count($unique) . \":\" . $flip[\"box\"] . \":\" . $diff[\"name\"] . \":\" . $intersect[\"again\"] . \":\" . count($nunique) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_runtime_variable_static_method_array_rand_return() {
     assert_wasm_matches_php(
         "<?php\nclass DynamicStaticRandBox { public static function items(): array { return [\"red\", \"blue\"]; } }\n$name = \"items\";\n$key = array_rand(DynamicStaticRandBox::{$name}());\n$keys = array_rand(DynamicStaticRandBox::{$name}(), 2);\necho (($key === 0 || $key === 1) ? 1 : 0) . \":\" . count($keys) . \":\" . $keys[0] . \":\" . $keys[1] . \"\\n\";\n",
