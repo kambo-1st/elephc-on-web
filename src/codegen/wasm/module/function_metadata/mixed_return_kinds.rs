@@ -30,7 +30,7 @@ pub(in crate::codegen::wasm::module) fn collect_function_mixed_return_kinds(
         .collect()
 }
 
-fn consistent_mixed_return_value_kind(
+pub(in crate::codegen::wasm::module) fn consistent_mixed_return_value_kind(
     params: &[(String, Option<TypeExpr>, Option<Expr>, bool)],
     stmts: &[Stmt],
 ) -> Option<ValueCellKind> {
@@ -296,6 +296,13 @@ fn mixed_return_expr_value_kind(
                 array_key_values,
             );
         }
+        ExprKind::BinaryOp {
+            op: BinOp::Concat, ..
+        } => return Some(ValueCellKind::Str),
+        ExprKind::Cast {
+            target: CastType::String,
+            ..
+        } => return Some(ValueCellKind::Str),
         _ => {}
     }
     if let Some(kind) = static_value_cell_kind_for_expr(expr) {

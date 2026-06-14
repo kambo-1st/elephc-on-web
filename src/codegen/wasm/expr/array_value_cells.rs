@@ -145,6 +145,12 @@ pub(in crate::codegen::wasm) fn emit_store_value_cell(
     }
     match &value.kind {
         ExprKind::ArrayAccess { array, index } => {
+            if expression_is_stringy(array, module) {
+                module.body().line(&format!("local.get {}", cell));
+                emit_string_index_to_stack(value, array, index, module)?;
+                module.body().line("call $__rt_value_store_string");
+                return Ok(());
+            }
             if missing_direct_array_literal_index(array, index) {
                 module.body().line(&format!("local.get {}", cell));
                 module.body().line("call $__rt_value_store_null");

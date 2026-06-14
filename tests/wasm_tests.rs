@@ -1959,6 +1959,13 @@ fn test_wasm32_web_e2e_matches_php_object_magic_get_mixed_string_expression_retu
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_object_magic_get_mixed_string_expression_indexing() {
+    assert_wasm_matches_php(
+        "<?php\nclass MagicMixedStringIndexBag { public function __get(string $name): mixed { return \"[\" . $name . \"]\"; } }\n$o = new MagicMixedStringIndexBag();\n$slug = $o->slug;\necho $slug[0] . \":\" . $slug[-1] . \":\" . strtoupper($slug[1]) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_object_magic_set_missing_property_writes() {
     assert_wasm_matches_php(
         "<?php\nclass MagicWriteBag { public string $last = \"\"; public function __set(string $name, mixed $value): void { echo \"set:\" . $name . \"\\n\"; $this->last = $name . \":\" . $value; } }\n$o = new MagicWriteBag();\n$o->title = \"wasm\";\necho $o->last . \"\\n\";\n$o->count = 7;\necho $o->last . \"\\n\";\n",

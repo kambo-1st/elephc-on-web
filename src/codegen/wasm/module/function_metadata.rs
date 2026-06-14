@@ -65,7 +65,9 @@ pub(super) use self::array_return_values::{
     collect_function_array_return_value_kinds,
     static_split_string_array_len,
 };
-pub(super) use self::mixed_return_kinds::collect_function_mixed_return_kinds;
+pub(super) use self::mixed_return_kinds::{
+    collect_function_mixed_return_kinds, consistent_mixed_return_value_kind,
+};
 pub(super) use self::signature_collection::{
     collect_function_defaults, collect_function_param_kinds,
     collect_function_params, collect_function_return_kinds, collect_function_return_object_classes,

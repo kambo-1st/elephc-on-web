@@ -1219,6 +1219,18 @@ pub(in crate::codegen::wasm) fn method_call_return_kind(
         .flatten()
 }
 
+pub(in crate::codegen::wasm) fn method_call_mixed_return_kind(
+    object: &Expr,
+    method: &str,
+    module: &WasmModule,
+) -> Option<ValueCellKind> {
+    let class_name = object_class_name_for_expr(object, module)?;
+    module
+        .object_method_in_hierarchy(&class_name, method)
+        .or_else(|| supported_magic_call_method(&class_name, module))
+        .and_then(|(_, method)| method.mixed_return_kind)
+}
+
 pub(in crate::codegen::wasm) fn method_call_compact_int_array_return_len(
     object: &Expr,
     method: &str,
@@ -1668,6 +1680,28 @@ pub(in crate::codegen::wasm) fn object_property_value_kind(
     })
 }
 
+pub(in crate::codegen::wasm) fn object_property_mixed_value_cell_kind(
+    object: &Expr,
+    property: &str,
+    module: &WasmModule,
+) -> Option<ValueCellKind> {
+    if object_receiver_needs_runtime_class_id(object, module) {
+        return None;
+    }
+    let class_name = object_class_name_for_expr(object, module)?;
+    let class_info = module.object_class(&class_name)?;
+    let property_info = class_info
+        .properties
+        .iter()
+        .find(|candidate| candidate.name == property);
+    if property_info.is_some_and(|info| {
+        module.object_member_is_accessible(&info.owner_class, &info.visibility)
+    }) {
+        return None;
+    }
+    supported_magic_get_method(&class_name, module).and_then(|(_, method)| method.mixed_return_kind)
+}
+
 pub(in crate::codegen::wasm) fn object_dynamic_property_value_kind(
     object: &Expr,
     property: &Expr,
@@ -1885,6 +1919,17 @@ pub(in crate::codegen::wasm) fn static_method_call_return_kind(
             .object_static_method_in_hierarchy(&class_name, method)?
             .return_kind,
     )
+}
+
+pub(in crate::codegen::wasm) fn static_method_call_mixed_return_kind(
+    receiver: &StaticReceiver,
+    method: &str,
+    module: &WasmModule,
+) -> Option<ValueCellKind> {
+    let class_name = module.class_name_for_receiver(receiver)?;
+    module
+        .object_static_method_in_hierarchy(&class_name, method)?
+        .mixed_return_kind
 }
 
 fn emit_parent_constructor_call(

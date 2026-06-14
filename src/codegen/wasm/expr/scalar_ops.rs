@@ -571,6 +571,18 @@ pub(in crate::codegen::wasm) fn materialize_mixed_value_cell(
             }
         }
         ExprKind::ArrayAccess { array, index } => {
+            if expression_is_stringy(array, module) {
+                let local = module
+                    .next_label("mixed_string_index_value")
+                    .trim_start_matches('$')
+                    .to_string();
+                module.declare_i32_local(local.clone());
+                emit_alloc_mixed_cell(&local, module);
+                module.body().line(&format!("local.get ${}", local));
+                emit_string_index_to_stack(candidate, array, index, module)?;
+                module.body().line("call $__rt_value_store_string");
+                return Ok(Some(local));
+            }
             if let ExprKind::StaticPropertyAccess { receiver, property } = &array.kind {
                 let source = module
                     .next_label("mixed_static_property_array_source")

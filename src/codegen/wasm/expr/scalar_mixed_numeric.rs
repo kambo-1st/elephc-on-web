@@ -373,6 +373,50 @@ pub(in crate::codegen::wasm) fn known_mixed_value_cell_kind(
         {
             Ok(module.function_mixed_return_kind(name))
         }
+        ExprKind::PropertyAccess { object, property } => {
+            Ok(object_property_mixed_value_cell_kind(object, property, module))
+        }
+        ExprKind::NullsafePropertyAccess { object, property } => {
+            if !object_expr_is_known_non_null(object, module) {
+                return Ok(None);
+            }
+            Ok(object_property_mixed_value_cell_kind(object, property, module))
+        }
+        ExprKind::DynamicPropertyAccess { object, property } => {
+            let Some(property_name) = static_string_value(property, module) else {
+                return Ok(None);
+            };
+            Ok(object_property_mixed_value_cell_kind(
+                object,
+                &property_name,
+                module,
+            ))
+        }
+        ExprKind::NullsafeDynamicPropertyAccess { object, property } => {
+            if !object_expr_is_known_non_null(object, module) {
+                return Ok(None);
+            }
+            let Some(property_name) = static_string_value(property, module) else {
+                return Ok(None);
+            };
+            Ok(object_property_mixed_value_cell_kind(
+                object,
+                &property_name,
+                module,
+            ))
+        }
+        ExprKind::MethodCall { object, method, .. } => {
+            Ok(method_call_mixed_return_kind(object, method, module))
+        }
+        ExprKind::NullsafeMethodCall { object, method, .. } => {
+            if !object_expr_is_known_non_null(object, module) {
+                return Ok(None);
+            }
+            Ok(method_call_mixed_return_kind(object, method, module))
+        }
+        ExprKind::StaticMethodCall { receiver, method, .. } => {
+            Ok(static_method_call_mixed_return_kind(receiver, method, module))
+        }
         ExprKind::ArrayAccess { array, index } => {
             if let Some(kind) = nested_array_static_access_kind(array, index, module) {
                 return Ok(Some(kind));

@@ -303,9 +303,9 @@ pub(in crate::codegen::wasm) fn expression_is_stringy(expr: &Expr, module: &Wasm
         ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("call_user_func_array") => {
             call_user_func_array_return_kind(args, module) == Some(ValueKind::Str)
         }
-        ExprKind::FunctionCall { name, .. } => {
+        ExprKind::FunctionCall { name, args } => {
             module.function_return_kind(name) == Some(ValueKind::Str)
-                || is_output_string_builtin(name.as_str())
+                || output_string_builtin_call_is_stringy(name.as_str(), args)
         }
         ExprKind::MethodCall { object, method, .. } => {
             method_call_return_kind(object, method, module) == Some(ValueKind::Str)
@@ -357,6 +357,19 @@ pub(in crate::codegen::wasm) fn expression_is_stringy(expr: &Expr, module: &Wasm
                 && values.all(|value| expression_is_stringy(value, module))
         }
         _ => false,
+    }
+}
+
+fn output_string_builtin_call_is_stringy(name: &str, args: &[Expr]) -> bool {
+    if !is_output_string_builtin(name) {
+        return false;
+    }
+    if !name.eq_ignore_ascii_case("pathinfo") {
+        return true;
+    }
+    match args.get(1) {
+        Some(flag) => static_or_const_int_value(flag) != Some(15),
+        None => false,
     }
 }
 

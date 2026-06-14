@@ -18,7 +18,11 @@ use crate::parser::ast::{
     TraitAdaptation, TraitUse, TypeExpr, Visibility,
 };
 
-use super::{function_key, local_kind_from_type, value_kind_from_return_type, LocalKind, ValueKind};
+use super::{
+    function_key, local_kind_from_type, value_kind_from_return_type, LocalKind, ValueCellKind,
+    ValueKind,
+};
+use super::function_metadata::consistent_mixed_return_value_kind;
 
 #[derive(Clone, Debug)]
 pub(in crate::codegen::wasm) struct ObjectClassInfo {
@@ -79,6 +83,7 @@ pub(in crate::codegen::wasm) struct ObjectMethodInfo {
     pub(in crate::codegen::wasm) param_kinds: Vec<LocalKind>,
     pub(in crate::codegen::wasm) defaults: Vec<Option<Expr>>,
     pub(in crate::codegen::wasm) return_kind: ValueKind,
+    pub(in crate::codegen::wasm) mixed_return_kind: Option<ValueCellKind>,
     pub(in crate::codegen::wasm) return_object_class: Option<String>,
     pub(in crate::codegen::wasm) body: Vec<Stmt>,
 }
@@ -668,6 +673,14 @@ fn object_method_info(
             .map(|(_, _, default, _)| default.clone())
             .collect(),
         return_kind: value_kind_from_return_type(method.return_type.as_ref()),
+        mixed_return_kind: (value_kind_from_return_type(method.return_type.as_ref()) == ValueKind::Mixed)
+            .then(|| {
+                consistent_mixed_return_value_kind(
+                    &method.params,
+                    &method.body,
+                )
+            })
+            .flatten(),
         return_object_class: method
             .return_type
             .as_ref()
