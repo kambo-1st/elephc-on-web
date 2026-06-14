@@ -31153,6 +31153,8 @@ function make_assoc_rand_callable(): callable {
 }
 $keys = array_rand(make_assoc_rand_callable()("rows"), 2);
 echo count($keys) . ":" . $keys[0] . ":" . $keys[1] . "\n";
+$key = array_rand(make_assoc_rand_callable()("single"));
+echo gettype($key) . "\n";
 "#,
     );
 }

@@ -77,6 +77,9 @@ pub(super) fn collect_assignment_locals(
             array_runtime_value_kinds,
             function_array_return_layouts,
             function_array_return_key_kinds,
+            function_return_kinds,
+            function_callable_return_targets,
+            function_possible_callable_return_targets,
         )
             .unwrap_or_else(|| {
                 infer_assignment_fallback_local_kind(

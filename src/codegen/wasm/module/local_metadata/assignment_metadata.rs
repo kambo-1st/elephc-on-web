@@ -25,6 +25,9 @@ pub(super) fn infer_assignment_local_kind(
     array_runtime_value_kinds: &HashMap<String, ValueCellKind>,
     function_array_return_layouts: &HashMap<String, ArrayLayout>,
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+    function_return_kinds: &HashMap<String, ValueKind>,
+    function_callable_return_targets: &HashMap<String, String>,
+    function_possible_callable_return_targets: &HashMap<String, Vec<String>>,
 ) -> Option<LocalKind> {
     match &value.kind {
         ExprKind::NullsafePropertyAccess { .. }
@@ -46,6 +49,9 @@ pub(super) fn infer_assignment_local_kind(
             array_runtime_value_kinds,
             function_array_return_layouts,
             function_array_return_key_kinds,
+            function_return_kinds,
+            function_callable_return_targets,
+            function_possible_callable_return_targets,
         )
         .or_else(|| {
             Some(infer_local_kind(
@@ -134,6 +140,9 @@ pub(super) fn infer_assignment_local_kind(
                 array_runtime_value_kinds,
                 function_array_return_layouts,
                 function_array_return_key_kinds,
+                function_return_kinds,
+                function_callable_return_targets,
+                function_possible_callable_return_targets,
             )
         }
         _ => None,

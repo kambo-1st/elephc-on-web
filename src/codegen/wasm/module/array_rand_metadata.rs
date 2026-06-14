@@ -29,6 +29,9 @@ pub(super) fn local_kind_for_source(
     array_runtime_value_kinds: &HashMap<String, ValueCellKind>,
     function_array_return_layouts: &HashMap<String, ArrayLayout>,
     function_array_return_key_kinds: &HashMap<String, Vec<AssocKeyKind>>,
+    function_return_kinds: &HashMap<String, super::ValueKind>,
+    function_callable_return_targets: &HashMap<String, String>,
+    function_possible_callable_return_targets: &HashMap<String, Vec<String>>,
 ) -> Option<LocalKind> {
     match &source.kind {
         ExprKind::ArrayLiteralAssoc(items) => {
@@ -74,6 +77,24 @@ pub(super) fn local_kind_for_source(
                 .get(&function_key(name))
                 .and_then(|kinds| local_kind_from_key_kinds(kinds))
         }
+        ExprKind::ExprCall { callee, .. } => callable_expr_source_key(
+            callee,
+            function_return_kinds,
+            function_callable_return_targets,
+            function_possible_callable_return_targets,
+        )
+        .and_then(|key| {
+                if function_array_return_layouts
+                    .get(&key)
+                    .is_some_and(|layout| *layout == ArrayLayout::Assoc)
+                {
+                    function_array_return_key_kinds
+                        .get(&key)
+                        .and_then(|kinds| local_kind_from_key_kinds(kinds))
+                } else {
+                    None
+                }
+            }),
         ExprKind::FunctionCall { name, args }
             if matches!(name.to_ascii_lowercase().as_str(), "array_fill_keys" | "array_combine") =>
         {
@@ -98,6 +119,41 @@ pub(super) fn local_kind_for_source(
         }
         _ => None,
     }
+}
+
+fn callable_expr_source_key(
+    callee: &Expr,
+    function_return_kinds: &HashMap<String, super::ValueKind>,
+    function_callable_return_targets: &HashMap<String, String>,
+    function_possible_callable_return_targets: &HashMap<String, Vec<String>>,
+) -> Option<String> {
+    let descriptor = match &callee.kind {
+        ExprKind::FunctionCall { name, .. } => function_key(name),
+        _ => return None,
+    };
+    if function_return_kinds.get(&descriptor) != Some(&super::ValueKind::Callable) {
+        return None;
+    }
+    let targets = function_possible_callable_return_targets
+        .get(&descriptor)
+        .cloned()
+        .or_else(|| {
+            function_callable_return_targets
+                .get(&descriptor)
+                .map(|target| vec![target.clone()])
+        })?;
+    let mut selected = None;
+    for target in targets {
+        let key = function_key(&target);
+        if function_return_kinds.get(&key) != Some(&super::ValueKind::Array) {
+            return None;
+        }
+        if selected.as_deref().is_some_and(|existing| existing != key) {
+            return None;
+        }
+        selected = Some(key);
+    }
+    selected
 }
 
 fn local_kind_from_key_kinds(kinds: &[AssocKeyKind]) -> Option<LocalKind> {
