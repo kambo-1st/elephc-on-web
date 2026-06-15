@@ -42632,6 +42632,26 @@ echo count($statuses) . ":" . array_key_exists(1, $statuses) . ":" . get_class($
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_enum_cases_array_filter_get_parent_class() {
+    assert_wasm_matches_php(
+        r#"<?php
+enum Suit {
+    case Hearts;
+    case Clubs;
+}
+enum Status: string {
+    case Draft = "draft";
+    case Published = "pub";
+}
+$suits = array_filter(Suit::cases(), "get_parent_class");
+$statuses = array_filter(Status::cases(), "get_parent_class");
+echo count($suits) . ":" . (empty($suits) ? 1 : 0) . ":" . array_key_exists(0, $suits) . "\n";
+echo count($statuses) . ":" . (empty($statuses) ? 1 : 0) . ":" . array_key_exists(1, $statuses) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_enum_cases_array_filter_gettype() {
     assert_wasm_matches_php(
         r#"<?php
