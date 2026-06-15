@@ -237,7 +237,7 @@ and object-cell callback transforms such as `array_map("get_class", ...)` and
 `array_filter(..., "get_parent_class")`,
 plus type/truthiness callback transforms `array_map("gettype", ...)`,
 `array_map("boolval", ...)`, default `array_filter()`, and
-`array_reduce()` int/object-to-int plus string/object-to-string reducers through PHP-oracle coverage; callable/resource value-cell
+`array_reduce()` scalar/object-to-scalar reducers through PHP-oracle coverage; callable/resource value-cell
 stores remain explicit `CompileError` cases until their ownership runtimes exist.
 Value-cell and associative array returns now propagate method array-return
 metadata into assigned locals and direct method-return `foreach`, enabling count,

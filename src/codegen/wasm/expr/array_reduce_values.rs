@@ -239,6 +239,128 @@ pub(super) fn emit_array_reduce_value_object_int_local(
     Ok(())
 }
 
+pub(super) fn emit_array_reduce_value_object_float_local(
+    acc: &str,
+    source: &str,
+    source_span: crate::span::Span,
+    callback: &str,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let Some(classes) = module.array_object_classes(source) else {
+        return Err(CompileError::new(
+            source_span,
+            "wasm32-web array_reduce() object callbacks require object value-cell metadata",
+        ));
+    };
+    if classes.is_empty() || classes.iter().any(Option::is_none) {
+        return Err(CompileError::new(
+            source_span,
+            "wasm32-web array_reduce() object callbacks require exact object value-cell metadata",
+        ));
+    }
+    let index = module.next_label("array_reduce_object_index");
+    let cell = module.next_label("array_reduce_object_cell");
+    let done_label = module.next_label("array_reduce_object_done");
+    let loop_label = module.next_label("array_reduce_object_loop");
+    for local in [&index, &cell] {
+        module.declare_i32_local(local.trim_start_matches('$').to_string());
+    }
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", index));
+    module.body().open(&format!("block {}", done_label));
+    module.body().open(&format!("loop {}", loop_label));
+    module.body().line(&format!("local.get {}", index));
+    module.body().line(&format!("local.get ${}_len", source));
+    module.body().line("i32.ge_u");
+    module.body().line(&format!("br_if {}", done_label));
+    emit_value_cell_address_for_local(source, &index, &cell, module);
+    module.body().line(&format!("local.get ${}", acc));
+    module.body().line(&format!("local.get {}", cell));
+    module.body().line("i32.load");
+    module.body().line(&format!("i32.const {}", WASM_VALUE_TAG_OBJECT));
+    module.body().line("i32.ne");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    module.body().line(&format!("local.get {}", cell));
+    module.body().line("i32.const 8");
+    module.body().line("i32.add");
+    module.body().line("i32.load");
+    module
+        .body()
+        .line(&format!("call ${}", wasm_function_name(callback)));
+    module.body().line(&format!("local.set ${}", acc));
+    module.body().line(&format!("local.get {}", index));
+    module.body().line("i32.const 1");
+    module.body().line("i32.add");
+    module.body().line(&format!("local.set {}", index));
+    module.body().line(&format!("br {}", loop_label));
+    module.body().close("end");
+    module.body().close("end");
+    Ok(())
+}
+
+pub(super) fn emit_array_reduce_value_object_bool_local(
+    acc: &str,
+    source: &str,
+    source_span: crate::span::Span,
+    callback: &str,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let Some(classes) = module.array_object_classes(source) else {
+        return Err(CompileError::new(
+            source_span,
+            "wasm32-web array_reduce() object callbacks require object value-cell metadata",
+        ));
+    };
+    if classes.is_empty() || classes.iter().any(Option::is_none) {
+        return Err(CompileError::new(
+            source_span,
+            "wasm32-web array_reduce() object callbacks require exact object value-cell metadata",
+        ));
+    }
+    let index = module.next_label("array_reduce_object_index");
+    let cell = module.next_label("array_reduce_object_cell");
+    let done_label = module.next_label("array_reduce_object_done");
+    let loop_label = module.next_label("array_reduce_object_loop");
+    for local in [&index, &cell] {
+        module.declare_i32_local(local.trim_start_matches('$').to_string());
+    }
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set {}", index));
+    module.body().open(&format!("block {}", done_label));
+    module.body().open(&format!("loop {}", loop_label));
+    module.body().line(&format!("local.get {}", index));
+    module.body().line(&format!("local.get ${}_len", source));
+    module.body().line("i32.ge_u");
+    module.body().line(&format!("br_if {}", done_label));
+    emit_value_cell_address_for_local(source, &index, &cell, module);
+    module.body().line(&format!("local.get ${}", acc));
+    module.body().line(&format!("local.get {}", cell));
+    module.body().line("i32.load");
+    module.body().line(&format!("i32.const {}", WASM_VALUE_TAG_OBJECT));
+    module.body().line("i32.ne");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    module.body().line(&format!("local.get {}", cell));
+    module.body().line("i32.const 8");
+    module.body().line("i32.add");
+    module.body().line("i32.load");
+    module
+        .body()
+        .line(&format!("call ${}", wasm_function_name(callback)));
+    module.body().line(&format!("local.set ${}", acc));
+    module.body().line(&format!("local.get {}", index));
+    module.body().line("i32.const 1");
+    module.body().line("i32.add");
+    module.body().line(&format!("local.set {}", index));
+    module.body().line(&format!("br {}", loop_label));
+    module.body().close("end");
+    module.body().close("end");
+    Ok(())
+}
+
 pub(super) fn emit_array_reduce_value_bool_local(
     acc: &str,
     source: &str,

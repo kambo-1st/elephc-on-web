@@ -42301,6 +42301,26 @@ echo array_reduce(Suit::cases(), "enum_reduce_count", 0) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_enum_cases_array_reduce_object_bool_float() {
+    assert_wasm_matches_php(
+        r#"<?php
+enum Suit {
+    case Hearts;
+    case Clubs;
+}
+function enum_reduce_all_suit(bool $carry, Suit $case): bool {
+    return $carry && get_class($case) === "Suit";
+}
+function enum_reduce_weight(float $carry, Suit $case): float {
+    return $carry + (get_class($case) === "Suit" ? 1.25 : 10.0);
+}
+echo (array_reduce(Suit::cases(), "enum_reduce_all_suit", true) ? 1 : 0) . "\n";
+echo array_reduce(Suit::cases(), "enum_reduce_weight", 0.5) . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_value_array_object_reduce_string() {
     assert_wasm_matches_php(
         r#"<?php
@@ -42313,6 +42333,26 @@ function reduce_box_names(string $carry, ReduceBox $box): string {
 $boxes = [new ReduceBox("a"), new ReduceBox("bb")];
 echo strlen(array_reduce($boxes, "reduce_box_names", "")) . "\n";
 echo array_reduce($boxes, "reduce_box_names", "") . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_value_array_object_reduce_bool_float() {
+    assert_wasm_matches_php(
+        r#"<?php
+class ReduceScalarBox {
+    public function __construct(public int $amount, public bool $ok) {}
+}
+function reduce_box_ok(bool $carry, ReduceScalarBox $box): bool {
+    return $carry && $box->ok;
+}
+function reduce_box_half(float $carry, ReduceScalarBox $box): float {
+    return $carry + ($box->amount / 2);
+}
+$boxes = [new ReduceScalarBox(3, true), new ReduceScalarBox(4, false)];
+echo (array_reduce($boxes, "reduce_box_ok", true) ? 1 : 0) . "\n";
+echo array_reduce($boxes, "reduce_box_half", 1.5) . "\n";
 "#,
     );
 }
