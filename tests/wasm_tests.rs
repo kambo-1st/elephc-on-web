@@ -41818,6 +41818,45 @@ echo "\n";
 }
 
 #[test]
+fn test_wasm32_web_class_attribute_names_direct_string_array_consumers() {
+    assert_wasm_stdout(
+        r#"<?php
+#[ConsumerOne, ConsumerTwo, ConsumerOne]
+class ConsumerAttributeNamesWebThing {}
+foreach (array_values(class_attribute_names("ConsumerAttributeNamesWebThing")) as $value) {
+    echo "v:" . $value . ";";
+}
+echo "\n";
+foreach (array_keys(class_attribute_names("ConsumerAttributeNamesWebThing")) as $key) {
+    echo "k:" . $key . ";";
+}
+echo "\n";
+foreach (array_reverse(class_attribute_names("ConsumerAttributeNamesWebThing")) as $key => $value) {
+    echo "r:" . $key . "=" . $value . ";";
+}
+echo "\n";
+foreach (array_unique(class_attribute_names("ConsumerAttributeNamesWebThing")) as $key => $value) {
+    echo "u:" . $key . "=" . $value . ";";
+}
+echo "\n";
+foreach (array_merge(["seed"], class_attribute_names("ConsumerAttributeNamesWebThing")) as $key => $value) {
+    echo "m:" . $key . "=" . $value . ";";
+}
+echo "\n";
+echo implode("|", class_attribute_names("ConsumerAttributeNamesWebThing")) . "\n";
+echo json_encode(class_attribute_names("ConsumerAttributeNamesWebThing")) . "\n";
+"#,
+        "v:ConsumerOne;v:ConsumerTwo;\n\
+k:ConsumerOne;k:ConsumerTwo;\n\
+r:ConsumerTwo=ConsumerTwo;r:ConsumerOne=ConsumerOne;\n\
+u:ConsumerOne=ConsumerOne;u:ConsumerTwo=ConsumerTwo;\n\
+m:0=seed;m:ConsumerOne=ConsumerOne;m:ConsumerTwo=ConsumerTwo;\n\
+ConsumerOne|ConsumerTwo\n\
+{\"ConsumerOne\":\"ConsumerOne\",\"ConsumerTwo\":\"ConsumerTwo\"}\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_class_attribute_args_direct_count_and_foreach() {
     assert_wasm_stdout(
         r#"<?php

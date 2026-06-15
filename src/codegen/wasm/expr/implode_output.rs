@@ -107,7 +107,8 @@ pub(super) fn emit_output_implode_assigned_string_array(
                 || name.eq_ignore_ascii_case("range")
                 || name.eq_ignore_ascii_case("class_parents")
                 || name.eq_ignore_ascii_case("class_implements")
-                || name.eq_ignore_ascii_case("class_uses") =>
+                || name.eq_ignore_ascii_case("class_uses")
+                || name.eq_ignore_ascii_case("class_attribute_names") =>
         {
             temp = module
                 .next_label("output_implode_direct_array")

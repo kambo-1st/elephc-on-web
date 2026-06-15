@@ -171,7 +171,7 @@ pub(in crate::codegen::wasm::module) fn value_kinds_for_foreach_source(
         ExprKind::FunctionCall { name, .. }
             if matches!(
                 name.to_ascii_lowercase().as_str(),
-                "class_parents" | "class_implements" | "class_uses"
+                "class_parents" | "class_implements" | "class_uses" | "class_attribute_names"
             ) =>
         {
             Some(vec![ValueCellKind::Str])

@@ -145,6 +145,7 @@ fn json_encode_direct_array_call_is_supported(name: &str) -> bool {
             | "class_parents"
             | "class_implements"
             | "class_uses"
+            | "class_attribute_names"
     )
 }
 

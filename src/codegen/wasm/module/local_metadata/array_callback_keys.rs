@@ -43,7 +43,7 @@ pub(super) fn array_map_foreach_key_kinds(
         ExprKind::FunctionCall { name, .. }
             if matches!(
                 name.to_ascii_lowercase().as_str(),
-                "class_parents" | "class_implements" | "class_uses"
+                "class_parents" | "class_implements" | "class_uses" | "class_attribute_names"
             ) =>
         {
             Some(vec![AssocKeyKind::Str])
@@ -114,7 +114,7 @@ pub(in crate::codegen::wasm::module) fn array_filter_foreach_key_kinds(
         ExprKind::FunctionCall { name, .. }
             if matches!(
                 name.to_ascii_lowercase().as_str(),
-                "class_parents" | "class_implements" | "class_uses"
+                "class_parents" | "class_implements" | "class_uses" | "class_attribute_names"
             ) =>
         {
             Some(vec![AssocKeyKind::Str])

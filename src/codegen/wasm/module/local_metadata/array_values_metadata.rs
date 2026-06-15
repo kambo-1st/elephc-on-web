@@ -28,7 +28,7 @@ pub(super) fn array_values_foreach_value_local_kind(
     if let ExprKind::FunctionCall { name, args } = &source.kind {
         if matches!(
             name.to_ascii_lowercase().as_str(),
-            "class_parents" | "class_implements" | "class_uses"
+            "class_parents" | "class_implements" | "class_uses" | "class_attribute_names"
         ) {
             return LocalKind::Str;
         }
@@ -184,7 +184,7 @@ pub(super) fn array_values_foreach_value_local_kind(
         ExprKind::FunctionCall { name, .. }
             if matches!(
                 name.to_ascii_lowercase().as_str(),
-                "class_parents" | "class_implements" | "class_uses"
+                "class_parents" | "class_implements" | "class_uses" | "class_attribute_names"
             ) =>
         {
             Some(vec![ValueCellKind::Str])

@@ -93,7 +93,8 @@ pub(super) fn emit_implode_string_builtin_value_to_stack(
                 || name.eq_ignore_ascii_case("range")
                 || name.eq_ignore_ascii_case("class_parents")
                 || name.eq_ignore_ascii_case("class_implements")
-                || name.eq_ignore_ascii_case("class_uses") =>
+                || name.eq_ignore_ascii_case("class_uses")
+                || name.eq_ignore_ascii_case("class_attribute_names") =>
         {
             temp = module
                 .next_label("implode_direct_array")
