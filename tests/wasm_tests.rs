@@ -41802,6 +41802,60 @@ echo "\n";
 }
 
 #[test]
+fn test_wasm32_web_class_attribute_helpers_assigned_static_string_targets() {
+    assert_wasm_stdout(
+        r#"<?php
+#[LocalAttr("ok", 5)]
+class LocalAttributeTarget {}
+$class = "LocalAttributeTarget";
+$attr = "LocalAttr";
+$names = class_attribute_names($class);
+$args = class_attribute_args($class, $attr);
+echo count($names) . ":";
+foreach ($names as $key => $value) {
+    echo $key . "=" . $value . ";";
+}
+echo "\n";
+echo count($args) . ":";
+foreach ($args as $key => $value) {
+    echo $key . "=" . $value . ";";
+}
+echo "\n";
+"#,
+        "1:LocalAttr=LocalAttr;\n2:0=ok;1=5;\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_class_attribute_helpers_direct_function_call_targets() {
+    assert_wasm_stdout(
+        r#"<?php
+#[CallAttr("web")]
+class CallAttributeTarget {}
+function attribute_target_name(): string {
+    echo "target\n";
+    return CallAttributeTarget::class;
+}
+function attribute_name_value(): string {
+    echo "attr\n";
+    return "CallAttr";
+}
+$names = class_attribute_names(attribute_target_name());
+$args = class_attribute_args(attribute_target_name(), attribute_name_value());
+foreach ($names as $key => $value) {
+    echo $key . "=" . $value . ";";
+}
+echo "\n";
+foreach ($args as $key => $value) {
+    echo $key . "=" . $value . ";";
+}
+echo "\n";
+"#,
+        "target\ntarget\nattr\nCallAttr=CallAttr;\n0=web;\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_class_attribute_names_direct_count_and_foreach() {
     assert_wasm_stdout(
         r#"<?php
