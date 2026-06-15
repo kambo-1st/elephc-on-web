@@ -84,6 +84,7 @@ fn emit_array_map_assoc_local_assign_with_receiver(
                 ArrayMapCallbackShape::StrToBool => ValueCellKind::Bool,
                 ArrayMapCallbackShape::StrToStr
                 | ArrayMapCallbackShape::ObjectToStr
+                | ArrayMapCallbackShape::ObjectToParentStr
                 | ArrayMapCallbackShape::ObjectToTypeStr => ValueCellKind::Str,
                 ArrayMapCallbackShape::FloatToFloat => ValueCellKind::Float,
                 ArrayMapCallbackShape::BoolToBool
@@ -329,7 +330,9 @@ fn emit_array_map_assoc_local_assign_with_receiver(
                     .line(&format!("call ${}", wasm_function_name(callback)));
                 module.body().line("call $__rt_value_store_string");
             }
-            ArrayMapCallbackShape::ObjectToStr | ArrayMapCallbackShape::ObjectToTypeStr => {
+            ArrayMapCallbackShape::ObjectToStr
+            | ArrayMapCallbackShape::ObjectToParentStr
+            | ArrayMapCallbackShape::ObjectToTypeStr => {
                 unreachable!("object-to-string map over assoc arrays is not shape-matched yet")
             }
             ArrayMapCallbackShape::BoolToBool if !array_filter_type_predicate_callback(callback) => {
@@ -1045,7 +1048,9 @@ fn emit_array_map_runtime_assoc_local_assign_with_receiver(
                 .line(&format!("call ${}", wasm_function_name(callback)));
             module.body().line("call $__rt_value_store_string");
         }
-        ArrayMapCallbackShape::ObjectToStr | ArrayMapCallbackShape::ObjectToTypeStr => {
+        ArrayMapCallbackShape::ObjectToStr
+        | ArrayMapCallbackShape::ObjectToParentStr
+        | ArrayMapCallbackShape::ObjectToTypeStr => {
             unreachable!("object-to-string map over assoc arrays is not shape-matched yet")
         }
         ArrayMapCallbackShape::BoolToBool if !array_filter_type_predicate_callback(callback) => {

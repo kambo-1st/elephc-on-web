@@ -595,6 +595,7 @@ enum ArrayMapCallbackShape {
     ArrayToBool,
     ObjectToBool,
     ObjectToStr,
+    ObjectToParentStr,
     ObjectToTypeStr,
     StrStrToStr,
     StrStrStrToStr,

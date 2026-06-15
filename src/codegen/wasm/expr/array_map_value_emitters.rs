@@ -746,6 +746,59 @@ pub(super) fn emit_array_map_value_object_class_names_local_assign(
     Ok(())
 }
 
+pub(super) fn emit_array_map_value_object_parent_class_names_local_assign(
+    name: &str,
+    source: &str,
+    source_span: crate::span::Span,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let Some(len) = module.array_length(source) else {
+        return Err(CompileError::new(
+            source_span,
+            "wasm32-web array_map(get_parent_class) over object arrays requires known length metadata",
+        ));
+    };
+    let Some(classes) = module.array_object_classes(source).map(|classes| classes.to_vec()) else {
+        return Err(CompileError::new(
+            source_span,
+            "wasm32-web array_map(get_parent_class) over object arrays requires object metadata",
+        ));
+    };
+    if classes.len() != len || classes.iter().any(Option::is_none) {
+        return Err(CompileError::new(
+            source_span,
+            "wasm32-web array_map(get_parent_class) over object arrays requires exact class metadata",
+        ));
+    }
+    module.set_array_length(name, len);
+    module.set_array_layout(name, ArrayLayout::Value);
+    module.set_array_value_cell_kinds(name, Some(vec![ValueCellKind::Str; len]));
+    module.set_array_nested_value_metadata(name, None);
+    module.body().line(&format!("i32.const {}", len));
+    module.body().line("call $__rt_alloc_value_cells");
+    module.body().line(&format!("local.set ${}_ptr", name));
+    module.body().line(&format!("i32.const {}", len));
+    module.body().line(&format!("local.set ${}_len", name));
+    for (index, class_name) in classes.iter().enumerate() {
+        let class_name = class_name.as_ref().expect("checked exact object metadata");
+        let parent_name = module
+            .object_class(class_name)
+            .and_then(|class_info| class_info.parent.as_deref())
+            .and_then(|parent| module.object_class(parent))
+            .map(|class_info| class_info.name.as_str())
+            .unwrap_or("")
+            .to_string();
+        let (ptr, string_len) = module.intern_string(&parent_name);
+        module.body().line(&format!("local.get ${}_ptr", name));
+        module.body().line(&format!("i32.const {}", index * WASM_VALUE_CELL_SIZE));
+        module.body().line("i32.add");
+        module.body().line(&format!("i32.const {}", ptr));
+        module.body().line(&format!("i32.const {}", string_len));
+        module.body().line("call $__rt_value_store_string");
+    }
+    Ok(())
+}
+
 pub(super) fn emit_array_map_value_object_type_names_local_assign(
     name: &str,
     source: &str,

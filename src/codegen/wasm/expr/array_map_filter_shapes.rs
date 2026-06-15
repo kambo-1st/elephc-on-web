@@ -79,6 +79,7 @@ pub(super) fn array_filter_builtin_callback_is_supported(callback: &str) -> bool
             | "is_iterable"
             | "is_object"
             | "get_class"
+            | "get_parent_class"
             | "gettype"
             | "boolval"
     )
@@ -134,6 +135,9 @@ pub(super) fn array_map_callback_shape(
     }
     if callback.eq_ignore_ascii_case("get_class") {
         return Ok(ArrayMapCallbackShape::ObjectToStr);
+    }
+    if callback.eq_ignore_ascii_case("get_parent_class") {
+        return Ok(ArrayMapCallbackShape::ObjectToParentStr);
     }
     if callback.eq_ignore_ascii_case("gettype") {
         return Ok(ArrayMapCallbackShape::ObjectToTypeStr);
@@ -482,6 +486,7 @@ pub(super) fn array_map_builtin_callback_is_supported(callback: &str) -> bool {
             | "is_iterable"
             | "is_object"
             | "get_class"
+            | "get_parent_class"
             | "gettype"
             | "boolval"
     )
@@ -1038,6 +1043,7 @@ pub(super) fn array_map_result_value_cell_kind(shape: ArrayMapCallbackShape) -> 
         ArrayMapCallbackShape::FloatToFloat => ValueCellKind::Float,
         ArrayMapCallbackShape::StrToStr
         | ArrayMapCallbackShape::ObjectToStr
+        | ArrayMapCallbackShape::ObjectToParentStr
         | ArrayMapCallbackShape::ObjectToTypeStr => ValueCellKind::Str,
         ArrayMapCallbackShape::IntToBool
         | ArrayMapCallbackShape::StrToBool

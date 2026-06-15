@@ -872,6 +872,14 @@ pub(in crate::codegen::wasm) fn emit_array_map_assign(
             emit_array_map_value_object_class_names_local_assign(name, source, args[1].span, module)
         }
         ExprKind::Variable(source)
+            if shape == ArrayMapCallbackShape::ObjectToParentStr
+                && module.local_kind(source) == Some(LocalKind::Array)
+                && module.array_layout(source) == ArrayLayout::Value
+                && module.array_object_classes(source).is_some() =>
+        {
+            emit_array_map_value_object_parent_class_names_local_assign(name, source, args[1].span, module)
+        }
+        ExprKind::Variable(source)
             if shape == ArrayMapCallbackShape::ObjectToTypeStr
                 && module.local_kind(source) == Some(LocalKind::Array)
                 && module.array_layout(source) == ArrayLayout::Value
@@ -2103,6 +2111,12 @@ fn emit_array_map_staged_assign(
                 && module.array_object_classes(source).is_some() =>
         {
             emit_array_map_value_object_class_names_local_assign(name, source, source_span, module)
+        }
+        ArrayMapCallbackShape::ObjectToParentStr
+            if module.array_layout(source) == ArrayLayout::Value
+                && module.array_object_classes(source).is_some() =>
+        {
+            emit_array_map_value_object_parent_class_names_local_assign(name, source, source_span, module)
         }
         ArrayMapCallbackShape::ObjectToTypeStr
             if module.array_layout(source) == ArrayLayout::Value
