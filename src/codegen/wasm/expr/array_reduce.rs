@@ -195,28 +195,65 @@ pub(super) fn emit_array_reduce_call(
             let callback_takes_ints =
                 param_kinds.as_slice() == [LocalKind::Object, LocalKind::I64, LocalKind::I64]
                     && module.function_return_kind(&callback) == Some(ValueKind::Int);
+            let callback_takes_object_int =
+                param_kinds.as_slice() == [LocalKind::Object, LocalKind::I64, LocalKind::Object]
+                    && module.function_return_kind(&callback) == Some(ValueKind::Int);
             let callback_takes_strings =
                 param_kinds.as_slice() == [LocalKind::Object, LocalKind::Str, LocalKind::Str]
+                    && module.function_return_kind(&callback) == Some(ValueKind::Str);
+            let callback_takes_object_string =
+                param_kinds.as_slice() == [LocalKind::Object, LocalKind::Str, LocalKind::Object]
                     && module.function_return_kind(&callback) == Some(ValueKind::Str);
             let callback_takes_floats =
                 param_kinds.as_slice() == [LocalKind::Object, LocalKind::F64, LocalKind::F64]
                     && module.function_return_kind(&callback) == Some(ValueKind::Float);
+            let callback_takes_object_float =
+                param_kinds.as_slice() == [LocalKind::Object, LocalKind::F64, LocalKind::Object]
+                    && module.function_return_kind(&callback) == Some(ValueKind::Float);
             let callback_takes_bools =
                 param_kinds.as_slice() == [LocalKind::Object, LocalKind::I32, LocalKind::I32]
                     && module.function_return_kind(&callback) == Some(ValueKind::Bool);
-            if !callback_takes_ints && !callback_takes_strings && !callback_takes_floats && !callback_takes_bools {
+            let callback_takes_object_bool =
+                param_kinds.as_slice() == [LocalKind::Object, LocalKind::I32, LocalKind::Object]
+                    && module.function_return_kind(&callback) == Some(ValueKind::Bool);
+            if !callback_takes_ints
+                && !callback_takes_object_int
+                && !callback_takes_strings
+                && !callback_takes_object_string
+                && !callback_takes_floats
+                && !callback_takes_object_float
+                && !callback_takes_bools
+                && !callback_takes_object_bool
+            {
                 return Err(CompileError::new(
                     args[1].span,
-                    "wasm32-web array_reduce() instance callbacks currently require int,int-to-int, string,string-to-string, float,float-to-float, or bool,bool-to-bool reducers",
+                    "wasm32-web array_reduce() instance callbacks currently require scalar-to-scalar or scalar/object-to-scalar reducers",
                 ));
             }
-            if callback_takes_ints {
+            if callback_takes_ints || callback_takes_object_int {
                 let acc = module.next_label("array_reduce_acc").trim_start_matches('$').to_string();
                 module.declare_i64_local(acc.clone());
                 require_int(&args[2], module)?;
                 module.body().line(&format!("local.set ${}", acc));
                 if let ExprKind::Variable(source) = &args[0].kind {
-                    if module.local_kind(source) == Some(LocalKind::Array)
+                    if callback_takes_object_int
+                        && module.local_kind(source) == Some(LocalKind::Array)
+                        && module.array_layout(source) == ArrayLayout::Value
+                        && array_reduce_object_value_cells_are_supported(source, module)
+                    {
+                        emit_array_reduce_value_object_int_local_instance(
+                            &acc,
+                            source,
+                            args[0].span,
+                            &callback,
+                            &capture_local,
+                            module,
+                        )?;
+                        module.body().line(&format!("local.get ${}", acc));
+                        return Ok(ValueKind::Int);
+                    }
+                    if callback_takes_ints
+                    && module.local_kind(source) == Some(LocalKind::Array)
                     && module.array_layout(source) == ArrayLayout::CompactInt
                     {
                         emit_array_reduce_compact_int_local_instance(
@@ -230,7 +267,8 @@ pub(super) fn emit_array_reduce_call(
                         module.body().line(&format!("local.get ${}", acc));
                         return Ok(ValueKind::Int);
                     }
-                    if module.local_kind(source) == Some(LocalKind::Array)
+                    if callback_takes_ints
+                        && module.local_kind(source) == Some(LocalKind::Array)
                         && module.array_layout(source) == ArrayLayout::Assoc
                         && array_filter_assoc_local_matches_shape(
                             source,
@@ -249,7 +287,8 @@ pub(super) fn emit_array_reduce_call(
                         module.body().line(&format!("local.get ${}", acc));
                         return Ok(ValueKind::Int);
                     }
-                    if module.local_kind(source) == Some(LocalKind::Array)
+                    if callback_takes_ints
+                        && module.local_kind(source) == Some(LocalKind::Array)
                         && module.array_layout(source) == ArrayLayout::Assoc
                         && matches!(
                             module.array_runtime_value_cell_kind(source),
@@ -273,13 +312,30 @@ pub(super) fn emit_array_reduce_call(
                     "wasm32-web array_reduce() instance int callbacks currently require an assigned compact integer or associative integer array",
                 ));
             }
-            if callback_takes_floats {
+            if callback_takes_floats || callback_takes_object_float {
                 let acc = module.next_label("array_reduce_acc").trim_start_matches('$').to_string();
                 module.declare_f64_local(acc.clone());
                 require_float(&args[2], module)?;
                 module.body().line(&format!("local.set ${}", acc));
                 if let ExprKind::Variable(source) = &args[0].kind {
-                    if module.local_kind(source) == Some(LocalKind::Array)
+                    if callback_takes_object_float
+                        && module.local_kind(source) == Some(LocalKind::Array)
+                        && module.array_layout(source) == ArrayLayout::Value
+                        && array_reduce_object_value_cells_are_supported(source, module)
+                    {
+                        emit_array_reduce_value_object_float_local_instance(
+                            &acc,
+                            source,
+                            args[0].span,
+                            &callback,
+                            &capture_local,
+                            module,
+                        )?;
+                        module.body().line(&format!("local.get ${}", acc));
+                        return Ok(ValueKind::Float);
+                    }
+                    if callback_takes_floats
+                        && module.local_kind(source) == Some(LocalKind::Array)
                         && module.array_layout(source) == ArrayLayout::Value
                         && (module.array_runtime_value_cell_kind(source) == Some(ValueCellKind::Float)
                             || module.array_value_cell_kinds(source).is_some_and(|kinds| {
@@ -297,7 +353,8 @@ pub(super) fn emit_array_reduce_call(
                         module.body().line(&format!("local.get ${}", acc));
                         return Ok(ValueKind::Float);
                     }
-                    if module.local_kind(source) == Some(LocalKind::Array)
+                    if callback_takes_floats
+                        && module.local_kind(source) == Some(LocalKind::Array)
                         && module.array_layout(source) == ArrayLayout::Assoc
                         && array_filter_assoc_local_matches_shape(
                             source,
@@ -316,7 +373,8 @@ pub(super) fn emit_array_reduce_call(
                         module.body().line(&format!("local.get ${}", acc));
                         return Ok(ValueKind::Float);
                     }
-                    if module.local_kind(source) == Some(LocalKind::Array)
+                    if callback_takes_floats
+                        && module.local_kind(source) == Some(LocalKind::Array)
                         && module.array_layout(source) == ArrayLayout::Assoc
                         && module.array_runtime_value_cell_kind(source) == Some(ValueCellKind::Float)
                     {
@@ -337,7 +395,7 @@ pub(super) fn emit_array_reduce_call(
                     "wasm32-web array_reduce() instance float callbacks currently require an assigned float value-cell or associative array",
                 ));
             }
-            if callback_takes_bools {
+            if callback_takes_bools || callback_takes_object_bool {
                 let acc = module.next_label("array_reduce_acc").trim_start_matches('$').to_string();
                 module.declare_i32_local(acc.clone());
                 if emit_expr(&args[2], module)? != ValueKind::Bool {
@@ -348,7 +406,24 @@ pub(super) fn emit_array_reduce_call(
                 }
                 module.body().line(&format!("local.set ${}", acc));
                 if let ExprKind::Variable(source) = &args[0].kind {
-                    if module.local_kind(source) == Some(LocalKind::Array)
+                    if callback_takes_object_bool
+                        && module.local_kind(source) == Some(LocalKind::Array)
+                        && module.array_layout(source) == ArrayLayout::Value
+                        && array_reduce_object_value_cells_are_supported(source, module)
+                    {
+                        emit_array_reduce_value_object_bool_local_instance(
+                            &acc,
+                            source,
+                            args[0].span,
+                            &callback,
+                            &capture_local,
+                            module,
+                        )?;
+                        module.body().line(&format!("local.get ${}", acc));
+                        return Ok(ValueKind::Bool);
+                    }
+                    if callback_takes_bools
+                        && module.local_kind(source) == Some(LocalKind::Array)
                         && module.array_layout(source) == ArrayLayout::Value
                         && (module.array_runtime_value_cell_kind(source) == Some(ValueCellKind::Bool)
                             || module.array_value_cell_kinds(source).is_some_and(|kinds| {
@@ -366,7 +441,8 @@ pub(super) fn emit_array_reduce_call(
                         module.body().line(&format!("local.get ${}", acc));
                         return Ok(ValueKind::Bool);
                     }
-                    if module.local_kind(source) == Some(LocalKind::Array)
+                    if callback_takes_bools
+                        && module.local_kind(source) == Some(LocalKind::Array)
                         && module.array_layout(source) == ArrayLayout::Assoc
                         && array_filter_assoc_local_matches_shape(
                             source,
@@ -385,7 +461,8 @@ pub(super) fn emit_array_reduce_call(
                         module.body().line(&format!("local.get ${}", acc));
                         return Ok(ValueKind::Bool);
                     }
-                    if module.local_kind(source) == Some(LocalKind::Array)
+                    if callback_takes_bools
+                        && module.local_kind(source) == Some(LocalKind::Array)
                         && module.array_layout(source) == ArrayLayout::Assoc
                         && module.array_runtime_value_cell_kind(source) == Some(ValueCellKind::Bool)
                     {
@@ -420,7 +497,26 @@ pub(super) fn emit_array_reduce_call(
             module.body().line(&format!("local.set ${}", acc_len));
             module.body().line(&format!("local.set ${}", acc_ptr));
             if let ExprKind::Variable(source) = &args[0].kind {
-                if module.local_kind(source) == Some(LocalKind::Array)
+                if callback_takes_object_string
+                    && module.local_kind(source) == Some(LocalKind::Array)
+                    && module.array_layout(source) == ArrayLayout::Value
+                    && array_reduce_object_value_cells_are_supported(source, module)
+                {
+                    emit_array_reduce_value_object_string_local_instance(
+                        &acc_ptr,
+                        &acc_len,
+                        source,
+                        args[0].span,
+                        &callback,
+                        &capture_local,
+                        module,
+                    )?;
+                    module.body().line(&format!("local.get ${}", acc_ptr));
+                    module.body().line(&format!("local.get ${}", acc_len));
+                    return Ok(ValueKind::Str);
+                }
+                if callback_takes_strings
+                    && module.local_kind(source) == Some(LocalKind::Array)
                     && module.array_layout(source) == ArrayLayout::Value
                     && array_map_value_cells_are_strings(source, module)
                 {
@@ -437,7 +533,8 @@ pub(super) fn emit_array_reduce_call(
                     module.body().line(&format!("local.get ${}", acc_len));
                     return Ok(ValueKind::Str);
                 }
-                if module.local_kind(source) == Some(LocalKind::Array)
+                if callback_takes_strings
+                    && module.local_kind(source) == Some(LocalKind::Array)
                     && module.array_layout(source) == ArrayLayout::Assoc
                     && array_filter_assoc_local_matches_shape(
                         source,
@@ -458,7 +555,8 @@ pub(super) fn emit_array_reduce_call(
                     module.body().line(&format!("local.get ${}", acc_len));
                     return Ok(ValueKind::Str);
                 }
-                if module.local_kind(source) == Some(LocalKind::Array)
+                if callback_takes_strings
+                    && module.local_kind(source) == Some(LocalKind::Array)
                     && module.array_layout(source) == ArrayLayout::Assoc
                     && module.array_runtime_value_cell_kind(source) == Some(ValueCellKind::Str)
                 {
@@ -2351,20 +2449,29 @@ pub(super) fn array_reduce_call_is_string(args: &[Expr], module: &WasmModule) ->
         if let Some((callback, _capture_local)) = module.callable_instance_target(callback_var) {
             return module
                 .function_param_kinds(&callback)
-                .is_some_and(|kinds| kinds.as_slice() == [LocalKind::Object, LocalKind::Str, LocalKind::Str])
+                .is_some_and(|kinds| {
+                    kinds.as_slice() == [LocalKind::Object, LocalKind::Str, LocalKind::Str]
+                        || kinds.as_slice() == [LocalKind::Object, LocalKind::Str, LocalKind::Object]
+                })
                 && module.function_return_kind(&callback) == Some(ValueKind::Str);
         }
         if let Some((callback, _class_name)) = instance_callback_target(&args[1], "__invoke", module) {
             return module
                 .function_param_kinds(&callback)
-                .is_some_and(|kinds| kinds.as_slice() == [LocalKind::Object, LocalKind::Str, LocalKind::Str])
+                .is_some_and(|kinds| {
+                    kinds.as_slice() == [LocalKind::Object, LocalKind::Str, LocalKind::Str]
+                        || kinds.as_slice() == [LocalKind::Object, LocalKind::Str, LocalKind::Object]
+                })
                 && module.function_return_kind(&callback) == Some(ValueKind::Str);
         }
     }
     if let Some((callback, _class_name)) = instance_callback_target(&args[1], "__invoke", module) {
         return module
             .function_param_kinds(&callback)
-            .is_some_and(|kinds| kinds.as_slice() == [LocalKind::Object, LocalKind::Str, LocalKind::Str])
+            .is_some_and(|kinds| {
+                kinds.as_slice() == [LocalKind::Object, LocalKind::Str, LocalKind::Str]
+                    || kinds.as_slice() == [LocalKind::Object, LocalKind::Str, LocalKind::Object]
+            })
             && module.function_return_kind(&callback) == Some(ValueKind::Str);
     }
     if let ExprKind::FirstClassCallable(CallableTarget::Method { object, method }) = &args[1].kind {
@@ -2385,7 +2492,10 @@ pub(super) fn array_reduce_call_is_string(args: &[Expr], module: &WasmModule) ->
         }
         return module
             .function_param_kinds(&method_info.symbol)
-            .is_some_and(|kinds| kinds.as_slice() == [LocalKind::Object, LocalKind::Str, LocalKind::Str])
+            .is_some_and(|kinds| {
+                kinds.as_slice() == [LocalKind::Object, LocalKind::Str, LocalKind::Str]
+                    || kinds.as_slice() == [LocalKind::Object, LocalKind::Str, LocalKind::Object]
+            })
             && module.function_return_kind(&method_info.symbol) == Some(ValueKind::Str);
     }
     let ExprKind::FunctionCall { name, .. } = &args[1].kind else {
