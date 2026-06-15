@@ -675,6 +675,15 @@ fn emit_class_parents_array_assign(
         }
         module.body().line("drop");
         class_name
+    } else if let Some(cell) = materialize_mixed_value_cell(target, module)? {
+        return emit_mixed_object_relation_array_assign(
+            name,
+            &cell,
+            target.span,
+            "class_parents",
+            class_parent_assoc_items,
+            module,
+        );
     } else {
         return Err(CompileError::new(
             target.span,
@@ -761,6 +770,15 @@ fn emit_class_implements_array_assign(
                     "wasm32-web class_implements() currently requires a declared class target",
                 )
             })?
+    } else if let Some(cell) = materialize_mixed_value_cell(target, module)? {
+        return emit_mixed_object_relation_array_assign(
+            name,
+            &cell,
+            target.span,
+            "class_implements",
+            class_implements_assoc_items,
+            module,
+        );
     } else {
         return Err(CompileError::new(
             target.span,
@@ -768,6 +786,16 @@ fn emit_class_implements_array_assign(
         ));
     };
     emit_assoc_array_items_assign(name, &assoc_string_set_items(names, target.span), module)
+}
+
+fn class_implements_assoc_items(
+    class_name: &str,
+    span: crate::span::Span,
+    module: &WasmModule,
+) -> Option<Vec<(Expr, Expr)>> {
+    module
+        .implemented_interface_names_for_class(class_name)
+        .map(|names| assoc_string_set_items(names, span))
 }
 
 fn assoc_string_set_items(names: Vec<String>, span: crate::span::Span) -> Vec<(Expr, Expr)> {
@@ -843,6 +871,15 @@ fn emit_class_uses_array_assign(
                     "wasm32-web class_uses() currently requires a declared class target",
                 )
             })?
+    } else if let Some(cell) = materialize_mixed_value_cell(target, module)? {
+        return emit_mixed_object_relation_array_assign(
+            name,
+            &cell,
+            target.span,
+            "class_uses",
+            class_uses_assoc_items,
+            module,
+        );
     } else {
         return Err(CompileError::new(
             target.span,
@@ -850,6 +887,102 @@ fn emit_class_uses_array_assign(
         ));
     };
     emit_assoc_array_items_assign(name, &assoc_string_set_items(names, target.span), module)
+}
+
+fn class_uses_assoc_items(
+    class_name: &str,
+    span: crate::span::Span,
+    module: &WasmModule,
+) -> Option<Vec<(Expr, Expr)>> {
+    module
+        .used_trait_names_for_class_or_trait(class_name)
+        .map(|names| assoc_string_set_items(names, span))
+}
+
+fn emit_mixed_object_relation_array_assign(
+    name: &str,
+    cell: &str,
+    span: crate::span::Span,
+    _builtin: &str,
+    items_for_class: fn(&str, crate::span::Span, &WasmModule) -> Option<Vec<(Expr, Expr)>>,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let classes = module.object_class_names_by_id();
+    if classes.is_empty() {
+        return Err(CompileError::new(
+            span,
+            "wasm32-web object relation arrays from mixed object cells require object class metadata",
+        ));
+    }
+    let class_id = module
+        .next_label("mixed_object_relation_array_class_id")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_i64_local(class_id.clone());
+    module.body().line(&format!("local.get ${}", cell));
+    module.body().line("i32.load");
+    module.body().line(&format!("i32.const {}", WASM_VALUE_TAG_OBJECT));
+    module.body().line("i32.ne");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    module.body().line(&format!("local.get ${}", cell));
+    module.body().line("i32.const 8");
+    module.body().line("i32.add");
+    module.body().line("i32.load");
+    module.body().line("i64.load");
+    module.body().line(&format!("local.set ${}", class_id));
+    emit_mixed_object_relation_array_branch(name, &class_id, &classes, 0, span, items_for_class, module)?;
+    module.set_array_layout(name, ArrayLayout::Assoc);
+    module.clear_array_length(name);
+    module.set_array_value_cell_kinds(name, None);
+    module.set_array_value_constants(name, None);
+    module.set_array_runtime_value_cell_kind(name, None);
+    module.set_array_nested_value_metadata(name, None);
+    module.set_array_object_classes(name, None);
+    module.set_array_key_kinds(name, None);
+    module.set_array_key_values(name, None);
+    module.set_array_php_normalized_runtime_keys(name, true);
+    Ok(())
+}
+
+fn emit_mixed_object_relation_array_branch(
+    name: &str,
+    class_id: &str,
+    classes: &[(u64, String)],
+    index: usize,
+    span: crate::span::Span,
+    items_for_class: fn(&str, crate::span::Span, &WasmModule) -> Option<Vec<(Expr, Expr)>>,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    if index == classes.len() {
+        module.body().line("unreachable");
+        return Ok(());
+    }
+    let (candidate_id, class_name) = &classes[index];
+    module.body().line(&format!("local.get ${}", class_id));
+    module.body().line(&format!("i64.const {}", candidate_id));
+    module.body().line("i64.eq");
+    module.body().open("if");
+    let items = items_for_class(class_name, span, module).ok_or_else(|| {
+        CompileError::new(
+            span,
+            "wasm32-web object relation arrays currently require declared class metadata",
+        )
+    })?;
+    emit_assoc_array_items_assign(name, &items, module)?;
+    module.body().line("else");
+    emit_mixed_object_relation_array_branch(
+        name,
+        class_id,
+        classes,
+        index + 1,
+        span,
+        items_for_class,
+        module,
+    )?;
+    module.body().close("end");
+    Ok(())
 }
 
 fn emit_array_access_assign(
