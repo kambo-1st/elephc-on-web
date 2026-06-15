@@ -220,10 +220,11 @@ Current mixed object-cell note: scalar/string/object-returning fixed methods dis
 through runtime class ids, and array-returning fixed methods now support direct
 `count()` consumers. Instance/static mixed object cells also materialize
 `class_parents()`/`class_implements()`/`class_uses()` relation arrays through
-runtime class-id branching and support `method_exists()`/`property_exists()`
-with static and runtime member names; mixed object cells flowing through
-`mixed` params and returns are also covered for these member predicates.
-Compact-int array returns also support assignment, indexed reads, direct
+runtime class-id branching; mixed object cells flowing through `mixed` params
+and returns are covered for these relation arrays too. Mixed object cells also
+support `method_exists()`/`property_exists()` with static and runtime member
+names across instance/static cells plus `mixed` params and returns. Compact-int
+array returns also support assignment, indexed reads, direct
 by-value `foreach`, and `array_values()`/`array_keys()`/default
 `array_reverse()` plus preserve-key `array_reverse(..., true)` transforms when
 every runtime class candidate returns the same int-array literal length.

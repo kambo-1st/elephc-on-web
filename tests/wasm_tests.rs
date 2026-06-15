@@ -7779,6 +7779,13 @@ fn test_wasm32_web_e2e_matches_php_mixed_object_cell_relation_arrays() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_mixed_param_return_object_cell_relation_arrays() {
+    assert_wasm_matches_php(
+        "<?php\nclass MixedFlowRelationBase {}\ninterface MixedFlowRelationContract {}\ntrait MixedFlowRelationTrait {}\nclass MixedFlowRelationChild extends MixedFlowRelationBase implements MixedFlowRelationContract { use MixedFlowRelationTrait; }\nfunction mixed_flow_relation_value(): mixed { return new MixedFlowRelationChild(); }\nfunction mixed_flow_relation_dump(mixed $value): void { foreach (class_parents($value) as $key => $item) { echo \"p:\" . $key . \"=\" . $item . \";\"; } echo \"\\n\"; foreach (class_implements($value) as $key => $item) { echo \"i:\" . $key . \"=\" . $item . \";\"; } echo \"\\n\"; foreach (class_uses($value) as $key => $item) { echo \"t:\" . $key . \"=\" . $item . \";\"; } echo \"\\n\"; }\nmixed_flow_relation_dump(mixed_flow_relation_value());\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_value_array_object_cell_member_exists() {
     assert_wasm_matches_php(
         "<?php\nclass ValueMemberBox { public string $name = \"web\"; public function label(): string { return $this->name; } }\nfunction value_member_name(string $name): string { echo \"member\\n\"; return $name; }\n$a = [new ValueMemberBox()];\necho (method_exists($a[0], \"label\") ? 1 : 0) . \":\";\necho (property_exists($a[0], \"name\") ? 1 : 0) . \":\";\necho (method_exists($a[0], value_member_name(\"missing\")) ? 1 : 0) . \":\";\necho (property_exists($a[0], value_member_name(\"name\")) ? 1 : 0) . \"\\n\";\n",
