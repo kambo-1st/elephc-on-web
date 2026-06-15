@@ -19,6 +19,7 @@ enum ArrayReduceCallbackShape {
     FloatToFloat,
     BoolToBool,
     StrToStr,
+    StrObjectToStr,
     MixedMixedToInt,
     MixedMixedToBool,
     MixedMixedToFloat,
@@ -513,6 +514,9 @@ pub(super) fn emit_array_reduce_call(
     }
     if shape == ArrayReduceCallbackShape::StrToStr {
         return emit_array_reduce_string_call(expr, args, &callback, module);
+    }
+    if shape == ArrayReduceCallbackShape::StrObjectToStr {
+        return emit_array_reduce_string_object_call(expr, args, &callback, module);
     }
     if shape == ArrayReduceCallbackShape::FloatToFloat {
         return emit_array_reduce_float_call(expr, args, &callback, module);
@@ -1795,6 +1799,9 @@ fn array_reduce_callback_shape(
             Ok(ArrayReduceCallbackShape::BoolToBool)
         }
         ([LocalKind::Str, LocalKind::Str], Some(ValueKind::Str)) => Ok(ArrayReduceCallbackShape::StrToStr),
+        ([LocalKind::Str, LocalKind::Object], Some(ValueKind::Str)) => {
+            Ok(ArrayReduceCallbackShape::StrObjectToStr)
+        }
         ([LocalKind::Mixed, LocalKind::Mixed], Some(ValueKind::Int)) => {
             Ok(ArrayReduceCallbackShape::MixedMixedToInt)
         }
@@ -1809,7 +1816,7 @@ fn array_reduce_callback_shape(
         }
         _ => Err(CompileError::new(
             span,
-            "wasm32-web array_reduce() currently requires homogeneous int, float, bool, string, mixed,mixed-to-int, mixed,mixed-to-bool, mixed,mixed-to-float, or mixed,mixed-to-string callbacks",
+            "wasm32-web array_reduce() currently requires homogeneous int, float, bool, string, string/object-to-string, mixed,mixed-to-int, mixed,mixed-to-bool, mixed,mixed-to-float, or mixed,mixed-to-string callbacks",
         )),
     }
 }
@@ -2314,7 +2321,9 @@ pub(super) fn array_reduce_call_is_string(args: &[Expr], module: &WasmModule) ->
     if let Some(shape) = array_reduce_static_callback_shape_for_expr(&args[1], module) {
         return matches!(
             shape,
-            ArrayReduceCallbackShape::StrToStr | ArrayReduceCallbackShape::MixedMixedToStr
+            ArrayReduceCallbackShape::StrToStr
+                | ArrayReduceCallbackShape::StrObjectToStr
+                | ArrayReduceCallbackShape::MixedMixedToStr
         );
     }
     if let ExprKind::Variable(callback_var) = &args[1].kind {
@@ -2375,7 +2384,13 @@ pub(super) fn array_reduce_call_is_string(args: &[Expr], module: &WasmModule) ->
         .is_some_and(|callbacks| {
             callbacks.iter().all(|callback| {
                 array_reduce_callback_shape(callback, args[1].span, module)
-                    .is_ok_and(|shape| shape == ArrayReduceCallbackShape::StrToStr)
+                    .is_ok_and(|shape| {
+                        matches!(
+                            shape,
+                            ArrayReduceCallbackShape::StrToStr
+                                | ArrayReduceCallbackShape::StrObjectToStr
+                        )
+                    })
             }) && (dynamic_source
                 .as_ref()
                 .is_some_and(|source| {
@@ -2423,8 +2438,87 @@ fn array_reduce_shape_value_kind(shape: ArrayReduceCallbackShape) -> ValueKind {
             ValueKind::Float
         }
         ArrayReduceCallbackShape::BoolToBool | ArrayReduceCallbackShape::MixedMixedToBool => ValueKind::Bool,
-        ArrayReduceCallbackShape::StrToStr | ArrayReduceCallbackShape::MixedMixedToStr => ValueKind::Str,
+        ArrayReduceCallbackShape::StrToStr
+        | ArrayReduceCallbackShape::StrObjectToStr
+        | ArrayReduceCallbackShape::MixedMixedToStr => ValueKind::Str,
     }
+}
+
+fn emit_array_reduce_string_object_call(
+    _expr: &Expr,
+    args: &[Expr],
+    callback: &str,
+    module: &mut WasmModule,
+) -> Result<ValueKind, CompileError> {
+    let acc_ptr = module
+        .next_label("array_reduce_object_acc_ptr")
+        .trim_start_matches('$')
+        .to_string();
+    let acc_len = module
+        .next_label("array_reduce_object_acc_len")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_i32_local(acc_ptr.clone());
+    module.declare_i32_local(acc_len.clone());
+    emit_string_value_to_stack(&args[2], module)?;
+    module.body().line(&format!("local.set ${}", acc_len));
+    module.body().line(&format!("local.set ${}", acc_ptr));
+
+    match &args[0].kind {
+        ExprKind::Variable(source)
+            if module.local_kind(source) == Some(LocalKind::Array)
+                && module.array_layout(source) == ArrayLayout::Value
+                && array_reduce_object_value_cells_are_supported(source, module) =>
+        {
+            emit_array_reduce_value_object_string_local(
+                &acc_ptr,
+                &acc_len,
+                source,
+                args[0].span,
+                callback,
+                module,
+            )?;
+        }
+        _ if expression_has_array_type(&args[0], module) => {
+            let source = module
+                .next_label("array_reduce_object_source")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_array_local(source.clone());
+            emit_array_assign(&source, &args[0], module)?;
+            if !array_reduce_object_value_cells_are_supported(&source, module) {
+                return Err(CompileError::new(
+                    args[0].span,
+                    "wasm32-web array_reduce() object callbacks require exact object value-cell metadata",
+                ));
+            }
+            emit_array_reduce_value_object_string_local(
+                &acc_ptr,
+                &acc_len,
+                &source,
+                args[0].span,
+                callback,
+                module,
+            )?;
+        }
+        _ => {
+            return Err(CompileError::new(
+                args[0].span,
+                "wasm32-web array_reduce() object callbacks require object value-cell arrays",
+            ));
+        }
+    }
+
+    module.body().line(&format!("local.get ${}", acc_ptr));
+    module.body().line(&format!("local.get ${}", acc_len));
+    Ok(ValueKind::Str)
+}
+
+fn array_reduce_object_value_cells_are_supported(source: &str, module: &WasmModule) -> bool {
+    module.array_layout(source) == ArrayLayout::Value
+        && module
+            .array_object_classes(source)
+            .is_some_and(|classes| !classes.is_empty() && classes.iter().all(Option::is_some))
 }
 
 fn emit_array_reduce_string_call(

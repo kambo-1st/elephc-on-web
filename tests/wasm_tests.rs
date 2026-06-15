@@ -42269,6 +42269,39 @@ foreach ($statuses as $index => $typeName) {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_enum_cases_array_reduce_object_string() {
+    assert_wasm_matches_php(
+        r#"<?php
+enum Suit {
+    case Hearts;
+    case Clubs;
+}
+function enum_reduce_names(string $carry, Suit $case): string {
+    return $carry . "[" . get_class($case) . "]";
+}
+echo array_reduce(Suit::cases(), "enum_reduce_names", "") . "\n";
+"#,
+    );
+}
+
+#[test]
+fn test_wasm32_web_e2e_matches_php_value_array_object_reduce_string() {
+    assert_wasm_matches_php(
+        r#"<?php
+class ReduceBox {
+    public function __construct(public string $name) {}
+}
+function reduce_box_names(string $carry, ReduceBox $box): string {
+    return $carry . $box->name . ";";
+}
+$boxes = [new ReduceBox("a"), new ReduceBox("bb")];
+echo strlen(array_reduce($boxes, "reduce_box_names", "")) . "\n";
+echo array_reduce($boxes, "reduce_box_names", "") . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_enum_cases_array_filter_default() {
     assert_wasm_matches_php(
         r#"<?php
