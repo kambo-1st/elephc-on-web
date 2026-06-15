@@ -2474,6 +2474,18 @@ pub(super) fn array_reduce_call_is_string(args: &[Expr], module: &WasmModule) ->
             })
             && module.function_return_kind(&callback) == Some(ValueKind::Str);
     }
+    if let Some((object, method)) = fixed_instance_callable_array_parts(&args[1], module) {
+        let Some((callback, _class_name)) = instance_callback_target(object, &method, module) else {
+            return false;
+        };
+        return module
+            .function_param_kinds(&callback)
+            .is_some_and(|kinds| {
+                kinds.as_slice() == [LocalKind::Object, LocalKind::Str, LocalKind::Str]
+                    || kinds.as_slice() == [LocalKind::Object, LocalKind::Str, LocalKind::Object]
+            })
+            && module.function_return_kind(&callback) == Some(ValueKind::Str);
+    }
     if let ExprKind::FirstClassCallable(CallableTarget::Method { object, method }) = &args[1].kind {
         let Some(class_name) = object_class_name_for_expr(object, module) else {
             return false;

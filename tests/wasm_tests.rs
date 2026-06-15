@@ -42419,6 +42419,31 @@ echo array_reduce($boxes, new ReduceInvokeRunner(2), 7) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_value_array_object_reduce_callable_array() {
+    assert_wasm_matches_php(
+        r#"<?php
+class ReduceCallableArrayBox {
+    public function __construct(public int $amount, public string $name) {}
+}
+class ReduceCallableArrayRunner {
+    public function __construct(public int $base, public string $sep) {}
+    public function add(int $carry, ReduceCallableArrayBox $box): int {
+        return $carry + $box->amount + $this->base;
+    }
+    public function join(string $carry, ReduceCallableArrayBox $box): string {
+        return $carry . $this->sep . $box->name;
+    }
+}
+$boxes = [new ReduceCallableArrayBox(3, "x"), new ReduceCallableArrayBox(4, "yy")];
+$runner = new ReduceCallableArrayRunner(2, "/");
+$method = "join";
+echo array_reduce($boxes, [$runner, "add"], 5) . "\n";
+echo array_reduce($boxes, [0 => $runner, 1 => $method], "s") . "\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_enum_cases_array_filter_default() {
     assert_wasm_matches_php(
         r#"<?php
