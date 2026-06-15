@@ -23282,10 +23282,14 @@ class CallableArrayReduceRunner {
 
 $runner = new CallableArrayReduceRunner(2);
 $method = "add";
+$packed = [$runner, $method];
+$keyed = [0 => $runner, 1 => $method];
 $values = [1, 2, 3];
 $more = [0 => 4, 1 => 5];
 echo array_reduce($values, [$runner, $method], 5) . "\n";
 echo array_reduce($more, [0 => $runner, 1 => $method], 10) . "\n";
+echo array_reduce($values, $packed, 5) . "\n";
+echo array_reduce($more, $keyed, 10) . "\n";
 "#,
     );
 }
@@ -23308,11 +23312,17 @@ class CallableArrayMapRunner {
 
 $runner = new CallableArrayMapRunner(7);
 $method = "add";
+$packed = [$runner, $method];
+$keyed = [0 => $runner, 1 => $method];
 $values = [1, 2, 3];
 $mapped = array_map([$runner, $method], $values);
 echo count($mapped) . ":" . $mapped[0] . ":" . $mapped[2] . "\n";
 $more = [0 => 4, 1 => 5];
 $mapped = array_map([0 => $runner, 1 => $method], $more);
+echo count($mapped) . ":" . $mapped[0] . ":" . $mapped[1] . "\n";
+$mapped = array_map($packed, $values);
+echo count($mapped) . ":" . $mapped[0] . ":" . $mapped[2] . "\n";
+$mapped = array_map($keyed, $more);
 echo count($mapped) . ":" . $mapped[0] . ":" . $mapped[1] . "\n";
 "#,
     );
@@ -23336,6 +23346,8 @@ class CallableArrayFilterRunner {
 
 $runner = new CallableArrayFilterRunner(3);
 $method = "keep";
+$packed = [$runner, $method];
+$keyed = [0 => $runner, 1 => $method];
 $values = [1, 3, 4, 2];
 $filtered = array_filter($values, [$runner, $method]);
 echo count($filtered) . ":";
@@ -23345,6 +23357,18 @@ foreach ($filtered as $key => $value) {
 echo "\n";
 $more = [0 => 5, 1 => 1, 2 => 6];
 $filtered = array_filter($more, [0 => $runner, 1 => $method]);
+echo count($filtered) . ":";
+foreach ($filtered as $key => $value) {
+    echo $key . "=" . $value . ";";
+}
+echo "\n";
+$filtered = array_filter($values, $packed);
+echo count($filtered) . ":";
+foreach ($filtered as $key => $value) {
+    echo $key . "=" . $value . ";";
+}
+echo "\n";
+$filtered = array_filter($more, $keyed);
 echo count($filtered) . ":";
 foreach ($filtered as $key => $value) {
     echo $key . "=" . $value . ";";
@@ -23575,11 +23599,17 @@ class CallableArrayWalkRunner {
 
 $runner = new CallableArrayWalkRunner("a");
 $method = "show";
+$packed = [$runner, $method];
+$keyed = [0 => $runner, 1 => $method];
 $values = [3, 4];
 $ok = array_walk($values, [$runner, $method]);
 echo ":" . ($ok ? 1 : 0) . "\n";
 $more = [5, 6];
 $ok = array_walk($more, [0 => $runner, 1 => $method]);
+echo ":" . ($ok ? 1 : 0) . "\n";
+$ok = array_walk($values, $packed);
+echo ":" . ($ok ? 1 : 0) . "\n";
+$ok = array_walk($more, $keyed);
 echo ":" . ($ok ? 1 : 0) . "\n";
 "#,
     );
