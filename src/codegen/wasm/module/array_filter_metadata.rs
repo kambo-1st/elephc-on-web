@@ -53,7 +53,7 @@ pub(super) fn default_value_kinds_for_assignment(
         ExprKind::FunctionCall { name, .. }
             if matches!(
                 name.to_ascii_lowercase().as_str(),
-                "class_parents" | "class_implements" | "class_uses"
+                "class_parents" | "class_implements" | "class_uses" | "class_attribute_names"
             ) =>
         {
             Some(vec![ValueCellKind::Str])
@@ -183,7 +183,7 @@ pub(super) fn callback_value_kinds_for_assignment(
         ExprKind::FunctionCall { name, .. }
             if matches!(
                 name.to_ascii_lowercase().as_str(),
-                "class_parents" | "class_implements" | "class_uses"
+                "class_parents" | "class_implements" | "class_uses" | "class_attribute_names"
             ) =>
         {
             vec![ValueCellKind::Str]

@@ -41857,6 +41857,55 @@ ConsumerOne|ConsumerTwo\n\
 }
 
 #[test]
+fn test_wasm32_web_class_attribute_names_direct_callback_set_lookup_consumers() {
+    assert_wasm_stdout(
+        r#"<?php
+function reduce_attribute_name(string $carry, string $value): string {
+    return $carry . "/" . $value;
+}
+function walk_attribute_name(string $value, string $key): void {
+    echo "w:" . $key . "=" . $value . ";";
+}
+#[ConsumerAlpha, ConsumerBeta, ConsumerGamma]
+class ConsumerAttributeNamesCallbackWebThing {}
+foreach (array_slice(class_attribute_names("ConsumerAttributeNamesCallbackWebThing"), 1, 1, true) as $key => $value) {
+    echo "s:" . $key . "=" . $value . ";";
+}
+echo "\n";
+foreach (array_filter(class_attribute_names("ConsumerAttributeNamesCallbackWebThing"), "strlen") as $key => $value) {
+    echo "f:" . $key . "=" . $value . ";";
+}
+echo "\n";
+foreach (array_map("strlen", class_attribute_names("ConsumerAttributeNamesCallbackWebThing")) as $value) {
+    echo "m:" . $value . ";";
+}
+echo "\n";
+foreach (array_diff(class_attribute_names("ConsumerAttributeNamesCallbackWebThing"), ["ConsumerBeta"]) as $key => $value) {
+    echo "d:" . $key . "=" . $value . ";";
+}
+echo "\n";
+foreach (array_intersect_key(class_attribute_names("ConsumerAttributeNamesCallbackWebThing"), ["ConsumerGamma" => true]) as $key => $value) {
+    echo "ik:" . $key . "=" . $value . ";";
+}
+echo "\n";
+echo array_reduce(class_attribute_names("ConsumerAttributeNamesCallbackWebThing"), "reduce_attribute_name", "root") . "\n";
+echo (array_walk(class_attribute_names("ConsumerAttributeNamesCallbackWebThing"), "walk_attribute_name") ? "ok" : "no") . "\n";
+echo (array_key_exists("ConsumerAlpha", class_attribute_names("ConsumerAttributeNamesCallbackWebThing")) ? "key" : "missing") . "\n";
+echo array_search("ConsumerBeta", class_attribute_names("ConsumerAttributeNamesCallbackWebThing"), true) . "\n";
+"#,
+        "s:ConsumerBeta=ConsumerBeta;\n\
+f:ConsumerAlpha=ConsumerAlpha;f:ConsumerBeta=ConsumerBeta;f:ConsumerGamma=ConsumerGamma;\n\
+m:13;m:12;m:13;\n\
+d:ConsumerAlpha=ConsumerAlpha;d:ConsumerGamma=ConsumerGamma;\n\
+ik:ConsumerGamma=ConsumerGamma;\n\
+root/ConsumerAlpha/ConsumerBeta/ConsumerGamma\n\
+w:ConsumerAlpha=ConsumerAlpha;w:ConsumerBeta=ConsumerBeta;w:ConsumerGamma=ConsumerGamma;ok\n\
+key\n\
+ConsumerBeta\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_class_attribute_args_direct_count_and_foreach() {
     assert_wasm_stdout(
         r#"<?php
