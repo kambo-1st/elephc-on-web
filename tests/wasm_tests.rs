@@ -41802,6 +41802,38 @@ echo "\n";
 }
 
 #[test]
+fn test_wasm32_web_class_attribute_names_direct_count_and_foreach() {
+    assert_wasm_stdout(
+        r#"<?php
+#[DirectOne, DirectTwo("x")]
+class DirectAttributeNamesWebThing {}
+echo count(class_attribute_names("DirectAttributeNamesWebThing")) . "\n";
+foreach (class_attribute_names("DirectAttributeNamesWebThing") as $key => $name) {
+    echo $key . "=" . $name . ";";
+}
+echo "\n";
+"#,
+        "2\nDirectOne=DirectOne;DirectTwo=DirectTwo;\n",
+    );
+}
+
+#[test]
+fn test_wasm32_web_class_attribute_args_direct_count_and_foreach() {
+    assert_wasm_stdout(
+        r#"<?php
+#[DirectRoute("/web", 11, true, null)]
+class DirectAttributeArgsWebThing {}
+echo count(class_attribute_args("DirectAttributeArgsWebThing", "DirectRoute")) . "\n";
+foreach (class_attribute_args("DirectAttributeArgsWebThing", "DirectRoute") as $key => $value) {
+    echo $key . "=[" . $value . "];";
+}
+echo "\n";
+"#,
+        "4\n0=[/web];1=[11];2=[1];3=[];\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_pure_enum_case_singletons() {
     assert_wasm_matches_php(
         r#"<?php

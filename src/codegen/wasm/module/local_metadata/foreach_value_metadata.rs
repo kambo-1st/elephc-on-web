@@ -441,6 +441,12 @@ pub(super) fn foreach_value_local_kind(
         ExprKind::FunctionCall { name, .. } if name.eq_ignore_ascii_case("class_uses") => {
             LocalKind::Str
         }
+        ExprKind::FunctionCall { name, .. } if name.eq_ignore_ascii_case("class_attribute_names") => {
+            LocalKind::Str
+        }
+        ExprKind::FunctionCall { name, .. } if name.eq_ignore_ascii_case("class_attribute_args") => {
+            LocalKind::Mixed
+        }
         ExprKind::FunctionCall { name, args } if name.eq_ignore_ascii_case("array_flip") => {
             array_keys_foreach_value_local_kind(
                 args,

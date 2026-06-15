@@ -622,6 +622,8 @@ pub(in crate::codegen::wasm) fn expression_has_array_type(expr: &Expr, module: &
                         | "class_parents"
                         | "class_implements"
                         | "class_uses"
+                        | "class_attribute_names"
+                        | "class_attribute_args"
                 )
         }
         ExprKind::StaticMethodCall {
