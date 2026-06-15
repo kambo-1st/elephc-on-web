@@ -42226,6 +42226,26 @@ foreach ($statuses as $index => $className) {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_enum_cases_array_map_get_parent_class() {
+    assert_wasm_matches_php(
+        r#"<?php
+enum Suit {
+    case Hearts;
+    case Clubs;
+}
+enum Status: string {
+    case Draft = "draft";
+    case Published = "pub";
+}
+$suits = array_map("get_parent_class", Suit::cases());
+$statuses = array_map("get_parent_class", Status::cases());
+echo count($suits) . ":[" . $suits[0] . "]:[" . $suits[1] . "]\n";
+echo count($statuses) . ":[" . $statuses[0] . "]:[" . $statuses[1] . "]\n";
+"#,
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_enum_cases_array_map_gettype() {
     assert_wasm_matches_php(
         r#"<?php
