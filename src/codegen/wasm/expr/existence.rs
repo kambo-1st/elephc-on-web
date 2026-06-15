@@ -275,6 +275,9 @@ pub(super) fn emit_member_exists_call(
             &format!("wasm32-web {}() expects exactly two arguments", name),
         ));
     };
+    if let Some(cell) = materialize_mixed_value_cell(target, module)? {
+        return emit_mixed_member_exists_call(call, name, &cell, member, module);
+    }
     if object_receiver_needs_runtime_class_id(target, module) {
         return emit_dynamic_member_exists_call(call, name, target, member, module);
     }
@@ -350,6 +353,63 @@ fn emit_dynamic_member_exists_call(
     module.body().line(&format!("local.set ${}", result_local));
 
     if let Some(var) = runtime_string_arg_or_materialize(member, "member_exists_name", module)? {
+        emit_dynamic_member_exists_runtime_name(
+            name,
+            &class_id_local,
+            &result_local,
+            &var,
+            module,
+        );
+        module.body().line(&format!("local.get ${}", result_local));
+        return Ok(ValueKind::Bool);
+    }
+
+    let member_name = member_exists_member_name(call, member, module)?;
+    emit_dynamic_member_exists_static_name(
+        name,
+        &class_id_local,
+        &result_local,
+        &member_name,
+        module,
+    );
+    module.body().line(&format!("local.get ${}", result_local));
+    Ok(ValueKind::Bool)
+}
+
+fn emit_mixed_member_exists_call(
+    call: &Expr,
+    name: &str,
+    cell: &str,
+    member: &Expr,
+    module: &mut WasmModule,
+) -> Result<ValueKind, CompileError> {
+    let class_id_local = module
+        .next_label("mixed_member_exists_class_id")
+        .trim_start_matches('$')
+        .to_string();
+    let result_local = module
+        .next_label("mixed_member_exists_result")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_i64_local(class_id_local.clone());
+    module.declare_i32_local(result_local.clone());
+    module.body().line(&format!("local.get ${}", cell));
+    module.body().line("i32.load");
+    module.body().line(&format!("i32.const {}", WASM_VALUE_TAG_OBJECT));
+    module.body().line("i32.ne");
+    module.body().open("if");
+    module.body().line("unreachable");
+    module.body().close("end");
+    module.body().line(&format!("local.get ${}", cell));
+    module.body().line("i32.const 8");
+    module.body().line("i32.add");
+    module.body().line("i32.load");
+    module.body().line("i64.load");
+    module.body().line(&format!("local.set ${}", class_id_local));
+    module.body().line("i32.const 0");
+    module.body().line(&format!("local.set ${}", result_local));
+
+    if let Some(var) = runtime_string_arg_or_materialize(member, "mixed_member_exists_name", module)? {
         emit_dynamic_member_exists_runtime_name(
             name,
             &class_id_local,
