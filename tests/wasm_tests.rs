@@ -7877,6 +7877,13 @@ fn test_wasm32_web_e2e_matches_php_value_array_object_cell_tostring_string_famil
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_value_array_object_cell_callback_transforms() {
+    assert_wasm_matches_php(
+        "<?php\nclass CallbackBase {}\nclass CallbackChild extends CallbackBase {}\n$items = [new CallbackBase(), new CallbackChild()];\n$names = array_map(\"get_class\", $items);\necho count($names) . \":\" . $names[0] . \":\" . $names[1] . \"\\n\";\n$objects = array_filter($items, \"is_object\");\necho count($objects) . \":\" . get_class($objects[0]) . \":\" . get_class($objects[1]) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_value_array_string_copy_aliasing() {
     assert_wasm_matches_php(
         r#"<?php
