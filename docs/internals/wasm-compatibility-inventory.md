@@ -233,9 +233,10 @@ Literal value-cell arrays can store refcounted object cells directly and support
 `class_parents()`/`class_implements()`/`class_uses()`,
 `method_exists()`/`property_exists()`, public property reads, fixed method calls,
 and object-cell callback transforms such as `array_map("get_class", ...)` and
-`array_filter(..., "is_object")` through PHP-oracle coverage; callable/resource
-value-cell stores remain explicit `CompileError` cases until their ownership
-runtimes exist.
+`array_filter(..., "is_object")`, plus type/truthiness callback transforms
+`array_map("gettype", ...)`, `array_map("boolval", ...)`, and default
+`array_filter()` through PHP-oracle coverage; callable/resource value-cell
+stores remain explicit `CompileError` cases until their ownership runtimes exist.
 Value-cell and associative array returns now propagate method array-return
 metadata into assigned locals and direct method-return `foreach`, enabling count,
 indexed/keyed reads, and by-value `foreach` with mixed key/value binding when

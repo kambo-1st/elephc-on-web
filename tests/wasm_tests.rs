@@ -7884,6 +7884,13 @@ fn test_wasm32_web_e2e_matches_php_value_array_object_cell_callback_transforms()
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_value_array_object_cell_type_callback_transforms() {
+    assert_wasm_matches_php(
+        "<?php\nclass TypeCallbackBox {}\n$items = [new TypeCallbackBox(), new TypeCallbackBox()];\n$types = array_map(\"gettype\", $items);\n$truthy = array_map(\"boolval\", $items);\n$kept = array_filter($items);\necho count($types) . \":\" . $types[0] . \":\" . $types[1] . \"\\n\";\necho count($truthy) . \":\" . ($truthy[0] ? 1 : 0) . \":\" . ($truthy[1] ? 1 : 0) . \"\\n\";\necho count($kept) . \":\" . get_class($kept[0]) . \":\" . get_class($kept[1]) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_value_array_string_copy_aliasing() {
     assert_wasm_matches_php(
         r#"<?php
