@@ -41768,6 +41768,23 @@ echo (enum_exists("WebEnum") ? 1 : 0) . "\n";
 }
 
 #[test]
+fn test_wasm32_web_class_attribute_names_assigned_array() {
+    assert_wasm_stdout(
+        r#"<?php
+#[Author("Ada"), Version(1)]
+class AttributedWebThing {}
+$names = class_attribute_names("AttributedWebThing");
+echo count($names) . "\n";
+foreach ($names as $key => $name) {
+    echo $key . "=" . $name . ";";
+}
+echo "\n";
+"#,
+        "2\nAuthor=Author;Version=Version;\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_pure_enum_case_singletons() {
     assert_wasm_matches_php(
         r#"<?php

@@ -14,8 +14,8 @@ use std::collections::{HashMap, HashSet};
 
 use crate::names::Name;
 use crate::parser::ast::{
-    ClassMethod, ClassProperty, Expr, ExprKind, Program, StaticReceiver, Stmt, StmtKind,
-    TraitAdaptation, TraitUse, TypeExpr, Visibility,
+    AttributeGroup, ClassMethod, ClassProperty, Expr, ExprKind, Program, StaticReceiver, Stmt,
+    StmtKind, TraitAdaptation, TraitUse, TypeExpr, Visibility,
 };
 
 use super::{
@@ -31,6 +31,7 @@ pub(in crate::codegen::wasm) struct ObjectClassInfo {
     pub(in crate::codegen::wasm) parent: Option<String>,
     pub(in crate::codegen::wasm) interfaces: Vec<String>,
     pub(in crate::codegen::wasm) used_traits: Vec<String>,
+    pub(in crate::codegen::wasm) attribute_names: Vec<String>,
     pub(in crate::codegen::wasm) has_constructor: bool,
     pub(in crate::codegen::wasm) properties: Vec<ObjectPropertyInfo>,
     pub(in crate::codegen::wasm) static_properties: Vec<ObjectStaticPropertyInfo>,
@@ -189,6 +190,7 @@ pub(super) fn collect_object_classes(program: &Program) -> HashMap<String, Objec
                             .map(|name| name.as_str().to_string())
                     })
                     .collect(),
+                attribute_names: collect_attribute_names(&stmt.attributes),
                 has_constructor,
                 properties: wasm_properties,
                 static_properties: wasm_static_properties,
@@ -231,6 +233,7 @@ pub(super) fn collect_object_classes(program: &Program) -> HashMap<String, Objec
                 parent: None,
                 interfaces: Vec::new(),
                 used_traits: Vec::new(),
+                attribute_names: Vec::new(),
                 has_constructor: false,
                 properties,
                 static_properties: Vec::new(),
@@ -242,6 +245,14 @@ pub(super) fn collect_object_classes(program: &Program) -> HashMap<String, Objec
         next_class_id += 1;
     }
     classes
+}
+
+fn collect_attribute_names(groups: &[AttributeGroup]) -> Vec<String> {
+    groups
+        .iter()
+        .flat_map(|group| group.attributes.iter())
+        .map(|attr| attr.name.as_str().to_string())
+        .collect()
 }
 
 #[derive(Clone, Debug)]

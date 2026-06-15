@@ -207,6 +207,24 @@ pub(super) fn collect_assignment_locals(
         array_key_values.insert(name.clone(), keys);
         php_normalized_key_arrays.remove(name);
     }
+    if let Some((values, keys)) =
+        class_attribute_names_metadata_for_assignment(
+            value,
+            object_classes,
+            string_static_values,
+            function_static_string_returns,
+        )
+    {
+        array_value_kinds.insert(name.clone(), values);
+        array_runtime_value_kinds.remove(name);
+        array_nested_values.remove(name);
+        array_key_kinds.insert(
+            name.clone(),
+            keys.iter().map(assoc_key_kind_for_value).collect(),
+        );
+        array_key_values.insert(name.clone(), keys);
+        php_normalized_key_arrays.remove(name);
+    }
     if let ExprKind::Variable(source) = &value.kind {
         if locals.get(source) == Some(&LocalKind::Array) {
             if let Some(kinds) = array_value_kinds.get(source).cloned() {
@@ -1972,6 +1990,33 @@ fn class_uses_metadata_for_assignment(
         .map(|class_info| class_info.used_traits.as_slice())
         .or_else(|| trait_use_names.get(&key).map(Vec::as_slice))?;
     let keys = used_traits
+        .iter()
+        .cloned()
+        .map(AssocKeyValue::Str)
+        .collect::<Vec<_>>();
+    Some((vec![ValueCellKind::Str; keys.len()], keys))
+}
+
+fn class_attribute_names_metadata_for_assignment(
+    value: &Expr,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
+    string_static_values: &HashMap<String, String>,
+    function_static_string_returns: &HashMap<String, String>,
+) -> Option<(Vec<ValueCellKind>, Vec<AssocKeyValue>)> {
+    let ExprKind::FunctionCall { name, args } = &value.kind else {
+        return None;
+    };
+    if !name.eq_ignore_ascii_case("class_attribute_names") {
+        return None;
+    }
+    let class_name = class_relation_static_or_new_target_name(
+        args.first()?,
+        string_static_values,
+        function_static_string_returns,
+    )?;
+    let keys = object_classes
+        .get(&function_key(&class_name))?
+        .attribute_names
         .iter()
         .cloned()
         .map(AssocKeyValue::Str)

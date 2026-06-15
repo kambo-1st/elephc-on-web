@@ -123,6 +123,11 @@ pub(crate) fn emit_array_assign(
             return emit_class_uses_array_assign(name, value, args, module);
         }
         ExprKind::FunctionCall { name: function_name, args }
+            if function_name.eq_ignore_ascii_case("class_attribute_names") =>
+        {
+            return emit_class_attribute_names_array_assign(name, value, args, module);
+        }
+        ExprKind::FunctionCall { name: function_name, args }
             if function_name.eq_ignore_ascii_case("explode") =>
         {
             if args.get(1).is_some_and(|arg| static_string_value(arg, module).is_none())
@@ -733,6 +738,37 @@ fn class_parent_assoc_items(
                 (key, value)
             })
             .collect(),
+    )
+}
+
+fn emit_class_attribute_names_array_assign(
+    name: &str,
+    call: &Expr,
+    args: &[Expr],
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let [target] = args else {
+        return Err(CompileError::new(
+            call.span,
+            "wasm32-web class_attribute_names() expects one argument",
+        ));
+    };
+    let Some(class_name) = evaluated_static_or_tracked_string_value(target, module)? else {
+        return Err(CompileError::new(
+            target.span,
+            "wasm32-web class_attribute_names() currently requires a static class-string argument",
+        ));
+    };
+    let Some(class_info) = module.object_class(&class_name) else {
+        return Err(CompileError::new(
+            target.span,
+            "wasm32-web class_attribute_names() currently requires a declared class target",
+        ));
+    };
+    emit_assoc_array_items_assign(
+        name,
+        &assoc_string_set_items(class_info.attribute_names.clone(), target.span),
+        module,
     )
 }
 
