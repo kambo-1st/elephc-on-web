@@ -7793,6 +7793,13 @@ fn test_wasm32_web_e2e_matches_php_mixed_object_cell_member_exists() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_mixed_param_return_object_cell_member_exists() {
+    assert_wasm_matches_php(
+        "<?php\nclass MixedFlowMemberTarget { public string $name = \"web\"; public function label(): string { return $this->name; } }\nfunction mixed_flow_member_name(string $name): string { echo \"member\\n\"; return $name; }\nfunction mixed_flow_member_value(): mixed { return new MixedFlowMemberTarget(); }\nfunction mixed_flow_member_check(mixed $value): string { return (method_exists($value, \"label\") ? 1 : 0) . \":\" . (property_exists($value, mixed_flow_member_name(\"name\")) ? 1 : 0); }\necho mixed_flow_member_check(mixed_flow_member_value()) . \":\";\necho (method_exists(mixed_flow_member_value(), mixed_flow_member_name(\"missing\")) ? 1 : 0) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_value_array_object_cell_class_checks() {
     assert_wasm_matches_php(
         "<?php\nclass Base {}\nclass Child extends Base {}\nclass Other {}\nfunction value_array_target(): string { echo \"target\\n\"; return \"Base\"; }\n$a = [new Child(), 7];\necho ($a[0] instanceof Child ? 1 : 0); echo \":\"; echo ($a[0] instanceof Base ? 1 : 0); echo \":\"; echo ($a[0] instanceof Other ? 1 : 0); echo \":\"; echo ($a[1] instanceof Base ? 1 : 0); echo \":\"; echo (is_a($a[0], Base::class) ? 1 : 0); echo \":\"; echo (is_subclass_of($a[0], Base::class) ? 1 : 0); echo \":\"; echo (is_a($a[0], value_array_target()) ? 1 : 0); echo \":\"; echo (is_subclass_of($a[0], value_array_target()) ? 1 : 0); echo \"\\n\";\n",

@@ -221,11 +221,12 @@ through runtime class ids, and array-returning fixed methods now support direct
 `count()` consumers. Instance/static mixed object cells also materialize
 `class_parents()`/`class_implements()`/`class_uses()` relation arrays through
 runtime class-id branching and support `method_exists()`/`property_exists()`
-with static and runtime member names. Compact-int array returns also support
-assignment, indexed reads, direct by-value `foreach`, and `array_values()`/
-`array_keys()`/default `array_reverse()` plus preserve-key
-`array_reverse(..., true)` transforms when every runtime class candidate returns
-the same int-array literal length.
+with static and runtime member names; mixed object cells flowing through
+`mixed` params and returns are also covered for these member predicates.
+Compact-int array returns also support assignment, indexed reads, direct
+by-value `foreach`, and `array_values()`/`array_keys()`/default
+`array_reverse()` plus preserve-key `array_reverse(..., true)` transforms when
+every runtime class candidate returns the same int-array literal length.
 Literal value-cell arrays can store refcounted object cells directly and support
 `count()`, static-index `gettype()`/`get_class()`/`get_parent_class()`, `class_parents()`/`class_implements()`/`class_uses()`, `method_exists()`/`property_exists()`, public property reads, and
 fixed method calls through PHP-oracle coverage; callable/resource value-cell
