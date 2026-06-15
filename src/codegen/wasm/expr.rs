@@ -646,6 +646,7 @@ enum ArrayFilterCallbackShape {
     Numeric,
     Array,
     Object,
+    ObjectParent,
     Mixed,
 }
 

@@ -176,7 +176,7 @@ fn emit_array_filter_runtime_assoc_local_assign_with_receiver(
                 module.body().line("i32.const 1");
             }
         }
-        ArrayFilterCallbackShape::Object | ArrayFilterCallbackShape::Mixed => {
+        ArrayFilterCallbackShape::Object | ArrayFilterCallbackShape::ObjectParent | ArrayFilterCallbackShape::Mixed => {
             unreachable!("array_filter value predicates do not accept mixed callbacks")
         }
     }
@@ -375,7 +375,7 @@ fn emit_array_filter_assoc_local_assign_with_receiver(
                     module.body().line("i32.const 1");
                 }
             }
-            ArrayFilterCallbackShape::Object | ArrayFilterCallbackShape::Mixed => {
+            ArrayFilterCallbackShape::Object | ArrayFilterCallbackShape::ObjectParent | ArrayFilterCallbackShape::Mixed => {
                 unreachable!("array_filter value predicates do not accept mixed callbacks")
             }
         }
@@ -393,7 +393,7 @@ fn emit_array_filter_assoc_local_assign_with_receiver(
                     emit_stack_string_is_numeric(module);
                 }
             }
-            ArrayFilterCallbackShape::Object | ArrayFilterCallbackShape::Mixed => {
+            ArrayFilterCallbackShape::Object | ArrayFilterCallbackShape::ObjectParent | ArrayFilterCallbackShape::Mixed => {
                 unreachable!("array_filter value predicates do not accept mixed callbacks")
             }
         }

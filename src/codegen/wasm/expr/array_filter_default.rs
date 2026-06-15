@@ -280,6 +280,62 @@ pub(super) fn emit_array_filter_default_value_object_local_assign(
     Ok(())
 }
 
+pub(super) fn emit_array_filter_parent_value_object_local_assign(
+    name: &str,
+    source: &str,
+    source_span: crate::span::Span,
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let Some(len) = module.array_length(source) else {
+        return Err(CompileError::new(
+            source_span,
+            "wasm32-web array_filter(get_parent_class) over object arrays requires known length metadata",
+        ));
+    };
+    let Some(object_classes) = module.array_object_classes(source).map(|classes| classes.to_vec()) else {
+        return Err(CompileError::new(
+            source_span,
+            "wasm32-web array_filter(get_parent_class) over object arrays requires object metadata",
+        ));
+    };
+    let mut kept = Vec::new();
+    for (index, class_name) in object_classes.iter().enumerate() {
+        let Some(class_name) = class_name else {
+            return Err(CompileError::new(
+                source_span,
+                "wasm32-web array_filter(get_parent_class) over object arrays requires exact object metadata",
+            ));
+        };
+        if module
+            .object_class(class_name)
+            .and_then(|class_info| class_info.parent.as_deref())
+            .is_some()
+        {
+            kept.push((index, Some(class_name.clone())));
+        }
+    }
+    let out_index = emit_array_filter_result_prelude(name, len, module);
+    module.set_array_length(name, kept.len());
+    module.set_array_key_kinds(name, Some(vec![AssocKeyKind::Int; kept.len()]));
+    module.set_array_runtime_key_kind(name, Some(AssocKeyKind::Int));
+    module.set_array_key_values(
+        name,
+        Some(
+            kept.iter()
+                .map(|(index, _)| AssocKeyValue::Int(*index as i64))
+                .collect(),
+        ),
+    );
+    module.set_array_object_classes(
+        name,
+        Some(kept.iter().map(|(_, class_name)| class_name.clone()).collect()),
+    );
+    for (index, _) in kept {
+        emit_array_filter_copy_value_entry(name, source, &out_index, index, module);
+    }
+    Ok(())
+}
+
 pub(super) fn emit_array_filter_empty_value_object_local_assign(
     name: &str,
     source: &str,

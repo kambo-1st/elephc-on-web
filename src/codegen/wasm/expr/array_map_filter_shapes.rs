@@ -22,6 +22,9 @@ pub(super) fn array_filter_callback_shape(
     {
         return Ok(ArrayFilterCallbackShape::Object);
     }
+    if callback.eq_ignore_ascii_case("get_parent_class") {
+        return Ok(ArrayFilterCallbackShape::ObjectParent);
+    }
     if callback.eq_ignore_ascii_case("is_int") {
         return Ok(ArrayFilterCallbackShape::Int);
     }

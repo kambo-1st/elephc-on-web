@@ -7898,6 +7898,13 @@ fn test_wasm32_web_e2e_matches_php_value_array_object_cell_parent_callback_trans
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_value_array_object_cell_parent_filter_callback() {
+    assert_wasm_matches_php(
+        "<?php\nclass ParentFilterRoot {}\nclass ParentFilterChild extends ParentFilterRoot {}\n$items = [new ParentFilterChild(), new ParentFilterRoot(), new ParentFilterChild()];\n$kept = array_filter($items, \"get_parent_class\");\necho count($kept) . \":\" . get_class($kept[0]) . \":\" . (array_key_exists(1, $kept) ? 1 : 0) . \":\" . get_class($kept[2]) . \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_value_array_string_copy_aliasing() {
     assert_wasm_matches_php(
         r#"<?php

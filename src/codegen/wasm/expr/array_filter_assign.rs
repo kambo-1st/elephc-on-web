@@ -13,6 +13,7 @@ use super::array_filter_assign_default::emit_array_filter_default_assign;
 use super::array_filter_assign_modes::emit_array_filter_mode_assign;
 use super::array_filter_default::{
     emit_array_filter_default_value_object_local_assign, emit_array_filter_empty_value_object_local_assign,
+    emit_array_filter_parent_value_object_local_assign,
 };
 
 enum ArrayFilterDynamicSource<'a> {
@@ -735,6 +736,14 @@ pub(in crate::codegen::wasm) fn emit_array_filter_assign(
                 && module.array_object_classes(source).is_some() =>
         {
             emit_array_filter_empty_value_object_local_assign(name, source, args[0].span, module)
+        }
+        ExprKind::Variable(source)
+            if shape == ArrayFilterCallbackShape::ObjectParent
+                && module.local_kind(source) == Some(LocalKind::Array)
+                && module.array_layout(source) == ArrayLayout::Value
+                && module.array_object_classes(source).is_some() =>
+        {
+            emit_array_filter_parent_value_object_local_assign(name, source, args[0].span, module)
         }
         ExprKind::Variable(source)
             if shape == ArrayFilterCallbackShape::Object
@@ -1488,6 +1497,12 @@ fn emit_array_filter_staged_assign(
                 && module.array_object_classes(source).is_some() =>
         {
             emit_array_filter_default_value_object_local_assign(name, source, source_span, module)
+        }
+        ArrayFilterCallbackShape::ObjectParent
+            if module.array_layout(source) == ArrayLayout::Value
+                && module.array_object_classes(source).is_some() =>
+        {
+            emit_array_filter_parent_value_object_local_assign(name, source, source_span, module)
         }
         _ if array_filter_object_false_callback(callback)
             && module.array_layout(source) == ArrayLayout::Value
