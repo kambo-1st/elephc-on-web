@@ -16,6 +16,7 @@ use super::array_reduce_values::*;
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ArrayReduceCallbackShape {
     IntToInt,
+    IntObjectToInt,
     FloatToFloat,
     BoolToBool,
     StrToStr,
@@ -517,6 +518,9 @@ pub(super) fn emit_array_reduce_call(
     }
     if shape == ArrayReduceCallbackShape::StrObjectToStr {
         return emit_array_reduce_string_object_call(expr, args, &callback, module);
+    }
+    if shape == ArrayReduceCallbackShape::IntObjectToInt {
+        return emit_array_reduce_int_object_call(expr, args, &callback, module);
     }
     if shape == ArrayReduceCallbackShape::FloatToFloat {
         return emit_array_reduce_float_call(expr, args, &callback, module);
@@ -1792,6 +1796,9 @@ fn array_reduce_callback_shape(
     };
     match (param_kinds.as_slice(), module.function_return_kind(callback)) {
         ([LocalKind::I64, LocalKind::I64], Some(ValueKind::Int)) => Ok(ArrayReduceCallbackShape::IntToInt),
+        ([LocalKind::I64, LocalKind::Object], Some(ValueKind::Int)) => {
+            Ok(ArrayReduceCallbackShape::IntObjectToInt)
+        }
         ([LocalKind::F64, LocalKind::F64], Some(ValueKind::Float)) => {
             Ok(ArrayReduceCallbackShape::FloatToFloat)
         }
@@ -1816,7 +1823,7 @@ fn array_reduce_callback_shape(
         }
         _ => Err(CompileError::new(
             span,
-            "wasm32-web array_reduce() currently requires homogeneous int, float, bool, string, string/object-to-string, mixed,mixed-to-int, mixed,mixed-to-bool, mixed,mixed-to-float, or mixed,mixed-to-string callbacks",
+            "wasm32-web array_reduce() currently requires homogeneous int, int/object-to-int, float, bool, string, string/object-to-string, mixed,mixed-to-int, mixed,mixed-to-bool, mixed,mixed-to-float, or mixed,mixed-to-string callbacks",
         )),
     }
 }
@@ -2432,8 +2439,10 @@ fn array_reduce_static_callback_shape_for_expr(
 }
 
 fn array_reduce_shape_value_kind(shape: ArrayReduceCallbackShape) -> ValueKind {
-    match shape {
-        ArrayReduceCallbackShape::IntToInt | ArrayReduceCallbackShape::MixedMixedToInt => ValueKind::Int,
+        match shape {
+        ArrayReduceCallbackShape::IntToInt
+        | ArrayReduceCallbackShape::IntObjectToInt
+        | ArrayReduceCallbackShape::MixedMixedToInt => ValueKind::Int,
         ArrayReduceCallbackShape::FloatToFloat | ArrayReduceCallbackShape::MixedMixedToFloat => {
             ValueKind::Float
         }
@@ -2442,6 +2451,55 @@ fn array_reduce_shape_value_kind(shape: ArrayReduceCallbackShape) -> ValueKind {
         | ArrayReduceCallbackShape::StrObjectToStr
         | ArrayReduceCallbackShape::MixedMixedToStr => ValueKind::Str,
     }
+}
+
+fn emit_array_reduce_int_object_call(
+    _expr: &Expr,
+    args: &[Expr],
+    callback: &str,
+    module: &mut WasmModule,
+) -> Result<ValueKind, CompileError> {
+    let acc = module
+        .next_label("array_reduce_object_acc")
+        .trim_start_matches('$')
+        .to_string();
+    module.declare_i64_local(acc.clone());
+    require_int(&args[2], module)?;
+    module.body().line(&format!("local.set ${}", acc));
+
+    match &args[0].kind {
+        ExprKind::Variable(source)
+            if module.local_kind(source) == Some(LocalKind::Array)
+                && module.array_layout(source) == ArrayLayout::Value
+                && array_reduce_object_value_cells_are_supported(source, module) =>
+        {
+            emit_array_reduce_value_object_int_local(&acc, source, args[0].span, callback, module)?;
+        }
+        _ if expression_has_array_type(&args[0], module) => {
+            let source = module
+                .next_label("array_reduce_object_source")
+                .trim_start_matches('$')
+                .to_string();
+            module.declare_array_local(source.clone());
+            emit_array_assign(&source, &args[0], module)?;
+            if !array_reduce_object_value_cells_are_supported(&source, module) {
+                return Err(CompileError::new(
+                    args[0].span,
+                    "wasm32-web array_reduce() object callbacks require exact object value-cell metadata",
+                ));
+            }
+            emit_array_reduce_value_object_int_local(&acc, &source, args[0].span, callback, module)?;
+        }
+        _ => {
+            return Err(CompileError::new(
+                args[0].span,
+                "wasm32-web array_reduce() object callbacks require object value-cell arrays",
+            ));
+        }
+    }
+
+    module.body().line(&format!("local.get ${}", acc));
+    Ok(ValueKind::Int)
 }
 
 fn emit_array_reduce_string_object_call(
