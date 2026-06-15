@@ -41785,6 +41785,23 @@ echo "\n";
 }
 
 #[test]
+fn test_wasm32_web_class_attribute_args_assigned_value_array() {
+    assert_wasm_stdout(
+        r#"<?php
+#[Route("/api", 7, true, false, null, -3)]
+class AttributedArgsWebThing {}
+$args = class_attribute_args("AttributedArgsWebThing", "route");
+echo count($args) . "\n";
+foreach ($args as $key => $value) {
+    echo $key . "=[" . $value . "];";
+}
+echo "\n";
+"#,
+        "6\n0=[/api];1=[7];2=[1];3=[];4=[];5=[-3];\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_pure_enum_case_singletons() {
     assert_wasm_matches_php(
         r#"<?php

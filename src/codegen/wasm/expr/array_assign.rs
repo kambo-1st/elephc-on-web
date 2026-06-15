@@ -9,6 +9,7 @@
 //! - Array assignments must preserve layout metadata so later reads, foreach, and COW paths stay type-aware.
 
 use super::*;
+use crate::types::AttrArgValue;
 
 pub(crate) fn emit_array_assign(
     name: &str,
@@ -126,6 +127,11 @@ pub(crate) fn emit_array_assign(
             if function_name.eq_ignore_ascii_case("class_attribute_names") =>
         {
             return emit_class_attribute_names_array_assign(name, value, args, module);
+        }
+        ExprKind::FunctionCall { name: function_name, args }
+            if function_name.eq_ignore_ascii_case("class_attribute_args") =>
+        {
+            return emit_class_attribute_args_array_assign(name, value, args, module);
         }
         ExprKind::FunctionCall { name: function_name, args }
             if function_name.eq_ignore_ascii_case("explode") =>
@@ -770,6 +776,78 @@ fn emit_class_attribute_names_array_assign(
         &assoc_string_set_items(class_info.attribute_names.clone(), target.span),
         module,
     )
+}
+
+fn emit_class_attribute_args_array_assign(
+    name: &str,
+    call: &Expr,
+    args: &[Expr],
+    module: &mut WasmModule,
+) -> Result<(), CompileError> {
+    let [target, attr] = args else {
+        return Err(CompileError::new(
+            call.span,
+            "wasm32-web class_attribute_args() expects two arguments",
+        ));
+    };
+    let Some(class_name) = evaluated_static_or_tracked_string_value(target, module)? else {
+        return Err(CompileError::new(
+            target.span,
+            "wasm32-web class_attribute_args() currently requires a static class-string argument",
+        ));
+    };
+    let Some(attr_name) = evaluated_static_or_tracked_string_value(attr, module)? else {
+        return Err(CompileError::new(
+            attr.span,
+            "wasm32-web class_attribute_args() currently requires a static attribute-name argument",
+        ));
+    };
+    let attr_args = class_attribute_args(&class_name, &attr_name, module, target.span)?;
+    let items = attr_args
+        .iter()
+        .map(|arg| attr_arg_expr(arg, call.span))
+        .collect::<Vec<_>>();
+    emit_value_array_items_assign(name, &items, module)
+}
+
+fn class_attribute_args(
+    class_name: &str,
+    attr_name: &str,
+    module: &WasmModule,
+    span: crate::span::Span,
+) -> Result<Vec<AttrArgValue>, CompileError> {
+    let Some(class_info) = module.object_class(class_name) else {
+        return Err(CompileError::new(
+            span,
+            "wasm32-web class_attribute_args() currently requires a declared class target",
+        ));
+    };
+    let attr_key = attr_name.trim_start_matches('\\').to_ascii_lowercase();
+    let Some((index, _)) = class_info
+        .attribute_names
+        .iter()
+        .enumerate()
+        .find(|(_, name)| name.trim_start_matches('\\').to_ascii_lowercase() == attr_key)
+    else {
+        return Ok(Vec::new());
+    };
+    match class_info.attribute_args.get(index) {
+        Some(Some(args)) => Ok(args.clone()),
+        _ => Err(CompileError::new(
+            span,
+            "wasm32-web class_attribute_args() cannot materialize unsupported attribute argument metadata",
+        )),
+    }
+}
+
+fn attr_arg_expr(arg: &AttrArgValue, span: crate::span::Span) -> Expr {
+    let kind = match arg {
+        AttrArgValue::Null => ExprKind::Null,
+        AttrArgValue::Int(value) => ExprKind::IntLiteral(*value),
+        AttrArgValue::Bool(value) => ExprKind::BoolLiteral(*value),
+        AttrArgValue::Str(value) => ExprKind::StringLiteral(value.clone()),
+    };
+    Expr::new(kind, span)
 }
 
 fn emit_class_implements_array_assign(

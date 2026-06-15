@@ -225,6 +225,21 @@ pub(super) fn collect_assignment_locals(
         array_key_values.insert(name.clone(), keys);
         php_normalized_key_arrays.remove(name);
     }
+    if let Some(values) =
+        class_attribute_args_metadata_for_assignment(
+            value,
+            object_classes,
+            string_static_values,
+            function_static_string_returns,
+        )
+    {
+        array_value_kinds.insert(name.clone(), values);
+        array_runtime_value_kinds.remove(name);
+        array_nested_values.remove(name);
+        array_key_kinds.remove(name);
+        array_key_values.remove(name);
+        php_normalized_key_arrays.remove(name);
+    }
     if let ExprKind::Variable(source) = &value.kind {
         if locals.get(source) == Some(&LocalKind::Array) {
             if let Some(kinds) = array_value_kinds.get(source).cloned() {
@@ -2022,6 +2037,49 @@ fn class_attribute_names_metadata_for_assignment(
         .map(AssocKeyValue::Str)
         .collect::<Vec<_>>();
     Some((vec![ValueCellKind::Str; keys.len()], keys))
+}
+
+fn class_attribute_args_metadata_for_assignment(
+    value: &Expr,
+    object_classes: &HashMap<String, object_metadata::ObjectClassInfo>,
+    string_static_values: &HashMap<String, String>,
+    function_static_string_returns: &HashMap<String, String>,
+) -> Option<Vec<ValueCellKind>> {
+    let ExprKind::FunctionCall { name, args } = &value.kind else {
+        return None;
+    };
+    if !name.eq_ignore_ascii_case("class_attribute_args") {
+        return None;
+    }
+    let class_name = class_relation_static_or_new_target_name(
+        args.first()?,
+        string_static_values,
+        function_static_string_returns,
+    )?;
+    let attr_name = class_relation_static_or_new_target_name(
+        args.get(1)?,
+        string_static_values,
+        function_static_string_returns,
+    )?;
+    let attr_key = attr_name.trim_start_matches('\\').to_ascii_lowercase();
+    let class_info = object_classes.get(&function_key(&class_name))?;
+    let (index, _) = class_info
+        .attribute_names
+        .iter()
+        .enumerate()
+        .find(|(_, name)| name.trim_start_matches('\\').to_ascii_lowercase() == attr_key)?;
+    let values = class_info.attribute_args.get(index)?.as_ref()?;
+    Some(
+        values
+            .iter()
+            .map(|value| match value {
+                crate::types::AttrArgValue::Null => ValueCellKind::Null,
+                crate::types::AttrArgValue::Int(_) => ValueCellKind::Int,
+                crate::types::AttrArgValue::Bool(_) => ValueCellKind::Bool,
+                crate::types::AttrArgValue::Str(_) => ValueCellKind::Str,
+            })
+            .collect(),
+    )
 }
 
 fn class_relation_static_or_new_target_name(

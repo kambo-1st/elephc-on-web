@@ -17,6 +17,7 @@ use crate::parser::ast::{
     AttributeGroup, ClassMethod, ClassProperty, Expr, ExprKind, Program, StaticReceiver, Stmt,
     StmtKind, TraitAdaptation, TraitUse, TypeExpr, Visibility,
 };
+use crate::types::AttrArgValue;
 
 use super::{
     function_key, local_kind_from_type, value_kind_from_return_type, LocalKind, ValueCellKind,
@@ -32,6 +33,7 @@ pub(in crate::codegen::wasm) struct ObjectClassInfo {
     pub(in crate::codegen::wasm) interfaces: Vec<String>,
     pub(in crate::codegen::wasm) used_traits: Vec<String>,
     pub(in crate::codegen::wasm) attribute_names: Vec<String>,
+    pub(in crate::codegen::wasm) attribute_args: Vec<Option<Vec<AttrArgValue>>>,
     pub(in crate::codegen::wasm) has_constructor: bool,
     pub(in crate::codegen::wasm) properties: Vec<ObjectPropertyInfo>,
     pub(in crate::codegen::wasm) static_properties: Vec<ObjectStaticPropertyInfo>,
@@ -191,6 +193,7 @@ pub(super) fn collect_object_classes(program: &Program) -> HashMap<String, Objec
                     })
                     .collect(),
                 attribute_names: collect_attribute_names(&stmt.attributes),
+                attribute_args: collect_attribute_args(&stmt.attributes),
                 has_constructor,
                 properties: wasm_properties,
                 static_properties: wasm_static_properties,
@@ -234,6 +237,7 @@ pub(super) fn collect_object_classes(program: &Program) -> HashMap<String, Objec
                 interfaces: Vec::new(),
                 used_traits: Vec::new(),
                 attribute_names: Vec::new(),
+                attribute_args: Vec::new(),
                 has_constructor: false,
                 properties,
                 static_properties: Vec::new(),
@@ -253,6 +257,37 @@ fn collect_attribute_names(groups: &[AttributeGroup]) -> Vec<String> {
         .flat_map(|group| group.attributes.iter())
         .map(|attr| attr.name.as_str().to_string())
         .collect()
+}
+
+fn collect_attribute_args(groups: &[AttributeGroup]) -> Vec<Option<Vec<AttrArgValue>>> {
+    groups
+        .iter()
+        .flat_map(|group| group.attributes.iter())
+        .map(|attr| {
+            let mut args = Vec::new();
+            for arg in &attr.args {
+                args.push(attr_arg_value(arg)?);
+            }
+            Some(args)
+        })
+        .collect()
+}
+
+fn attr_arg_value(arg: &Expr) -> Option<AttrArgValue> {
+    match &arg.kind {
+        ExprKind::Null => Some(AttrArgValue::Null),
+        ExprKind::IntLiteral(value) => Some(AttrArgValue::Int(*value)),
+        ExprKind::BoolLiteral(value) => Some(AttrArgValue::Bool(*value)),
+        ExprKind::StringLiteral(value) => Some(AttrArgValue::Str(value.clone())),
+        ExprKind::Negate(inner) => {
+            if let ExprKind::IntLiteral(value) = &inner.kind {
+                Some(AttrArgValue::Int(value.wrapping_neg()))
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
 }
 
 #[derive(Clone, Debug)]
