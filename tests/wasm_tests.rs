@@ -7765,6 +7765,13 @@ fn test_wasm32_web_e2e_matches_php_value_array_object_cell_get_parent_class() {
 }
 
 #[test]
+fn test_wasm32_web_e2e_matches_php_value_array_object_cell_relation_arrays() {
+    assert_wasm_matches_php(
+        "<?php\nclass ValueRelationBase {}\ninterface ValueRelationContract {}\ntrait ValueRelationTrait {}\nclass ValueRelationChild extends ValueRelationBase implements ValueRelationContract { use ValueRelationTrait; }\n$a = [new ValueRelationChild()];\nforeach (class_parents($a[0]) as $key => $value) { echo \"p:\" . $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (class_implements($a[0]) as $key => $value) { echo \"i:\" . $key . \"=\" . $value . \";\"; }\necho \"\\n\";\nforeach (class_uses($a[0]) as $key => $value) { echo \"t:\" . $key . \"=\" . $value . \";\"; }\necho \"\\n\";\n",
+    );
+}
+
+#[test]
 fn test_wasm32_web_e2e_matches_php_value_array_object_cell_member_exists() {
     assert_wasm_matches_php(
         "<?php\nclass ValueMemberBox { public string $name = \"web\"; public function label(): string { return $this->name; } }\nfunction value_member_name(string $name): string { echo \"member\\n\"; return $name; }\n$a = [new ValueMemberBox()];\necho (method_exists($a[0], \"label\") ? 1 : 0) . \":\";\necho (property_exists($a[0], \"name\") ? 1 : 0) . \":\";\necho (method_exists($a[0], value_member_name(\"missing\")) ? 1 : 0) . \":\";\necho (property_exists($a[0], value_member_name(\"name\")) ? 1 : 0) . \"\\n\";\n",
