@@ -42437,8 +42437,12 @@ class ReduceCallableArrayRunner {
 $boxes = [new ReduceCallableArrayBox(3, "x"), new ReduceCallableArrayBox(4, "yy")];
 $runner = new ReduceCallableArrayRunner(2, "/");
 $method = "join";
+$add = [$runner, "add"];
+$join = [0 => $runner, 1 => $method];
 echo array_reduce($boxes, [$runner, "add"], 5) . "\n";
 echo array_reduce($boxes, [0 => $runner, 1 => $method], "s") . "\n";
+echo array_reduce($boxes, $add, 5) . "\n";
+echo array_reduce($boxes, $join, "s") . "\n";
 "#,
     );
 }

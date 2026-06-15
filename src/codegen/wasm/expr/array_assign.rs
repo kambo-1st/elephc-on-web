@@ -28,9 +28,11 @@ pub(crate) fn emit_array_assign(
             None => return Err(array_unsupported(value)),
         },
         ExprKind::ArrayLiteral(items) if array_literal_needs_value_cells(items) => {
+            assign_callable_array_metadata(name, value, module)?;
             return emit_value_array_items_assign(name, items, module);
         }
         ExprKind::ArrayLiteralAssoc(items) => {
+            assign_callable_array_metadata(name, value, module)?;
             return emit_assoc_array_items_assign(name, items, module);
         }
         ExprKind::ArrayAccess { .. } => {
@@ -85,7 +87,10 @@ pub(crate) fn emit_array_assign(
         {
             return emit_enum_cases_array_assign(name, value, receiver, args, module);
         }
-        ExprKind::ArrayLiteral(items) => items.clone(),
+        ExprKind::ArrayLiteral(items) => {
+            assign_callable_array_metadata(name, value, module)?;
+            items.clone()
+        }
         ExprKind::FunctionCall { name: function_name, args } if function_name.eq_ignore_ascii_case("range") => {
             if let Some(items) = static_range_items_if_possible(value, args, module)? {
                 items

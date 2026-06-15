@@ -520,10 +520,12 @@ pub(super) fn emit_callable_assign(
                     module.set_callable_target(name, Some(target));
                     Ok(())
                 }
-                CallableArrayTarget::Instance { .. } => Err(CompileError::new(
-                    value.span,
-                    "wasm32-web callable array variables with object receivers require callable runtime support",
-                )),
+                CallableArrayTarget::Instance {
+                    target,
+                    class_name,
+                    receiver,
+                    ..
+                } => assign_instance_callable_capture(name, receiver, target, class_name, module),
             }
         }
         ExprKind::FirstClassCallable(CallableTarget::Method { object, method }) => {
@@ -600,6 +602,34 @@ pub(super) fn emit_callable_assign(
             value.span,
             "wasm32-web callable variables currently require a direct first-class user-function target",
         )),
+    }
+}
+
+pub(super) fn assign_callable_array_metadata(
+    name: &str,
+    value: &Expr,
+    module: &mut WasmModule,
+) -> Result<bool, CompileError> {
+    let Some(target) = callable_array_target(value, module) else {
+        return Ok(false);
+    };
+    match target {
+        CallableArrayTarget::Static(target) => {
+            module.set_callable_target(name, Some(target));
+            Ok(true)
+        }
+        CallableArrayTarget::Instance {
+            target,
+            class_name,
+            receiver,
+            ..
+        } => {
+            if !matches!(receiver.kind, ExprKind::Variable(_)) {
+                return Ok(false);
+            }
+            assign_instance_callable_capture(name, receiver, target, class_name, module)?;
+            Ok(true)
+        }
     }
 }
 
@@ -1902,6 +1932,7 @@ enum CallableArrayTarget<'a> {
     Static(String),
     Instance {
         target: String,
+        class_name: String,
         receiver: &'a Expr,
         method: String,
     },
@@ -1957,9 +1988,12 @@ fn fixed_callable_array_pair_target<'a>(
     module: &WasmModule,
 ) -> Option<CallableArrayTarget<'a>> {
     let method = fixed_callable_static_string_value(method, module)?;
-    if let Some((target, _)) = direct_instance_callable_target_static(receiver, &method, module) {
+    if let Some((target, class_name)) =
+        direct_instance_callable_target_static(receiver, &method, module)
+    {
         return Some(CallableArrayTarget::Instance {
             target,
+            class_name,
             receiver,
             method,
         });
